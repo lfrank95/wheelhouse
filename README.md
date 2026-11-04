@@ -39,10 +39,14 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Orgel**: Zustand, Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
 * **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Balance, Hornfach, Ausrichtung.
-* **Mikros**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel, ein Raumpaar (AB, XY, ORTF),
-  das im Grundriss gezogen und gedreht wird, dazu ein Pult mit Fader, Panorama, Polarität, Stumm/Solo, Laufzeit und
-  Ziel (Mischung vorne/hinten oder ein eigener Ausgang, bis Ausgang 16). Mikrotypen: 57, 421, D112, RE20, 87 (Niere/Kugel/Acht),
-  KM 84, 121 (Bändchen) – je mit Frequenzgang, Richtcharakteristik je Band, Nahbesprechungseffekt und Windempfindlichkeit.
+* **Modus Hörer / Mikros** (Kopfleiste): Hörer = du stehst im Raum; Mikros = Nahmikros und Raumpaar über das Pult.
+  Umschalten blendet weich über, der jeweils andere Teil wird nicht gerechnet.
+* **Mikros**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel (Mono oder Stereo), ein Raumpaar
+  (AB, XY, ORTF), das im Grundriss gezogen und gedreht wird. Mikrotypen: 57, 421, D112, RE20, 87 (Niere/Kugel/Acht), KM 84,
+  121 (Bändchen) – je mit Frequenzgang, Richtcharakteristik je Band, Nahbesprechungseffekt und Windempfindlichkeit.
+  Pult mit drei Gruppen (Horn, Trommel, Raum): Stereo-Kanal mit Balance und Breite oder Mono-Kanal mit Panorama, dazu
+  Fader, Polarität, Stumm/Solo, Laufzeit und Ziel (vorne/hinten oder Einzelausgang bis 16). Beim Wechsel Mono ↔ Stereo
+  wandern die Mikros, das zweite blendet ein oder aus.
 * **Raum**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.

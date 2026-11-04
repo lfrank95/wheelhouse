@@ -102,15 +102,27 @@ select option { background: #1a1511; color: #e8dcc4; }
 .sec > .sth { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sec > .sth .st { font-size: 12.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #e8dcc4; }
 .sec > .sth .rseg { flex: none; }
-.desk { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.strip { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #0c0a08; border: 1px solid #241e18; border-radius: 5px; padding: 6px 4px 6px; min-width: 0; }
+.sec > .sth .rseg button { flex: none; padding: 3px 10px; }
+.desk { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.strip .badge { font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: #a8977c; border: 1px solid #3a2f25; border-radius: 9px; padding: 0 7px; white-space: nowrap; transition: color .25s, border-color .25s; }
+.strip.st .badge { color: #f2c879; border-color: #6b5226; }
+.strip .body { display: flex; gap: 10px; align-items: flex-start; height: 124px; }
+.strip .kcol { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.strip .wk { transition: opacity .3s, max-height .3s; max-height: 70px; overflow: hidden; }
+.strip:not(.st) .wk { opacity: 0; max-height: 0; pointer-events: none; }
+.strip .smeter { transition: width .3s, opacity .3s, margin .3s; }
+.strip:not(.st) .smeter.r { width: 0; opacity: 0; margin-left: -5px; border-width: 0; }
+.strip .foot { display: flex; gap: 4px; width: 100%; }
+.strip .foot > * { flex: 1; min-width: 0; }
+.strip { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #0c0a08; border: 1px solid #241e18; border-radius: 5px; padding: 8px 8px 8px; min-width: 0; transition: opacity .3s; }
+.strip .shd { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; }
 .strip.off { opacity: .38; }
 .strip .sn { font-size: 11.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
 .strip .tg { display: flex; gap: 3px; }
 .strip .tg button { width: 22px; height: 20px; padding: 0; font-size: 11px; font-weight: 700; border-radius: 3px; border: 1px solid #3a2f25; background: #1a1511; color: #a8977c; }
 .strip .tg button.on { background: #f2a33a; border-color: #f2a33a; color: #1a1206; }
 .strip .tg button.solo.on { background: #f2c879; border-color: #f2c879; }
-.fadw { display: flex; gap: 5px; height: 64px; }
+.fadw { display: flex; gap: 5px; height: 124px; }
 .fad { width: 16px; height: 100%; position: relative; border-radius: 3px; background: #070605; box-shadow: inset 0 2px 4px rgba(0,0,0,.9); cursor: ns-resize; touch-action: none; }
 .fad i { position: absolute; left: -5px; right: -5px; height: 12px; margin-top: -6px; border-radius: 2px; background: linear-gradient(180deg, #faf6ee, #bdb29c); box-shadow: 0 2px 3px rgba(0,0,0,.6); display: block; }
 .fad i::after { content: ''; position: absolute; left: 3px; right: 3px; top: 5px; height: 2px; background: #2a2016; }
@@ -193,6 +205,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     <select id="preset" class="sel" style="width: 190px" aria-label="Preset"></select>
     <nav class="tabs" id="tabs" aria-label="Bereiche"></nav>
     <div style="flex: 1"></div>
+    <div class="oseg" id="modeSeg" aria-label="Modus: Hörer im Raum oder Mikrofone" title="Hörer: du stehst im Raum · Mikros: Nahmikros und Raumpaar über das Pult"></div>
     <div class="oseg" id="outSeg" aria-label="Ausgabeformat"></div>
     <div class="meters" id="meters" aria-label="Pegel je Ausgang"></div>
     <span class="cpu">CPU <b id="cpu" class="num">–</b></span>
@@ -388,8 +401,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     mics: { on: false, hornStereo: true, hornAngle: 180, hornCenter: 0, hornDist: 0.15, hornHeight: 0, hornType: 0, hornPattern: 0, windscreen: false,
       drumStereo: false, drumAngle: 180, drumCenter: 0, drumDist: 0.15, drumType: 2, drumPattern: 0,
       roomArr: 0, roomX: 3, roomY: 3.5, roomZ: 2, roomYaw: Math.PI / 2, roomSpacing: 0.6, roomType: 4, roomPattern: 1, roomOrder: 2, placed: false,
-      ch: [{ gain: 0, pan: -1 }, { gain: 0, pan: 1 }, { gain: 0, pan: 0 }, { gain: 0, pan: 0 }, { gain: -6, pan: -1 }, { gain: -6, pan: 1 }, { gain: 0, pan: 0, mute: true }]
-        .map(c => Object.assign({ delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
+      grp: [{ gain: 0 }, { gain: 0 }, { gain: -6 }].map(c => Object.assign({ pan: 0, width: 1, delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
     out: { masterDb: 0, lfeHz: 100 }, chmap: { stereo: null, quad: null, s51: null },
     midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
     leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
@@ -399,7 +411,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
   S.meters = null;
   let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, latencyMs: 0, channelNames: [], midiDevices: [] };
-  const micMeterEls = []; const micHold = new Array(7).fill(-120);
+  const micMeterEls = []; const micHold = new Array(6).fill(-120);
   let ampText = '–', tInfoText = '–', cpuText = '–', warnText = '', slowSync = 0, roomInfo = null;
   const SAVE_KEYS = Object.keys(DEF);
   let saveTimer = null;
@@ -579,6 +591,8 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   const outBtns = [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']].map(([m, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { S.mode = m; applyMode(); syncAll(); }; $('outSeg').appendChild(b); return [m, b]; });
   reg({ sync() { outBtns.forEach(([m, b]) => b.classList.toggle('on', m === S.mode)); } });
+  const modeBtns = [[false, 'Hörer'], [true, 'Mikros']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setMicsOn(v); $('modeSeg').appendChild(b); return [v, b]; });
+  reg({ sync() { modeBtns.forEach(([v, b]) => b.classList.toggle('on', v === S.mics.on)); } });
 
   let meterEls = [], meterMode = null; const meterHold = new Array(8).fill(-120);
   function buildMeters() {
@@ -858,62 +872,65 @@ select option { background: #1a1511; color: #e8dcc4; }
       patRow('roomType', 'roomPattern'),
       rowBtn('', 'Vor das Leslie', () => { placeRoomPair(); sendMics(); syncAll(); }),
     ]));
-    // Pult
+    // Pult: drei Gruppen, jede Stereo (Balance + Breite) oder Mono (Panorama)
     const desk = h('div', 'desk');
-    CH_NAMES.forEach((nm, c) => {
-      const st = h('div', 'strip'); st.appendChild(h('span', 'sn', nm));
-      const C = () => S.mics.ch[c];
-      const tg = h('div', 'tg'); const tb = (txt, key, cls, title) => { const b = h('button', cls || '', txt); b.type = 'button'; b.title = title; b.onclick = () => { C()[key] = !C()[key]; sendMics(); syncAll(); }; tg.appendChild(b); return [key, b]; };
-      const tbs = [c < 6 ? tb('Ø', 'pol', '', 'Polarität drehen') : null, tb('M', 'mute', '', 'Stumm'), tb('S', 'solo', 'solo', 'Solo')].filter(Boolean);
+    const GRP = [['Horn', () => S.mics.hornStereo, () => S.mics.hornAngle + '°'], ['Trommel', () => S.mics.drumStereo, () => S.mics.drumAngle + '°'], ['Raum', () => true, () => ['AB', 'XY', 'ORTF'][S.mics.roomArr]]];
+    GRP.forEach(([nm, isSt, stInfo], g) => {
+      const G = () => S.mics.grp[g];
+      const st = h('div', 'strip');
+      const hd = h('div', 'shd'); hd.appendChild(h('span', 'sn', nm)); const badge = h('span', 'badge'); hd.appendChild(badge); st.appendChild(hd);
+      const tg = h('div', 'tg'); const tb = (txt, key, cls, title) => { const b = h('button', cls || '', txt); b.type = 'button'; b.title = title; b.onclick = () => { G()[key] = !G()[key]; sendMics(); syncAll(); }; tg.appendChild(b); return [key, b]; };
+      const tbs = [tb('Ø', 'pol', '', 'Polarität drehen'), tb('M', 'mute', '', 'Stumm'), tb('S', 'solo', 'solo', 'Solo')];
       st.appendChild(tg);
-      const fw = h('div', 'fadw'); const fd = h('div', 'fad', '<i></i>'); const mt = h('div', 'smeter', '<b></b>'); fw.appendChild(fd); fw.appendChild(mt); st.appendChild(fw);
-      const fv = h('span', 'fv'); st.appendChild(fv);
+      const body = h('div', 'body');
+      const fw = h('div', 'fadw'); const fd = h('div', 'fad', '<i></i>'); const mL = h('div', 'smeter', '<b></b>'), mR = h('div', 'smeter r', '<b></b>');
+      fw.appendChild(fd); fw.appendChild(mL); fw.appendChild(mR); body.appendChild(fw);
       const toP = (db) => db <= -60 ? 0 : clamp((db + 48) / 60, 0.02, 1), fromP = (p) => p < 0.02 ? -100 : Math.round((-48 + 60 * p) * 2) / 2;
-      const setDb = (db) => { C().gain = clamp(db, -100, 12); sendMics(); syncAll(); };
+      const setDb = (db) => { G().gain = clamp(db, -100, 12); sendMics(); syncAll(); };
       let drag = null;
-      fd.addEventListener('pointerdown', (e) => { fd.setPointerCapture(e.pointerId); drag = { y: e.clientY, p: toP(C().gain) }; e.preventDefault(); });
+      fd.addEventListener('pointerdown', (e) => { fd.setPointerCapture(e.pointerId); drag = { y: e.clientY, p: toP(G().gain) }; e.preventDefault(); });
       fd.addEventListener('pointermove', (e) => { if (!drag) return; const r = fd.getBoundingClientRect(); setDb(fromP(clamp(drag.p + (drag.y - e.clientY) / r.height * (e.shiftKey ? 0.25 : 1), 0, 1))); });
       fd.addEventListener('pointerup', () => drag = null); fd.addEventListener('pointercancel', () => drag = null);
-      fd.addEventListener('wheel', (e) => { e.preventDefault(); const db = C().gain <= -60 ? -48 : C().gain; setDb(db + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.5 : 1)); }, { passive: false });
+      fd.addEventListener('wheel', (e) => { e.preventDefault(); const db = G().gain <= -60 ? -48 : G().gain; setDb(db + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.5 : 1)); }, { passive: false });
       fd.addEventListener('dblclick', () => setDb(0));
       fd.title = 'Ziehen oder Mausrad · Doppelklick = 0 dB';
-      let panK = null, dn = null, osel = null;
-      if (c < 6) {
-        panK = knob({ small: true, label: 'Pan', min: -1, max: 1, step: 0.05, def: [-1, 1, 0, 0, -1, 1][c], fmt: v => Math.abs(v) < 0.025 ? 'Mitte' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100), get: () => C().pan, set: v => { C().pan = v; sendMics(); } });
-        st.appendChild(panK.el);
-        dn = h('div', 'dnum'); dn.title = 'Verzögerung · ziehen oder Mausrad · Doppelklick = 0';
-        let dd = null; const setD = (v) => { C().delay = clamp(Math.round(v * 10) / 10, 0, 50); sendMics(); syncAll(); };
-        dn.addEventListener('pointerdown', (e) => { dn.setPointerCapture(e.pointerId); dd = { y: e.clientY, v: C().delay }; });
-        dn.addEventListener('pointermove', (e) => { if (dd) setD(dd.v + (dd.y - e.clientY) / SCALE * (e.shiftKey ? 0.02 : 0.1)); });
-        dn.addEventListener('pointerup', () => dd = null); dn.addEventListener('pointercancel', () => dd = null);
-        dn.addEventListener('wheel', (e) => { e.preventDefault(); setD(C().delay + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.5)); }, { passive: false });
-        dn.addEventListener('dblclick', () => setD(0));
-        st.appendChild(dn);
-        osel = h('select'); osel.setAttribute('aria-label', nm + ' Ausgang'); osel.title = 'Ziel: Mischung vorne/hinten oder ein eigener Ausgang';
-        osel.onchange = () => { C().out = +osel.value; sendMics(); syncAll(); };
-        st.appendChild(osel);
-      } else {
-        st.appendChild(h('span', 'note', 'Raumklang am Hörerplatz'));
-      }
+      const kc = h('div', 'kcol');
+      const panK = knob({ small: true, label: 'Pan', min: -1, max: 1, step: 0.05, def: 0, fmt: v => Math.abs(v) < 0.025 ? 'Mitte' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100), get: () => G().pan, set: v => { G().pan = v; sendMics(); } });
+      const wK = knob({ small: true, label: 'Breite', min: 0, max: 1, step: 0.01, def: 1, fmt: v => v >= 0.995 ? 'voll' : v <= 0.005 ? 'mono' : pct(v), get: () => G().width, set: v => { G().width = v; sendMics(); } });
+      wK.el.classList.add('wk');
+      kc.appendChild(panK.el); kc.appendChild(wK.el); body.appendChild(kc);
+      st.appendChild(body);
+      const fv = h('span', 'fv'); st.appendChild(fv);
+      const foot = h('div', 'foot');
+      const dn = h('div', 'dnum'); dn.title = 'Verzögerung · ziehen oder Mausrad · Doppelklick = 0';
+      let dd = null; const setD = (v) => { G().delay = clamp(Math.round(v * 10) / 10, 0, 50); sendMics(); syncAll(); };
+      dn.addEventListener('pointerdown', (e) => { dn.setPointerCapture(e.pointerId); dd = { y: e.clientY, v: G().delay }; });
+      dn.addEventListener('pointermove', (e) => { if (dd) setD(dd.v + (dd.y - e.clientY) / SCALE * (e.shiftKey ? 0.02 : 0.1)); });
+      dn.addEventListener('pointerup', () => dd = null); dn.addEventListener('pointercancel', () => dd = null);
+      dn.addEventListener('wheel', (e) => { e.preventDefault(); setD(G().delay + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.5)); }, { passive: false });
+      dn.addEventListener('dblclick', () => setD(0));
+      const osel = h('select'); osel.setAttribute('aria-label', nm + ' Ziel'); osel.title = 'Ziel: Mischung vorne/hinten oder eigener Ausgang';
+      osel.onchange = () => { G().out = +osel.value; sendMics(); syncAll(); };
+      foot.appendChild(dn); foot.appendChild(osel); st.appendChild(foot);
       desk.appendChild(st);
       let oSig = '';
-      reg({ el: st, sync() {
-        const v = C(), act = S.mics.on && micActive(c);
-        st.classList.toggle('off', !act);
+      reg({ sync() {
+        const v = G(), stereo = isSt();
+        st.classList.toggle('st', stereo); st.classList.toggle('off', !S.mics.on);
+        badge.textContent = stereo ? 'Stereo · ' + stInfo() : 'Mono';
+        panK.el.querySelector('.kl').textContent = stereo ? 'Balance' : 'Pan';
         tbs.forEach(([k, b]) => b.classList.toggle('on', !!v[k]));
-        const pp = toP(v.gain); fd.firstChild.style.top = ((1 - pp) * 100) + '%';
+        fd.firstChild.style.top = ((1 - toP(v.gain)) * 100) + '%';
         fv.textContent = v.gain <= -60 ? '−∞' : (v.gain > 0 ? '+' : v.gain < 0 ? '−' : '') + de(Math.abs(v.gain), 1) + ' dB';
-        if (dn) dn.textContent = de(v.delay, 1) + ' ms';
-        if (osel) {
-          const n = Math.max(audioInfo.outputs || 0, 2);
-          const list = [[-1, 'vorne'], [-2, 'hinten'], ...Array.from({ length: Math.min(16, n) }, (_, k) => [k, 'Ausg. ' + (k + 1)])];
-          const sig = JSON.stringify(list); if (sig !== oSig) { oSig = sig; osel.innerHTML = ''; list.forEach(([val, t]) => { const o = h('option', '', t); o.value = val; osel.appendChild(o); }); }
-          osel.value = String(v.out);
-        }
-      }, reset() { const d = clone(DEF.mics.ch[c]); S.mics.ch[c] = d; sendMics(); }, meter: mt.firstChild });
-      micMeterEls[c] = mt.firstChild;
+        dn.textContent = de(v.delay, 1) + ' ms';
+        const n = Math.min(16, Math.max(audioInfo.outputs || 0, 2));
+        const list = [[-1, 'vorne'], [-2, 'hinten'], ...Array.from({ length: stereo ? n - 1 : n }, (_, k) => [k, stereo ? `Ausg. ${k + 1}/${k + 2}` : `Ausg. ${k + 1}`])];
+        const sig = JSON.stringify(list); if (sig !== oSig) { oSig = sig; osel.innerHTML = ''; list.forEach(([val, t]) => { const o = h('option', '', t); o.value = val; osel.appendChild(o); }); }
+        osel.value = String(Math.min(v.out, stereo ? n - 2 : n - 1));
+      }, reset() { S.mics.grp[g] = clone(DEF.mics.grp[g]); sendMics(); } });
+      micMeterEls[2 * g] = mL.firstChild; micMeterEls[2 * g + 1] = mR.firstChild;
     });
-    const onSeg = rowSeg('', [[false, 'aus'], [true, 'an']], () => S.mics.on, v => setMicsOn(v), false);
+    const onSeg = rowSeg('', [[false, 'Hörer'], [true, 'Mikros']], () => S.mics.on, v => setMicsOn(v), false);
     p.appendChild(sec('Pult', [], [], '', { span: 2, head: onSeg, extra: desk }));
   });
 
@@ -1208,7 +1225,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       }
       // Hörer + Lautsprecher
       const [hx, hy] = W2C(S.lis.x, S.lis.y), yaw = S.lis.yaw;
-      g.globalAlpha = S.mics.on && S.mics.ch[6].mute ? 0.4 : 1;
+      g.globalAlpha = S.mics.on ? 0.35 : 1;
       MODES[S.mode].show.forEach((deg) => { const a = yaw + deg * Math.PI / 180, rr = big ? 30 : 24; g.fillStyle = '#7d715f'; g.beginPath(); g.arc(hx + Math.cos(a) * rr, hy - Math.sin(a) * rr, big ? 3.5 : 2.5, 0, Math.PI * 2); g.fill(); });
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
       g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();

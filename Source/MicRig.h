@@ -37,11 +37,12 @@ static const MicType MIC_TYPES[] = {
 };
 constexpr int NUM_MIC_TYPES = 7;
 
-/** Pultkanäle: 0 Horn L, 1 Horn R, 2 Trommel 1, 3 Trommel 2, 4 Raum L, 5 Raum R, 6 Hörer (bisheriger Raumklang) */
-constexpr int MIC_CH = 7;
+/** Pultgruppen: 0 Horn, 1 Trommel, 2 Raum. Jede Gruppe ist Stereo (zwei Mikros, Balance + Breite) oder Mono (ein Mikro, Panorama). */
+constexpr int MIC_GRP = 3;
+constexpr int MIC_CH = 6;   // Pegelanzeige: je Gruppe L und R
 
 struct MicSetup {
-    bool on = false;
+    bool on = false;   // Modus: false = Hörer im Raum, true = Mikrofonierung
     // Horn: Stereo = zwei Mikros um die Mitte herum, Mono = eins in der Mitte
     bool hornStereo = true; double hornAngle = 180, hornCenter = 0, hornDist = 0.15, hornHeight = 0.0; int hornType = 0; bool windscreen = false;
     bool drumStereo = false; double drumAngle = 180, drumCenter = 0, drumDist = 0.15; int drumType = 2;
@@ -49,11 +50,9 @@ struct MicSetup {
     int roomArr = 0; double roomX = 3, roomY = 3, roomZ = 2.0, roomYaw = 1.5707963, roomSpacing = 0.6; int roomType = 4, roomPattern = 1;
     int hornPattern = 0, drumPattern = 0;   // nur Typ 87: 0 Niere, 1 Kugel, 2 Acht
     int roomOrder = 2;
-    struct Ch { double gainDb = 0, pan = 0, delayMs = 0; bool pol = false, mute = false, solo = false; int out = -1; };   // out: −1 vorne, −2 hinten, ≥0 Einzelausgang
-    Ch ch[MIC_CH];
-    MicSetup() {
-        ch[0].pan = -1; ch[1].pan = 1; ch[2].pan = 0; ch[3].pan = 0; ch[4].pan = -1; ch[5].pan = 1; ch[4].gainDb = -6; ch[5].gainDb = -6; ch[6].mute = true;
-    }
+    struct Grp { double gainDb = 0, pan = 0, width = 1, delayMs = 0; bool pol = false, mute = false, solo = false; int out = -1; };   // out: −1 vorne, −2 hinten, ≥0 Einzelausgang (Stereo: out und out+1)
+    Grp grp[MIC_GRP];
+    MicSetup() { grp[2].gainDb = -6; }
 };
 
 struct MicPath {
@@ -72,7 +71,8 @@ struct MicRt {
     Biquad eq[6]; int nEq = 0;
     std::vector<MicPath> paths;
     Biquad prox; bool hasProx = false;                     // Nahbesprechungseffekt (Tiefenregal, abstandsabhängig)
-    double phi = 0, R = 1;                                   // Nahmikro: Winkel zur Gehäusefront, Abstand zur Gehäusemitte
+    double phi = 0, phiT = 0, R = 1, RT = 1;                 // Nahmikro: Winkel zur Gehäusefront, Abstand zur Gehäusemitte (Ist / Ziel, gleitend)
+    bool want = false, inited = false;                                       // laut Aufbau gebraucht (blendet weich ein und aus)
     double windLp = 0, windLp2 = 0, windAmt = 0, windC = 1, windS = 0;
     std::array<float, 16> fdnRow{}; std::array<int, 16> fdnOff{};
 };

@@ -234,12 +234,12 @@ void MainComponent::handleDspMessage(const var& m) {
             ms.drumType = (int) n("drumType", 2); ms.drumPattern = (int) n("drumPattern", 0);
             ms.roomArr = (int) n("roomArr", 0); ms.roomX = n("roomX", 3); ms.roomY = n("roomY", 3); ms.roomZ = n("roomZ", 2); ms.roomYaw = n("roomYaw", 1.5708);
             ms.roomSpacing = n("roomSpacing", 0.6); ms.roomType = (int) n("roomType", 4); ms.roomPattern = (int) n("roomPattern", 1); ms.roomOrder = (int) n("roomOrder", 2);
-            if (auto* a = v.getProperty("ch", var()).getArray())
-                for (int c = 0; c < leslie::MIC_CH && c < a->size(); c++) {
-                    auto& C = ms.ch[c]; auto x = (*a)[c];
-                    C.gainDb = numProp(x, "gain", C.gainDb); C.pan = numProp(x, "pan", C.pan); C.delayMs = numProp(x, "delay", 0);
-                    C.pol = (bool) x.getProperty("pol", false); C.mute = (bool) x.getProperty("mute", false); C.solo = (bool) x.getProperty("solo", false);
-                    C.out = (int) numProp(x, "out", -1);
+            if (auto* a = v.getProperty("grp", var()).getArray())
+                for (int g = 0; g < leslie::MIC_GRP && g < a->size(); g++) {
+                    auto& G = ms.grp[g]; auto x = (*a)[g];
+                    G.gainDb = numProp(x, "gain", G.gainDb); G.pan = numProp(x, "pan", 0); G.width = numProp(x, "width", 1); G.delayMs = numProp(x, "delay", 0);
+                    G.pol = (bool) x.getProperty("pol", false); G.mute = (bool) x.getProperty("mute", false); G.solo = (bool) x.getProperty("solo", false);
+                    G.out = (int) numProp(x, "out", -1);
                 }
             d.setMics(ms);
         }
