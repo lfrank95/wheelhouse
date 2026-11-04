@@ -31,6 +31,13 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
 
 ## Bedienung
 
+**Instrument-Presets** (Menü oben links, Gruppe „Instrument“) stellen Orgel, Vorverstärker, Leslie und Hall auf einmal
+ein, Raum, Mikros, Ausgabe und MIDI bleiben unberührt:
+
+* **B3 + Leslie 122 (Original)** – gepflegte B3 der 60er; Leslie-Drehzahlen nach Messungen an echten Leslies
+  (Horn 48/400 U/min, Trommel 40/342 U/min), Serien-122 ohne Stopp, kein Hall. Startzustand beim ersten Start.
+* **B3 + Leslie 147 (Rock)**, **A-100 + Federhall**, **Tour-B3 (abgerockt)**.
+
 Das Fenster ist auf 1600 × 900 ausgelegt und skaliert mit. Oben die Registerkarten, darunter das Gehäuse
 mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Pedal mit 25 Tönen.
 

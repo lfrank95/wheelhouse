@@ -20,11 +20,11 @@ select option { background: #1a1511; color: #e8dcc4; }
 .hi { color: #f2c879; }
 
 /* ---------- Kopfleiste ---------- */
-.top { height: 52px; flex: none; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #2a221b; }
+.top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a221b; }
 .logo { font-family: 'Yellowtail', 'Brush Script MT', cursive; font-size: 34px; line-height: 1; color: #f2c879; letter-spacing: .5px; padding-right: 4px; }
 .sel { font-size: 15px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 6px; padding: 6px 10px; }
 .tabs { display: flex; gap: 2px; background: #120f0c; border: 1px solid #2e2620; border-radius: 8px; padding: 3px; }
-.tabs button { font-size: 14.5px; font-weight: 600; letter-spacing: .6px; border: none; border-radius: 5px; padding: 7px 13px; background: transparent; color: #e8dcc4; }
+.tabs button { font-size: 14.5px; font-weight: 600; letter-spacing: .4px; border: none; border-radius: 5px; padding: 7px 10px; background: transparent; color: #e8dcc4; }
 .tabs button.on { background: #f2a33a; color: #1a1206; }
 .oseg { display: flex; background: #1a1511; border: 1px solid #3a2f25; border-radius: 7px; padding: 3px; gap: 3px; }
 .oseg button { font-size: 14px; border: none; border-radius: 5px; padding: 6px 12px; background: transparent; color: #e8dcc4; }
@@ -202,7 +202,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   <!-- ============ Kopfleiste ============ -->
   <header class="top">
     <div class="logo">Wheelhouse</div>
-    <select id="preset" class="sel" style="width: 190px" aria-label="Preset"></select>
+    <select id="preset" class="sel" style="width: 220px" aria-label="Preset"></select>
     <nav class="tabs" id="tabs" aria-label="Bereiche"></nav>
     <div style="flex: 1"></div>
     <div class="oseg" id="modeSeg" aria-label="Modus: Hörer im Raum oder Mikrofone" title="Hörer: du stehst im Raum · Mikros: Nahmikros und Raumpaar über das Pult"></div>
@@ -635,6 +635,35 @@ self.onmessage = (e) => {
     { n: 'Theater', u: [8, 7, 6, 5, 4, 3, 2, 1, 1], l: [0, 0, 4, 5, 4, 4, 2, 0, 0], p: [7, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v3', drive: 0.2 },
     { n: 'Perc 2nd', u: [8, 4, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: false, fast: false, soft: false, vibU: true, vibL: false }, vib: 'c2', drive: 0.3 },
   ];
+  // Rotor-Zeiten sind Zeitkonstanten: nach etwa 3 τ ist der Rotor auf Tempo
+  // (gemessen an echten Leslies: Horn ~1,5 s hoch / 2,5 s runter, Trommel ~5 s / 7,5 s; 48/400 und 40/342 U/min)
+  const rpmHz = (r) => r / 60;
+  const INSTRUMENTS = [
+    { n: 'B3 + Leslie 122 (Original)', note: 'gepflegte B3 der 60er, Serien-122 ohne Stopp, kein Hall',
+      chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+      click: 0.5, db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
+      pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.35, balance: 0.5,
+      rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
+      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+    { n: 'B3 + Leslie 147 (Rock)', note: '147 mit Gegenkopplung, Vorstufe heiß, Vibrato aus',
+      chr: { cond: 0.55, leak: 0.55, contact: 0.55, motor: 0.54, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+      click: 0.6, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 8, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 4] }, perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3',
+      pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
+      rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
+      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+    { n: 'A-100 + Federhall', note: 'gleiches Werk wie die B3, mit eingebautem Hammond-Federhall',
+      chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+      click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
+      pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
+      rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
+      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
+    { n: 'Tour-B3 (abgerockt)', note: '40 Jahre Tour: Kontakte prellen, Riemen locker, Röhren müde',
+      chr: { cond: 0.85, leak: 0.85, contact: 0.9, motor: 0.8, gearTune: true, busComp: true }, organ: { percLevel: 0.85, percShort: 0.17, percLong: 0.9, complex: true },
+      click: 0.75, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 4, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 5] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
+      pre: { on: true, gain: 0.7 }, amp: { model: 1, quality: 1, sag: 0.8 }, drive: 0.6, balance: 0.5,
+      rotor: [{ slow: rpmHz(44), fast: rpmHz(380), up: 0.75, down: 1.1 }, { slow: rpmHz(36), fast: rpmHz(325), up: 2.3, down: 3.2 }],
+      brake: true, cab: { hornfach: 0.5, wobble: 0.65 }, halfMoon: 'two', spring: { mix: 0 } },
+  ];
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
   const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
 
@@ -753,14 +782,35 @@ self.onmessage = (e) => {
 
   // ---------------- Kopfleiste: Preset, Ausgabe, Pegel ----------------
   const presetSel = $('preset');
-  (() => { const o0 = h('option', '', 'Eigene Einstellung'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0); PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; presetSel.appendChild(o); }); })();
+  (() => {
+    const o0 = h('option', '', 'Eigene Einstellung'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0);
+    const g1 = h('optgroup'); g1.label = 'Instrument (Orgel + Leslie)'; INSTRUMENTS.forEach((p, i) => { const o = h('option', '', p.n); o.value = 'i' + i; o.title = p.note; g1.appendChild(o); }); presetSel.appendChild(g1);
+    const g2 = h('optgroup'); g2.label = 'Registrierung'; PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; g2.appendChild(o); }); presetSel.appendChild(g2);
+  })();
+  let curInst = null, instSig = '';
+  const instState = () => JSON.stringify([S.chr, S.organ, S.click, S.db, S.perc, S.vib, S.pre, S.amp, S.drive, S.balance, S.rotor, S.brake, S.cab, S.halfMoon, S.spring]);
+  function applyInstrument(i) {
+    const P = clone(INSTRUMENTS[i]);
+    Object.assign(S.chr, P.chr); Object.assign(S.organ, P.organ); S.click = P.click; S.db = P.db; S.perc = P.perc; S.vib = P.vib;
+    Object.assign(S.pre, P.pre); Object.assign(S.amp, P.amp); S.drive = P.drive; S.balance = P.balance; S.rotor = P.rotor; S.brake = P.brake;
+    Object.assign(S.cab, P.cab); S.halfMoon = P.halfMoon; Object.assign(S.spring, P.spring);
+    if (S.halfMoon !== 'stop' && S.leslie === 'stop') S.leslie = 'slow';
+    sendChr(); sendOrgan(); send({ type: 'click', v: S.click }); [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib });
+    sendPre(); sendAmp(); send({ type: 'drive', v: S.drive }); send({ type: 'balance', v: S.balance }); sendRotor(0); sendRotor(1);
+    send({ type: 'brake', v: S.brake }); sendCab(); sendSpring(); send({ type: 'leslie', v: S.leslie });
+    curInst = i; instSig = instState(); syncAll();
+  }
   presetSel.onchange = () => {
-    const p = PRESETS[+presetSel.value]; if (!p) return;
+    const val = presetSel.value;
+    if (val[0] === 'i') { applyInstrument(+val.slice(1)); return; }
+    const p = PRESETS[+val]; if (!p) return;
     S.db.upper = p.u.slice(); S.db.lower = p.l.slice(); S.db.pedal = p.p.slice(); S.perc = Object.assign({}, p.perc); S.vib = p.vib; S.drive = p.drive;
     [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive });
     syncAll();
   };
   const markPreset = () => {
+    if (curInst !== null && instState() === instSig) { presetSel.value = 'i' + curInst; presetSel.title = INSTRUMENTS[curInst].note; return; }
+    curInst = null; presetSel.title = '';
     const i = PRESETS.findIndex(p => p.u.join() === S.db.upper.join() && p.l.join() === S.db.lower.join() && p.p.join() === S.db.pedal.join() && p.vib === S.vib && p.perc.on === S.perc.on);
     presetSel.value = i >= 0 ? String(i) : '';
   };
@@ -953,9 +1003,9 @@ self.onmessage = (e) => {
   function setCabYaw(rad, jump) { S.cabYaw = rad; send({ type: 'cabYaw', v: rad, jump: !!jump }); syncAll(); }
   page('leslie', (p) => {
     const rk = (r, k, label, min, max, def, fmt, log) => knob({ label, min, max, def, fmt, log, get: () => S.rotor[r][k], set: v => { S.rotor[r][k] = v; sendRotor(r); } });
-    p.appendChild(sec('Horn', [rk(0, 'slow', 'Langsam', 0.5, 1.2, 0.75, rpmFmt), rk(0, 'fast', 'Schnell', 5.5, 7.6, 6.8, rpmFmt), rk(0, 'up', 'Hochlauf', 0.3, 3, 0.8, secFmt, true), rk(0, 'down', 'Auslauf', 0.5, 4, 1.4, secFmt, true)], [],
+    p.appendChild(sec('Horn', [rk(0, 'slow', 'Langsam', 0.5, 1.2, 0.8, rpmFmt), rk(0, 'fast', 'Schnell', 5.5, 7.6, 6.67, rpmFmt), rk(0, 'up', 'Hochlauf', 0.2, 3, 0.5, secFmt, true), rk(0, 'down', 'Auslauf', 0.3, 4, 0.85, secFmt, true)], [],
       'Das leichte Horn ist in unter einer Sekunde auf Tempo.'));
-    p.appendChild(sec('Trommel', [rk(1, 'slow', 'Langsam', 0.4, 1.0, 0.62, rpmFmt), rk(1, 'fast', 'Schnell', 4.5, 6.5, 5.7, rpmFmt), rk(1, 'up', 'Hochlauf', 2, 8, 4.5, secFmt, true), rk(1, 'down', 'Auslauf', 2, 10, 5.5, secFmt, true)],
+    p.appendChild(sec('Trommel', [rk(1, 'slow', 'Langsam', 0.4, 1.0, 0.667, rpmFmt), rk(1, 'fast', 'Schnell', 4.5, 6.5, 5.7, rpmFmt), rk(1, 'up', 'Hochlauf', 1, 8, 1.7, secFmt, true), rk(1, 'down', 'Auslauf', 1.5, 10, 2.5, secFmt, true)],
       [rowSeg('Bremse', [[true, 'an'], [false, 'aus']], () => S.brake, v => { S.brake = v; send({ type: 'brake', v }); }, true)]));
     p.appendChild(sec('Endstufe', [
       knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }),
@@ -1594,10 +1644,12 @@ self.onmessage = (e) => {
 
   // ---------------- Start ----------------
   window.addEventListener('resize', fit);
+  let loadedState = false;
   async function start() {
     if (NATIVE) {
-      try { const txt = await nativeInvoke('loadUi'); if (txt) deepMerge(S, JSON.parse(txt)); } catch (e) { console.warn('Gespeicherter Zustand nicht lesbar', e); }
+      try { const txt = await nativeInvoke('loadUi'); if (txt) { deepMerge(S, JSON.parse(txt)); loadedState = true; } } catch (e) { console.warn('Gespeicherter Zustand nicht lesbar', e); }
     }
+    if (!loadedState) applyInstrument(0);   // erster Start: B3 + 122 wie im Original
     if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';
     fit(); setTab('spielen'); buildMeters();
     pushAll(); ready = true;
