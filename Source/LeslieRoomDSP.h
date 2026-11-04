@@ -808,6 +808,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     if (micsOn) micBlock(bt);
     const double chK = 1 - std::exp(-1 / (0.03 * fs)), modeK = 1 - std::exp(-1 / (0.04 * fs));
     const int nOut = std::min(nCh, 16);
+    const int nSp = std::min(nCh, 8);   // Raum/Hörer: höchstens 8 Lautsprecher (acc, Panning-Tabellen); 9–16 nur Einzelausgänge der Mikros
 
     const double gs = gainStep;
     const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
@@ -962,9 +963,9 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             if (p.order > 0) revIn += v;
             v /= (dist > 0.3 ? dist : 0.3);
             if (!horn) lfeIn += v;
-            for (int c = 0; c < nCh; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) acc[c] += v * gg; }
+            for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) acc[c] += v * gg; }
         }
-        if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nCh; c++) acc[c] += bv * bg[c]; }
+        if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
 
         // ---------- Mikros ----------
         if (micsOn) {
