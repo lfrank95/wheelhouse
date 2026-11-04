@@ -1,0 +1,6 @@
+build/
+JUCE/
+packages/
+asiosdk*/
+*.f32
+test_dsp

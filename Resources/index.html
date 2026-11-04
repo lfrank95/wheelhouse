@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wheelhouse</title>
+<style>
+  :root {
+    --bg: #14120f; --panel: #1d1a16; --panel2: #26221c; --line: #3a342b;
+    --text: #efe7d8; --muted: #a39887; --accent: #f0a23a; --accent2: #ffcf7a;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, select, input { font: inherit; color: inherit; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header h1 span { color: var(--accent); }
+  .status { color: var(--muted); font-size: 12.5px; display: flex; gap: 14px; flex-wrap: wrap; margin-left: auto; }
+  .status b { color: var(--text); font-weight: 600; }
+  .btn { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px; cursor: pointer; transition: background .12s, border-color .12s; }
+  .btn:hover { border-color: #5a4f40; }
+  .btn.on { background: var(--accent); color: #1a1408; border-color: var(--accent); font-weight: 600; }
+  .btn.primary { background: var(--accent); color: #1a1408; border-color: var(--accent); font-weight: 650; padding: 8px 18px; }
+  select { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; padding: 14px 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .roomwrap { position: relative; padding: 0; overflow: hidden; min-height: 420px; }
+  canvas#room { display: block; width: 100%; height: 100%; min-height: 420px; touch-action: none; cursor: default; }
+  .hint { position: absolute; left: 12px; bottom: 10px; color: var(--muted); font-size: 12px; pointer-events: none; }
+  .side { display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .row label { width: 92px; color: var(--muted); font-size: 13px; flex: none; }
+  .row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .row .val { width: 62px; flex: none; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg .btn { padding: 6px 10px; }
+  .organ { margin: 0 18px 18px; display: grid; grid-template-columns: auto 1fr; gap: 18px; }
+  .drawbars { display: flex; gap: 7px; align-items: flex-start; }
+  .db { width: 30px; display: flex; flex-direction: column; align-items: center; gap: 4px; user-select: none; }
+  .db .track { width: 22px; height: 170px; background: #0e0c0a; border-radius: 4px; position: relative; cursor: ns-resize; border: 1px solid var(--line); }
+  .db .bar { position: absolute; left: 1px; right: 1px; top: 0; border-radius: 3px 3px 5px 5px; display: flex; align-items: flex-end; justify-content: center; font-weight: 700; font-size: 12px; padding-bottom: 3px; }
+  .db.brown .bar { background: linear-gradient(#6b3d22, #8a5030); color: #f3dcc6; }
+  .db.white .bar { background: linear-gradient(#cfc6b6, #f1ebe0); color: #2a2218; }
+  .db.black .bar { background: linear-gradient(#181512, #2d2822); color: #e8dfcf; border: 1px solid #4a4238; }
+  .db .ft { font-size: 11px; color: var(--muted); }
+  .organ-ctrl { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 6px 22px; align-content: start; }
+  .organ-ctrl .row .val { width: 46px; }
+  .group h3 { font-size: 12px; color: var(--muted); margin: 6px 0 6px; font-weight: 600; }
+  .kbwrap { margin: 0 18px 22px; overflow-x: auto; }
+  .kb { position: relative; height: 120px; user-select: none; touch-action: none; }
+  .key { position: absolute; top: 0; border-radius: 0 0 5px 5px; }
+  .key.w { background: linear-gradient(#f4eee3, #ddd3c2); border: 1px solid #8d8170; height: 120px; z-index: 1; }
+  .key.b { background: linear-gradient(#2a251f, #0e0c0a); height: 74px; z-index: 2; border: 1px solid #000; }
+  .key.w.act { background: linear-gradient(#ffd690, var(--accent)); }
+  .key.b.act { background: linear-gradient(#b5731e, #7a4a10); }
+  .key .lbl { position: absolute; bottom: 4px; width: 100%; text-align: center; font-size: 10px; color: #6b604f; }
+  .kbinfo { color: var(--muted); font-size: 12px; margin: 8px 0 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .overlay { position: fixed; inset: 0; background: rgba(10,9,7,.82); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .overlay .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 30px; max-width: 480px; }
+  .overlay h2 { margin: 0 0 8px; font-size: 20px; }
+  .overlay p { color: var(--muted); margin: 0 0 14px; }
+  .warn { color: #ffb070; font-size: 12.5px; margin-top: 6px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } .organ { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wheel<span>house</span></h1>
+  <select id="mode" title="Ausgabe">
+    <option value="binaural">Kopfhörer (binaural)</option>
+    <option value="stereo">Stereo-Lautsprecher</option>
+    <option value="quad">Quad (4.0)</option>
+    <option value="s51">5.1</option>
+  </select>
+  <button class="btn" id="demo">▶ Demo abspielen</button>
+  <button class="btn" id="panic" title="Alle Töne aus">Panik</button>
+  <button class="btn" id="chantest" title="Spielt jeden Ausgang nacheinander an">Kanaltest</button>
+  <button class="btn" id="restart" title="Audio-Ausgabe neu aufbauen, z.B. nach Änderung der Windows-Soundeinstellungen">Audio neu starten</button>
+  <div class="status">
+    <span>Ausgänge: <b id="stCh">–</b></span>
+    <span>RT60 tief/mittel/hoch: <b id="stRt">–</b></span>
+    <span>Hallradius: <b id="stRc">–</b></span>
+    <span>Schallwege: <b id="stPaths">–</b></span>
+    <span>MIDI: <b id="stMidi">–</b></span>
+  </div>
+</header>
+<div id="modeWarn" class="warn" style="padding:0 18px"></div>
+<div id="meters" style="display:flex;gap:10px;padding:6px 18px 0;align-items:flex-end;font-size:11px;color:var(--muted)"></div>
+
+<main>
+  <div class="panel roomwrap"><canvas id="room"></canvas>
+    <div class="hint">Leslie und Kopf ziehen · Mausrad über dem Kopf dreht den Kopf, über dem Leslie das Gehäuse · Rechtsklick-Ziehen dreht den Kopf</div>
+  </div>
+  <div class="side">
+    <div class="panel">
+      <h2>Leslie</h2>
+      <div class="seg" id="leslieSeg">
+        <button class="btn on" data-v="slow">Langsam (Choral)</button>
+        <button class="btn" data-v="fast">Schnell (Tremolo)</button>
+        <button class="btn" data-v="stop">Stopp</button>
+      </div>
+      <div class="row"><label>Ausrichtung</label><input type="range" id="cabYaw" min="-180" max="180" step="1" value="0"><span class="val" id="cabYawV"></span></div>
+      <div class="seg" style="margin-bottom:8px"><button class="btn" id="cabToLis">Front zum Hörer</button><button class="btn" id="cabToWall">Rücken zur Wand</button></div>
+      <div class="row"><label>Horn ↔ Trommel</label><input type="range" id="balance" min="0" max="1" step="0.01" value="0.5"><span class="val" id="balanceV">50/50</span></div>
+      <div class="row" id="lfeRow"><label>LFE (5.1)</label><input type="range" id="lfe" min="0" max="1" step="0.01" value="0.5"><span class="val" id="lfeV">50 %</span></div>
+      <div class="row"><label>Horn</label><span class="val" id="hornHz" style="width:auto">–</span><label style="width:auto;margin-left:12px">Trommel</label><span class="val" id="drumHz" style="width:auto">–</span></div>
+    </div>
+    <div class="panel">
+      <h2>Raum</h2>
+      <div class="seg" id="roomPresets"></div>
+      <div class="row"><label>Form</label><div class="seg" id="shapeSeg"><button class="btn on" data-v="quader">Quader</button><button class="btn" data-v="zelt">Zirkuszelt</button></div></div>
+      <div id="tentCtl" style="display:none">
+        <div class="row"><label>Durchmesser</label><input type="range" id="tW" min="16" max="50" step="0.5"><span class="val" id="tWV"></span></div>
+        <div class="row" style="display:none"><input type="range" id="tLs" min="0" max="30" step="0.5"><span class="val" id="tLsV"></span></div>
+        <div class="row"><label>Kranzhöhe</label><input type="range" id="tHm" min="5" max="16" step="0.1"><span class="val" id="tHmV"></span></div>
+        <div class="row"><label>Kranzband</label><input type="range" id="tHb" min="0.3" max="3" step="0.1"><span class="val" id="tHbV"></span></div>
+        <div class="row"><label>Spitze +</label><input type="range" id="tTip" min="0.5" max="8" step="0.1"><span class="val" id="tTipV"></span></div>
+        <div class="row"><label>Mast zu Mast</label><input type="range" id="tMast" min="4" max="20" step="0.5"><span class="val" id="tMastV"></span></div>
+        <div class="row"><label>Kuppel-Ø</label><input type="range" id="tKup" min="6" max="30" step="0.5"><span class="val" id="tKupV"></span></div>
+        <div class="row"><label>Durchhang</label><input type="range" id="tSag" min="0" max="1" step="0.01"><span class="val" id="tSagV"></span></div>
+        <div class="row"><label>Rundwand</label><input type="range" id="tHw" min="2.2" max="5" step="0.1"><span class="val" id="tHwV"></span></div>
+        <div class="row"><label>Manege Ø</label><input type="range" id="tMan" min="8" max="18" step="0.5"><span class="val" id="tManV"></span></div>
+        <div class="row"><label>Untergrund</label><select id="tGround"><option value="wiese">Wiese</option><option value="schotter">Schotter / Kies</option><option value="sandplatz">Sandplatz</option><option value="asphalt">Asphalt</option><option value="beton">Betonplatz</option><option value="pflaster">Pflaster</option><option value="holzboden">Holzboden (Zeltboden)</option><option value="schnee">Schnee</option></select></div>
+        <div class="row"><label>Manege</label><select id="tManege"><option value="sand">Sägespäne / Sand</option><option value="untergrund">wie Untergrund</option></select></div>
+        <div class="row"><label>Publikum</label><input type="range" id="tAud" min="0" max="1" step="0.01"><span class="val" id="tAudV"></span></div>
+        <div class="row"><label>Strahlen</label><span class="val" id="tInfo" style="width:auto">–</span></div>
+      </div>
+      <div id="boxCtl">
+      <div class="row"><label>Material</label><select id="material"><option value="zelt">Zelt (Plane)</option><option value="holz" selected>Holz / Trockenbau</option><option value="beton">Beton</option><option value="stein">Stein</option><option value="glas">Glas / Fliesen</option></select></div>
+      <div class="row"><label>Breite</label><input type="range" id="Lx" min="3" max="30" step="0.1"><span class="val" id="LxV"></span></div>
+      <div class="row"><label>Länge</label><input type="range" id="Ly" min="3" max="40" step="0.1"><span class="val" id="LyV"></span></div>
+      <div class="row"><label>Höhe</label><input type="range" id="Lz" min="2.2" max="15" step="0.1"><span class="val" id="LzV"></span></div>
+      <div class="row"><label>Dämpfung</label><input type="range" id="absorb" min="0.05" max="0.8" step="0.01"><span class="val" id="absorbV"></span></div>
+      </div>
+      <div class="row"><label>Nachhall</label><input type="range" id="reverb" min="0" max="2" step="0.01"><span class="val" id="reverbV"></span></div>
+      <div class="row"><label>Reflexionen</label>
+        <div class="seg" id="orderSeg"><button class="btn" data-v="1">1.</button><button class="btn on" data-v="2">2.</button><button class="btn" data-v="3">3.</button><button class="btn" data-v="4" title="mehr Rechenlast">4.</button><button class="btn" data-v="5" title="hohe Rechenlast – bei Knacksern zurückschalten">5. Ordnung</button></div>
+      </div>
+      <div class="row"><label>Anzeige</label><label style="width:auto;color:var(--text)"><input type="checkbox" id="showRays" checked> Schallwege zeigen</label></div>
+    </div>
+    <div class="panel">
+      <h2>Charakter der Orgel</h2>
+      <div class="row"><label>Zustand</label><input type="range" id="cond" min="0" max="1" step="0.01" value="0.5"><span class="val" id="condV"></span></div>
+      <div class="row"><label>Übersprechen</label><input type="range" id="leak" min="0" max="1" step="0.01" value="0.5"><span class="val" id="leakV"></span></div>
+      <div class="row"><label>Kontakte</label><input type="range" id="contact" min="0" max="1" step="0.01" value="0.5"><span class="val" id="contactV"></span></div>
+      <div class="row"><label>Motor</label><input type="range" id="motor" min="0" max="1" step="0.01" value="0.4"><span class="val" id="motorV"></span></div>
+      <div class="seg"><button class="btn on" id="gearTune" title="Echte Zahnradübersetzungen statt gleichstufiger Stimmung">Zahnrad-Stimmung</button><button class="btn on" id="busComp" title="Generator wird bei vielen Kontakten belastet">Sammelschiene</button></div>
+    </div>
+    <div class="panel">
+      <h2>Hörer</h2>
+      <div class="row"><label>Blickrichtung</label><input type="range" id="yaw" min="-180" max="180" step="1" value="0"><span class="val" id="yawV"></span></div>
+      <div class="seg"><button class="btn" id="faceLeslie">Zum Leslie drehen</button><button class="btn" id="faceAway">Rücken zum Leslie</button></div>
+    </div>
+  </div>
+</main>
+
+<section class="panel organ">
+  <div>
+    <h2>Zugriegel</h2>
+    <div class="drawbars" id="drawbars"></div>
+  </div>
+  <div class="organ-ctrl">
+    <div class="group">
+      <h3>Registrierungen</h3>
+      <div class="seg" id="presets"></div>
+    </div>
+    <div class="group">
+      <h3>Percussion</h3>
+      <div class="seg" id="percSeg">
+        <button class="btn on" data-k="on">An</button>
+        <button class="btn on" data-k="third">3rd (sonst 2nd)</button>
+        <button class="btn on" data-k="fast">Schnell</button>
+        <button class="btn" data-k="soft">Leise</button>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Vibrato / Chorus</h3>
+      <div class="seg" id="vibSeg">
+        <button class="btn" data-v="off">Aus</button><button class="btn" data-v="v1">V1</button><button class="btn" data-v="v2">V2</button><button class="btn" data-v="v3">V3</button>
+        <button class="btn" data-v="c1">C1</button><button class="btn" data-v="c2">C2</button><button class="btn on" data-v="c3">C3</button>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Klang</h3>
+      <div class="row"><label>Drive</label><input type="range" id="drive" min="0" max="1" step="0.01" value="0.35"><span class="val" id="driveV"></span></div>
+      <div class="row"><label>Key-Click</label><input type="range" id="click" min="0" max="1" step="0.01" value="0.5"><span class="val" id="clickV"></span></div>
+      <div class="row"><label>Lautstärke</label><input type="range" id="volume" min="0" max="1" step="0.01" value="0.8"><span class="val" id="volumeV"></span></div>
+    </div>
+  </div>
+</section>
+
+<div class="kbwrap">
+  <div class="kb" id="kb"></div>
+  <div class="kbinfo">
+    <span>PC-Tastatur: untere Reihe Y/Z…M und S, D, G, H, J · obere Reihe Q…P und 2, 3, 5, 6, 7, 9, 0 · <b>Leertaste</b> = Leslie schnell/langsam</span>
+    <span>Oktave: <button class="btn" id="octDn">−</button> <b id="octV">0</b> <button class="btn" id="octUp">+</button></span>
+    <span>MIDI: Modwheel oder Sustain-Pedal schaltet das Leslie, CC11 = Schweller</span>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="card">
+    <h2>Wheelhouse</h2>
+    <p>Tonradorgel mit rotierendem Horn und Trommel als echte bewegte Schallquellen in einem simulierten Raum – Reflexionen, Doppler und Nachhall werden live berechnet.</p>
+    <p>Am besten mit Kopfhörern starten. Für Quad/5.1 oben die Ausgabe umstellen.</p>
+    <button class="btn primary" id="start">Audio starten</button>
+    <div class="warn" id="startErr"></div>
+  </div>
+</div>
+
+<script type="text/plain" id="tracer-src">
+// Strahlenverfolgung für nicht-rechteckige Räume (läuft in einem Web Worker).
+// Geometrie: ovales Zelt (Stadion-Grundriss: zwei Halbkreise + gerader Mittelteil), Kegel-/Firstdach über einer
+// Mastreihe mit Knick an den Zwischenstangen, Rundwand, Manege (Sand) und Tribünenring mit Publikum.
+// Ergebnis: Taps {t (s), az (rad, Raumkoordinaten), el (-1..1), dep (Abstrahlrichtung am Leslie), order, E[3 Bänder]}.
+
+function makeTent(g) {
+  const R = g.W / 2, Ls = g.Ls, hw = g.hw, hm = g.hm, hq = g.hq, rq = g.rq * R;
+  const cx = g.cx, cy = g.cy; // Zeltmitte in Raumkoordinaten
+  // Abstand in der Ebene zur Mastlinie (Segment von -Ls/2..Ls/2 entlang x)
+  const planD = (x, y) => { const dx = Math.max(Math.abs(x - cx) - Ls / 2, 0); return Math.hypot(dx, y - cy); };
+  // Kuppelkranz: vertikales Band mit Radius rK zwischen hK und hK+hb; darüber die Kegelkappe bis hTip,
+  // darunter/außen das Hauptdach als Kegel von der Rundwand (hw) bis zur Kranzunterkante (hK), leicht durchhängend.
+  const rK = g.rK, hK = g.hK, hb = g.hb, hTip = g.hTip, sag = g.sag === undefined ? 1.2 : g.sag;
+  const roofH = (x, y) => {
+    const d = planD(x, y);
+    if (d < rK) return hK + hb + (hTip - hK - hb) * (1 - d / rK);
+    if (d >= R) return hw;
+    return hw + (hK - hw) * Math.pow((R - d) / (R - rK), sag);
+  };
+  const ringD = (x, y) => Math.hypot(x - cx, y - cy); // Manege/Tribüne um die Zeltmitte
+  const floorH = (x, y) => {
+    const d = ringD(x, y);
+    if (d < g.rMan) return 0;
+    if (d < g.rT1) return 0.35;
+    if (d < g.rT2) return 0.5 + (d - g.rT1) / (g.rT2 - g.rT1) * g.hT;
+    return g.hT + 0.5;
+  };
+  const floorMat = (x, y) => { const d = ringD(x, y); return d < g.rMan ? 'sand' : d < g.rT1 ? 'piste' : d < g.rT2 ? 'tribuene' : 'boden'; };
+  return { planD, roofH, floorH, floorMat, R, cx, cy };
+}
+
+const MATS = {
+  // Energiereflexion tief / mittel / hoch (Rest geht durch die Plane nach draußen bzw. wird absorbiert)
+  plane: [0.12, 0.45, 0.68],
+  sand: [0.55, 0.45, 0.3],
+  piste: [0.8, 0.8, 0.7],
+  boden: [0.85, 0.85, 0.8],
+  // Untergründe, auf denen das Zelt steht
+  wiese: [0.75, 0.5, 0.25],
+  schotter: [0.8, 0.6, 0.45],
+  sandplatz: [0.6, 0.45, 0.3],
+  asphalt: [0.93, 0.9, 0.85],
+  beton: [0.95, 0.93, 0.9],
+  pflaster: [0.9, 0.85, 0.75],
+  holzboden: [0.85, 0.8, 0.7],
+  schnee: [0.5, 0.25, 0.1],
+  tribuene_leer: [0.7, 0.6, 0.5],
+  tribuene_voll: [0.3, 0.15, 0.08],
+};
+
+function trace(cfg) {
+  const T = makeTent(cfg.geo);
+  const g = cfg.geo;
+  const src = cfg.src, rec = cfg.rec, rr = cfg.recRadius || 1.0, rr2 = rr * rr;
+  const N = cfg.rays || 30000, maxB = cfg.maxBounces || 6, maxLen = cfg.maxLen || 180, step = 0.25;
+  const scat = cfg.scatter || 0.15;
+  const aud = cfg.audience; // 0..1
+  const trib = MATS.tribuene_leer.map((v, i) => v + (MATS.tribuene_voll[i] - v) * aud);
+  const ground = MATS[cfg.ground] || MATS.wiese;
+  const matOf = m => m === 'tribuene' ? trib : m === 'boden' ? ground : m === 'sand' ? (cfg.manege === 'untergrund' ? ground : MATS.sand) : MATS[m] || MATS.boden;
+  let seed = 12345; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const hits = []; let directE = 0, directN = 0;
+  const C = 343;
+
+  for (let i = 0; i < N; i++) {
+    // Fibonacci-Kugel
+    const k = i + 0.5, phi = Math.acos(1 - 2 * k / N), th = Math.PI * (1 + Math.sqrt(5)) * k;
+    let dx = Math.cos(th) * Math.sin(phi), dy = Math.sin(th) * Math.sin(phi), dz = Math.cos(phi);
+    const dep = [dx, dy, dz];
+    let x = src.x, y = src.y, z = src.z;
+    let E = [1, 1, 1], len = 0, order = 0, alive = true;
+    let lastHit = -1;
+    while (alive && len < maxLen && order <= maxB) {
+      // Empfängerkugel auf dem nächsten Teilstück prüfen (analytisch bis zur nächsten Fläche)
+      // 1) nächste Fläche per Marschieren finden
+      let tHit = -1, kind = null;
+      let px = x, py = y, pz = z;
+      let traveled = 0;
+      for (let s = 0; s < 2000; s++) {
+        const nx = x + dx * (traveled + step), ny = y + dy * (traveled + step), nz = z + dz * (traveled + step);
+        let outside = null;
+        if (T.planD(nx, ny) > T.R) outside = 'wall';
+        else if (nz > T.roofH(nx, ny)) outside = 'roof';
+        else if (nz < T.floorH(nx, ny)) outside = 'floor';
+        if (outside) {
+          // Bisektion zwischen traveled und traveled+step
+          let a = traveled, b = traveled + step;
+          for (let it = 0; it < 12; it++) {
+            const m = (a + b) / 2, mx = x + dx * m, my = y + dy * m, mz = z + dz * m;
+            const out = T.planD(mx, my) > T.R || mz > T.roofH(mx, my) || mz < T.floorH(mx, my);
+            if (out) b = m; else a = m;
+          }
+          tHit = a; kind = outside; break;
+        }
+        traveled += step;
+        if (len + traveled > maxLen) break;
+      }
+      if (tHit < 0) break;
+      // 2) Empfänger auf dem Segment [0, tHit]?
+      const ox = x - rec.x, oy = y - rec.y, oz = z - rec.z;
+      const bq = ox * dx + oy * dy + oz * dz;
+      const cq = ox * ox + oy * oy + oz * oz - rr2;
+      const disc = bq * bq - cq;
+      if (disc > 0) {
+        const tr = -bq - Math.sqrt(disc);
+        if (tr > 0 && tr < tHit) {
+          const tt = (len + tr) / C;
+          if (order === 0) { directE += 1; directN++; }
+          else {
+            const ax = -dx, ay = -dy, az = -dz; // Ankunftsrichtung: woher der Schall kommt
+            hits.push({ t: tt, az: Math.atan2(ay, ax), el: az, dep, order, E: E.slice() });
+          }
+        }
+      }
+      // 3) Reflexion
+      const hx = x + dx * tHit, hy = y + dy * tHit, hz = z + dz * tHit;
+      len += tHit;
+      let nx, ny, nz, mat;
+      if (kind === 'wall') {
+        // Normale der Stadionform: vom nächsten Punkt der Mastlinie nach außen
+        const ddx = Math.max(Math.abs(hx - T.cx) - g.Ls / 2, 0) * Math.sign(hx - T.cx), ddy = hy - T.cy;
+        const l = Math.hypot(ddx, ddy) || 1; nx = -ddx / l; ny = -ddy / l; nz = 0; mat = MATS.plane;
+      } else if (kind === 'roof') {
+        const e = 0.05;
+        const gx = (T.roofH(hx + e, hy) - T.roofH(hx - e, hy)) / (2 * e), gy = (T.roofH(hx, hy + e) - T.roofH(hx, hy - e)) / (2 * e);
+        const l = Math.hypot(gx, gy, 1); nx = gx / l; ny = gy / l; nz = -1 / l; mat = MATS.plane;
+      } else {
+        const e = 0.05;
+        const gx = (T.floorH(hx + e, hy) - T.floorH(hx - e, hy)) / (2 * e), gy = (T.floorH(hx, hy + e) - T.floorH(hx, hy - e)) / (2 * e);
+        const l = Math.hypot(gx, gy, 1); nx = -gx / l; ny = -gy / l; nz = 1 / l; mat = matOf(T.floorMat(hx, hy));
+      }
+      const dot = dx * nx + dy * ny + dz * nz;
+      dx -= 2 * dot * nx; dy -= 2 * dot * ny; dz -= 2 * dot * nz;
+      // Streuung (Falten in der Plane, Stufen der Tribüne)
+      const sc = kind === 'floor' && mat === trib ? scat * 2 : scat;
+      dx += (rnd() - 0.5) * sc; dy += (rnd() - 0.5) * sc; dz += (rnd() - 0.5) * sc;
+      const l2 = Math.hypot(dx, dy, dz); dx /= l2; dy /= l2; dz /= l2;
+      if (dx * nx + dy * ny + dz * nz < 0.02) { dx += nx * 0.1; dy += ny * 0.1; dz += nz * 0.1; const l3 = Math.hypot(dx, dy, dz); dx /= l3; dy /= l3; dz /= l3; }
+      E = [E[0] * mat[0], E[1] * mat[1], E[2] * mat[2]];
+      x = hx + nx * 0.01; y = hy + ny * 0.01; z = hz + nz * 0.01;
+      order++;
+      if (E[1] < 1e-5 && E[2] < 1e-5 && E[0] < 1e-5) alive = false;
+    }
+  }
+  // Kalibrierung: Direktschall-Treffer entsprechen 1/d²
+  const dd = Math.hypot(src.x - rec.x, src.y - rec.y, src.z - rec.z);
+  const calib = directN > 0 ? (1 / (dd * dd)) / directE : (Math.PI * rr2) / (4 * Math.PI * N) * 0 + (1 / N) * (4 / (Math.PI * rr2)) * 0.25;
+  // Treffer zu Taps bündeln: 1-ms-Raster, 15°-Richtung, oben/unten, Ordnung
+  const bins = new Map();
+  for (const h of hits) {
+    const key = `${Math.round(h.t * 1000)}|${Math.round(h.az / (Math.PI / 12))}|${h.el > 0.3 ? 1 : h.el < -0.3 ? -1 : 0}|${Math.min(h.order, 4)}`;
+    let b = bins.get(key);
+    if (!b) { b = { t: 0, n: 0, E: [0, 0, 0], ax: 0, ay: 0, el: 0, dx: 0, dy: 0, dz: 0, order: h.order }; bins.set(key, b); }
+    const w = h.E[1] + 1e-9;
+    b.t += h.t * w; b.n += w; b.E[0] += h.E[0]; b.E[1] += h.E[1]; b.E[2] += h.E[2];
+    b.ax += Math.cos(h.az) * w; b.ay += Math.sin(h.az) * w; b.el += h.el * w;
+    b.dx += h.dep[0] * w; b.dy += h.dep[1] * w; b.dz += h.dep[2] * w;
+  }
+  const taps = [];
+  for (const b of bins.values()) {
+    const dl = Math.hypot(b.dx, b.dy, b.dz) || 1;
+    taps.push({ t: b.t / b.n, az: Math.atan2(b.ay, b.ax), el: b.el / b.n, dep: [b.dx / dl, b.dy / dl, b.dz / dl], order: b.order, E: b.E.map(e => e * calib) });
+  }
+  taps.sort((a, b) => a.t - b.t);
+  // Energie über Zeit (für Anzeige / Sabine-Ersatz)
+  let Etot = taps.reduce((s, t) => s + t.E[1], 0);
+  return { taps, directN, hits: hits.length, Etot, dd };
+}
+
+self.onmessage = (e) => {
+  const t0 = performance.now();
+  const res = trace(e.data);
+  res.ms = performance.now() - t0; res.id = e.data.id;
+  self.postMessage(res);
+};
+
+</script>
+<script type="text/plain" id="proc-src">
+
+</script>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  let curSpk = null;
+  let ctx = null, node = null, splitter = null, panners = [], merger = null, meterSplit = null, meters = [], meterBuf = null, meterHold = new Float32Array(8);
+
+  // ---------------- Zustand ----------------
+  const S = {
+    room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'holz' },
+    chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
+    tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, man: 13, aud: 0.8, tip: 3.5, mast: 10, kup: 14.1, sagp: 0.45, ground: 'wiese', manege: 'sand' },
+    les: { x: 4.2, y: 6.3 },
+    lis: { x: 2.6, y: 2.4, yaw: Math.PI / 2 },
+    cabYaw: -Math.PI / 2,
+    drawbars: [8, 8, 8, 0, 0, 0, 0, 0, 0],
+    perc: { on: true, third: true, fast: true, soft: false },
+    vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
+    leslie: 'slow', mode: 'binaural', octave: 0,
+    rot: { horn: 0, drum: 0, hornHz: 0.83, drumHz: 0.67, t: performance.now() },
+  };
+  const NATIVE = !!(window.__JUCE__ && window.__JUCE__.backend);
+  let nativeInvoke = null;
+  if (NATIVE) {
+    const promises = new Map(); let pid = 0;
+    window.__JUCE__.backend.addEventListener('__juce__complete', ({ promiseId, result }) => { const p = promises.get(promiseId); if (p) { p(result); promises.delete(promiseId); } });
+    nativeInvoke = (name, ...params) => new Promise(res => { const id = pid++; promises.set(id, res); window.__JUCE__.backend.emitEvent('__juce__invoke', { name, params, resultId: id }); });
+  }
+  let audioInfo = { outputs: 0, device: '', sampleRate: 0, bufferSize: 0, channelNames: [] };
+  const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); else if (node) node.port.postMessage(m); };
+
+  const MODES = {
+    binaural: { ch: 2, spk: { az: [0, 45, 90, 135, 180, -135, -90, -45], ch: [0, 1, 2, 3, 4, 5, 6, 7], lfe: -1 }, show: [0, 45, 90, 135, 180, -135, -90, -45], virt: true },
+    stereo: { ch: 2, spk: { az: [30, -30], ch: [0, 1], lfe: -1, stereo: true }, show: [30, -30] },
+    quad: { ch: 4, spk: { az: [45, -45, 135, -135], ch: [0, 1, 2, 3], lfe: -1 }, show: [45, -45, 135, -135] },
+    s51: { ch: 6, spk: { az: [30, -30, 0, 110, -110], ch: [0, 1, 2, 4, 5], lfe: 3 }, show: [30, -30, 0, 110, -110] },
+  };
+
+  const ROOMS = [
+    { n: 'Wohnzimmer', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'holz' },
+    { n: 'Proberaum', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'holz' },
+    { n: 'Club', Lx: 12, Ly: 18, Lz: 4.5, absorb: 0.27, reverb: 1, material: 'beton' },
+    { n: 'Festzelt', Lx: 20, Ly: 35, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'zelt' },
+    { n: 'Halle', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'beton' },
+    { n: 'Kirche', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stein' },
+    { n: 'Zirkuszelt', tent: true },
+  ];
+  const PRESETS = [
+    { n: 'Jazz', db: [8, 8, 8, 0, 0, 0, 0, 0, 0], perc: { on: true, third: true, fast: true, soft: false }, vib: 'c3', drive: 0.3 },
+    { n: 'Gospel voll', db: [8, 8, 8, 8, 8, 8, 8, 8, 8], perc: { on: false }, vib: 'c3', drive: 0.45 },
+    { n: 'Rock', db: [8, 8, 8, 8, 0, 0, 0, 0, 0], perc: { on: false }, vib: 'off', drive: 0.75 },
+    { n: 'Ballade', db: [8, 3, 8, 0, 0, 0, 0, 0, 0], perc: { on: false }, vib: 'c3', drive: 0.15 },
+    { n: 'Flöte', db: [0, 0, 8, 0, 0, 0, 0, 0, 0], perc: { on: false }, vib: 'v2', drive: 0.1 },
+    { n: 'Theater', db: [8, 7, 6, 5, 4, 3, 2, 1, 1], perc: { on: false }, vib: 'v3', drive: 0.2 },
+    { n: 'Perc 2nd', db: [8, 4, 8, 0, 0, 0, 0, 0, 0], perc: { on: true, third: false, fast: false, soft: false }, vib: 'c2', drive: 0.3 },
+  ];
+
+  // ---------------- Audio-Start ----------------
+  async function start() {
+    if (NATIVE) {
+      const B = window.__JUCE__.backend;
+      B.addEventListener('rot', (m) => { Object.assign(S.rot, { horn: m.horn, drum: m.drum, hornHz: m.hornHz, drumHz: m.drumHz, t: performance.now() }); S.meters = m.meters; });
+      B.addEventListener('roomInfo', (m) => { $('stRt').textContent = m.rt60.map(x => x.toFixed(1)).join(' / ') + ' s'; $('stRc').textContent = m.rc.toFixed(1) + ' m'; $('stPaths').textContent = m.paths; });
+      B.addEventListener('audio', (m) => { audioInfo = m; applyMode(); });
+      B.addEventListener('resend', () => { pushAll(); applyMode(); });
+      B.addEventListener('midi', (m) => {
+        if (m.type === 'noteOn') { active.add(m.key); keyEl(m.key, true); }
+        else if (m.type === 'noteOff') { active.delete(m.key); keyEl(m.key, false); }
+        else if (m.type === 'leslie') setLeslie(m.v);
+        else if (m.type === 'volume') { S.volume = m.v; $('volume').value = m.v; upd('volume'); }
+      });
+      pushAll(); applyMode();
+      $('overlay').style.display = 'none';
+      $('stMidi').textContent = 'über Programm (alle Geräte)';
+      nativeInvoke('audioInfo');
+      return;
+    }
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      const src = $('proc-src').textContent;
+      try {
+        const url = URL.createObjectURL(new Blob([src], { type: 'application/javascript' }));
+        await ctx.audioWorklet.addModule(url);
+      } catch (e) {
+        await ctx.audioWorklet.addModule('data:application/javascript;charset=utf-8,' + encodeURIComponent(src));
+      }
+      node = new AudioWorkletNode(ctx, 'leslie-room', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [8] });
+      node.port.onmessage = (e) => {
+        const m = e.data;
+        if (m.type === 'rot') Object.assign(S.rot, m, { t: performance.now() });
+        else if (m.type === 'roomInfo') { $('stRt').textContent = m.rt60.map(x => x.toFixed(1)).join(' / ') + ' s'; $('stRc').textContent = m.rc.toFixed(1) + ' m'; $('stPaths').textContent = m.paths; }
+      };
+      // binaurale Ausgabe: 8 virtuelle Lautsprecher -> HRTF
+      splitter = ctx.createChannelSplitter(8);
+      merger = ctx.createGain();
+      panners = MODES.binaural.spk.az.map((deg, i) => {
+        const p = new PannerNode(ctx, { panningModel: 'HRTF', distanceModel: 'linear', rolloffFactor: 0, refDistance: 1, maxDistance: 10 });
+        const a = deg * Math.PI / 180;
+        p.positionX.value = -Math.sin(a) * 2; p.positionY.value = 0; p.positionZ.value = -Math.cos(a) * 2;
+        splitter.connect(p, i); p.connect(merger);
+        return p;
+      });
+      merger.gain.value = 0.75;
+      // Pegelanzeige je Ausgangskanal (am Worklet-Ausgang, vor der Ausgabe)
+      meterSplit = ctx.createChannelSplitter(8); node.connect(meterSplit);
+      meters = []; for (let i = 0; i < 8; i++) { const an = ctx.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.5; meterSplit.connect(an, i); meters.push(an); }
+      meterBuf = new Float32Array(1024);
+      await ctx.resume();
+      pushAll();
+      applyMode();
+      $('overlay').style.display = 'none';
+      initMidi();
+    } catch (e) {
+      $('startErr').textContent = 'Start fehlgeschlagen: ' + e.message;
+      console.error(e);
+    }
+  }
+
+  function pushAll() {
+    send({ type: 'room', v: S.room });
+    send({ type: 'pos', les: S.les, lis: S.lis, jump: true });
+    send({ type: 'drawbars', v: S.drawbars });
+    send({ type: 'perc', v: S.perc });
+    send({ type: 'vib', v: S.vib });
+    send({ type: 'drive', v: S.drive });
+    send({ type: 'click', v: S.click });
+    send({ type: 'volume', v: S.volume });
+    send({ type: 'balance', v: S.balance });
+    send({ type: 'lfe', v: S.lfe });
+    send({ type: 'leslie', v: S.leslie });
+    send({ type: 'character', v: S.chr });
+    send({ type: 'cabYaw', v: S.cabYaw, jump: true });
+  }
+
+  function applyMode() {
+    if (NATIVE) {
+      if (S.mode === 'binaural') { S.mode = 'stereo'; $('mode').value = 'stereo'; }
+      const M = MODES[S.mode];
+      $('lfeRow').style.display = S.mode === 's51' ? '' : 'none';
+      const have = audioInfo.outputs || 0;
+      $('modeWarn').textContent = have && have < M.ch ? `Das Audiogerät hat nur ${have} aktive Ausgänge – unter „Audio-Einstellungen“ mehr Ausgänge aktivieren (${M.ch} nötig für ${S.mode === 's51' ? '5.1' : S.mode === 'quad' ? 'Quad' : 'Stereo'}).` : '';
+      curSpk = Object.assign({}, M.spk);
+      send(Object.assign({ type: 'speakers' }, curSpk));
+      const names = (audioInfo.channelNames || []).slice(0, M.ch).join(', ');
+      $('stCh').textContent = `${M.ch} (${audioInfo.device || '–'}${audioInfo.type ? ', ' + audioInfo.type : ''}, ${audioInfo.sampleRate ? (audioInfo.sampleRate / 1000).toFixed(1) + ' kHz' : ''}${audioInfo.bufferSize ? ', ' + audioInfo.bufferSize + ' Samples' : ''})` + (names ? ' → ' + names : '');
+      return;
+    }
+    const M = MODES[S.mode];
+    $('lfeRow').style.display = S.mode === 's51' ? '' : 'none';
+    $('modeWarn').textContent = '';
+    if (!ctx) return;
+    try { node.disconnect(); } catch (e) {}
+    try { merger.disconnect(); } catch (e) {}
+    const max = ctx.destination.maxChannelCount;
+    const dest = ctx.destination;
+    if (S.mode === 'binaural') {
+      dest.channelCount = 2; dest.channelCountMode = 'explicit'; dest.channelInterpretation = 'speakers';
+      node.connect(splitter); merger.connect(dest);
+    } else {
+      if (max < M.ch) {
+        $('modeWarn').textContent = `Dein Audiogerät meldet nur ${max} Ausgänge – für ${S.mode === 's51' ? '5.1' : 'Quad'} in den Windows-Soundeinstellungen das Gerät auf ${M.ch === 6 ? '5.1' : 'Quadrofonie'} stellen und die Seite neu laden. Bis dahin hörst du nur die ersten ${max} Kanäle.`;
+      }
+      const n = Math.min(max, M.ch);
+      dest.channelCount = n; dest.channelCountMode = 'explicit'; dest.channelInterpretation = 'discrete';
+      node.connect(dest);
+    }
+    // Physische Kanalzuordnung nach Windows-Reihenfolge: 5.1 = FL FR C LFE SL SR, 7.1 = FL FR C LFE BL BR SL SR.
+    // Quad auf einem 5.1/7.1-Gerät muss hinten auf die Surround-Kanäle, nicht auf Center/LFE.
+    const spk = Object.assign({}, M.spk);
+    let note = '';
+    if (S.mode === 'quad' && max >= 6) { spk.ch = [0, 1, 4, 5]; ctx.destination.channelCount = 6; note = 'Quad auf 5.1-Gerät: hinten → Surround-Kanäle 5/6'; }
+    if (S.mode === 'quad' && max >= 8) { spk.ch = [0, 1, 6, 7]; ctx.destination.channelCount = 8; note = 'Quad auf 7.1-Gerät: hinten → Side-Surround 7/8'; }
+    curSpk = spk;
+    send(Object.assign({ type: 'speakers' }, spk));
+    $('stCh').textContent = `${S.mode === 'binaural' ? 2 : ctx.destination.channelCount} von max. ${max}` + (note ? ' · ' + note : '');
+  }
+
+  // ---------------- MIDI ----------------
+  function initMidi() {
+    if (NATIVE) return;
+    if (!navigator.requestMIDIAccess) { $('stMidi').textContent = 'nicht unterstützt'; return; }
+    navigator.requestMIDIAccess().then((acc) => {
+      const bind = () => {
+        let n = 0;
+        acc.inputs.forEach((inp) => { inp.onmidimessage = onMidi; n++; });
+        $('stMidi').textContent = n ? n + ' Gerät' + (n > 1 ? 'e' : '') : 'kein Gerät';
+      };
+      bind(); acc.onstatechange = bind;
+    }).catch(() => { $('stMidi').textContent = 'blockiert – Datei lokal öffnen'; });
+  }
+  function onMidi(e) {
+    const [st, d1, d2] = e.data; const cmd = st & 0xf0;
+    if (cmd === 0x90 && d2 > 0) noteOn(d1 - 36);
+    else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) noteOff(d1 - 36);
+    else if (cmd === 0xb0) {
+      if (d1 === 1 || d1 === 64) setLeslie(d2 >= 64 ? 'fast' : 'slow');
+      else if (d1 === 11) { S.volume = d2 / 127; $('volume').value = S.volume; upd('volume'); send({ type: 'volume', v: S.volume }); }
+      else if (d1 === 123) panic();
+    }
+  }
+
+  // ---------------- Noten ----------------
+  const active = new Set();
+  function noteOn(k) { if (k < 0 || k > 60 || active.has(k)) return; active.add(k); send({ type: 'noteOn', key: k }); keyEl(k, true); }
+  function noteOff(k) { if (!active.has(k)) return; active.delete(k); send({ type: 'noteOff', key: k }); keyEl(k, false); }
+  function panic() { [...active].forEach(noteOff); send({ type: 'panic' }); stopDemo(); }
+
+  // ---------------- Leslie ----------------
+  function setLeslie(v) {
+    S.leslie = v; send({ type: 'leslie', v });
+    document.querySelectorAll('#leslieSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  }
+  document.querySelectorAll('#leslieSeg .btn').forEach(b => b.onclick = () => setLeslie(b.dataset.v));
+
+  // ---------------- Slider ----------------
+  const fmt = {
+    Lx: v => (+v).toFixed(1) + ' m', Ly: v => (+v).toFixed(1) + ' m', Lz: v => (+v).toFixed(1) + ' m',
+    absorb: v => Math.round(v * 100) + ' %', reverb: v => Math.round(v * 100) + ' %',
+    drive: v => Math.round(v * 100) + ' %', click: v => Math.round(v * 100) + ' %', volume: v => Math.round(v * 100) + ' %',
+    lfe: v => Math.round(v * 100) + ' %', balance: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`,
+    yaw: v => v + '°',
+  };
+  function upd(id) { const el = $(id + 'V'); if (el) el.textContent = fmt[id]($(id).value); }
+  ['Lx', 'Ly', 'Lz', 'absorb', 'reverb'].forEach(id => {
+    $(id).value = S.room[id]; upd(id);
+    $(id).oninput = () => { S.room[id] = +$(id).value; upd(id); clampPos(); send({ type: 'room', v: { [id]: S.room[id] } }); sendPos(); markRoomPreset(); };
+  });
+  ['drive', 'click', 'volume', 'balance', 'lfe'].forEach(id => {
+    $(id).value = S[id]; upd(id);
+    $(id).oninput = () => { S[id] = +$(id).value; upd(id); send({ type: id, v: S[id] }); };
+  });
+  $('material').onchange = () => { S.room.material = $('material').value; send({ type: 'room', v: { material: S.room.material } }); markRoomPreset(); };
+  const chrFmt = v => Math.round(v * 100) + ' %';
+  ['cond', 'leak', 'contact', 'motor'].forEach(id => {
+    fmt[id] = chrFmt; $(id).value = S.chr[id]; upd(id);
+    $(id).oninput = () => {
+      S.chr[id] = +$(id).value; upd(id);
+      if (id === 'cond') { // Zustand zieht die anderen mit
+        S.chr.leak = S.chr.cond; S.chr.contact = S.chr.cond; S.chr.motor = Math.min(1, S.chr.cond * 0.8 + 0.1);
+        ['leak', 'contact', 'motor'].forEach(x => { $(x).value = S.chr[x]; upd(x); });
+      }
+      send({ type: 'character', v: S.chr });
+    };
+  });
+  ['gearTune', 'busComp'].forEach(id => $(id).onclick = () => { S.chr[id] = !S.chr[id]; $(id).classList.toggle('on', S.chr[id]); send({ type: 'character', v: S.chr }); });
+  document.querySelectorAll('#orderSeg .btn').forEach(b => b.onclick = () => {
+    S.room.order = +b.dataset.v; send({ type: 'room', v: { order: S.room.order } }); scheduleTrace();
+    document.querySelectorAll('#orderSeg .btn').forEach(x => x.classList.toggle('on', x === b));
+  });
+
+  // Raum-Presets
+  ROOMS.forEach((r, i) => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = r.n; b.dataset.i = i;
+    b.onclick = () => {
+      if (r.tent) { setShape('zelt'); markRoomPreset(); return; }
+      if (S.room.shape !== 'quader') setShape('quader', true);
+      const fx = S.les.x / S.room.Lx, fy = S.les.y / S.room.Ly, gx = S.lis.x / S.room.Lx, gy = S.lis.y / S.room.Ly;
+      Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); $('material').value = r.material;
+      // Positionen: Leslie bleibt relativ, Hörer ca. 3–5 m davor
+      S.les.x = fx * r.Lx; S.les.y = Math.min(r.Ly - 1, fy * r.Ly);
+      S.lis.x = gx * r.Lx; S.lis.y = Math.max(0.6, S.les.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
+      ['Lx', 'Ly', 'Lz', 'absorb', 'reverb'].forEach(id => { $(id).value = S.room[id]; upd(id); });
+      clampPos(); send({ type: 'room', v: S.room }); sendPos(true); markRoomPreset();
+    };
+    $('roomPresets').appendChild(b);
+  });
+  function markRoomPreset() {
+    document.querySelectorAll('#roomPresets .btn').forEach(b => {
+      const r = ROOMS[b.dataset.i];
+      b.classList.toggle('on', r.tent ? S.room.shape === 'zelt' : (S.room.shape === 'quader' && r.Lx === S.room.Lx && r.Ly === S.room.Ly && r.Lz === S.room.Lz && r.absorb === S.room.absorb && r.material === S.room.material));
+    });
+  }
+  // ---------------- Zirkuszelt ----------------
+  let tracer = null, traceTimer = null, traceId = 0;
+  function tentGeo() {
+    const T = S.tent, R = T.W / 2;
+    const rK = Math.min(R - 1, T.kup / 2);
+    return { W: T.W, Ls: T.Ls, hw: T.hw, hK: T.hm, hb: T.hb, rK, hTip: T.hm + T.hb + T.tip, sag: 1 + T.sagp * 1.6, cx: S.room.Lx / 2, cy: S.room.Ly / 2,
+      rMan: T.man / 2, rT1: T.man / 2 + 1, rT2: Math.min(R - 0.5, T.man / 2 + 1 + Math.max(3, R - T.man / 2 - 2.5)), hT: 2.8 };
+  }
+  function tentPlanD(x, y) { const g = tentGeo(); const dx = Math.max(Math.abs(x - g.cx) - g.Ls / 2, 0); return Math.hypot(dx, y - g.cy); }
+  function setShape(shape, silent) {
+    S.room.shape = shape;
+    document.querySelectorAll('#shapeSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.v === shape));
+    $('tentCtl').style.display = shape === 'zelt' ? '' : 'none';
+    $('boxCtl').style.display = shape === 'zelt' ? 'none' : '';
+    if (shape === 'zelt') applyTent(true); else if (!silent) { send({ type: 'room', v: { shape: 'quader', absBands: null } }); }
+    markRoomPreset();
+  }
+  function applyTent(reposition) {
+    const T = S.tent, R = T.W / 2;
+    S.room.Lx = T.W + T.Ls; S.room.Ly = T.W; S.room.Lz = T.hm; S.room.material = 'zelt'; S.room.absorb = 0.5;
+    const area = Math.PI * R * R + T.W * T.Ls;
+    const perim = Math.PI * T.W + 2 * T.Ls;
+    const V = area * (T.hw + (T.hm - T.hw) * 0.42);
+    const Sx = area * 2.3 + perim * T.hw;
+    // Absorption je Band aus den Flächen: Plane (Dach+Wand), Manege, Tribüne, Untergrund
+    const g = tentGeo();
+    const GROUND = { wiese: [0.75, 0.5, 0.25], schotter: [0.8, 0.6, 0.45], sandplatz: [0.6, 0.45, 0.3], asphalt: [0.93, 0.9, 0.85], beton: [0.95, 0.93, 0.9], pflaster: [0.9, 0.85, 0.75], holzboden: [0.85, 0.8, 0.7], schnee: [0.5, 0.25, 0.1] };
+    const refl = { plane: [0.12, 0.45, 0.68], sand: [0.55, 0.45, 0.3], trib: [0.7, 0.6, 0.5].map((v, i) => v + ([0.3, 0.15, 0.08][i] - v) * T.aud), ground: GROUND[T.ground] || GROUND.wiese };
+    const aMan = Math.PI * g.rMan * g.rMan, aTrib = Math.PI * (g.rT2 * g.rT2 - g.rT1 * g.rT1), aGround = Math.max(0, area - aMan - aTrib), aPlane = area * 1.3 + perim * T.hw;
+    const manRefl = T.manege === 'untergrund' ? refl.ground : refl.sand;
+    const absB = [0, 1, 2].map(i => (aPlane * (1 - refl.plane[i]) + aMan * (1 - manRefl[i]) + aTrib * (1 - refl.trib[i]) + aGround * (1 - refl.ground[i])) / (aPlane + aMan + aTrib + aGround));
+    if (reposition) { S.les.x = S.room.Lx / 2; S.les.y = S.room.Ly / 2 + 2; S.lis.x = S.room.Lx / 2; S.lis.y = S.room.Ly / 2 - T.man / 2 - 2.5; S.lis.yaw = Math.PI / 2; $('yaw').value = yawDegUI(); upd('yaw'); }
+    clampPos();
+    send({ type: 'room', v: { shape: 'zelt', Lx: S.room.Lx, Ly: S.room.Ly, Lz: S.room.Lz, material: 'zelt', absorb: 0.5, tentV: V, tentS: aPlane + aMan + aTrib + aGround, absBands: absB } });
+    sendPos(!!reposition);
+    scheduleTrace();
+  }
+  function scheduleTrace() {
+    if (S.room.shape !== 'zelt') return;
+    clearTimeout(traceTimer);
+    traceTimer = setTimeout(runTrace, 180);
+  }
+  function runTrace() {
+    if (!tracer) {
+      const url = URL.createObjectURL(new Blob([$('tracer-src').textContent], { type: 'application/javascript' }));
+      tracer = new Worker(url);
+      tracer.onmessage = (e) => {
+        const r = e.data; if (r.id !== traceId) return;
+        send({ type: 'taps', taps: r.taps });
+        $('tInfo').textContent = `${r.taps.length} Taps, ${r.ms.toFixed(0)} ms`;
+      };
+    }
+    traceId++;
+    const caps = { 1: 10000, 2: 14000, 3: 18000, 4: 22000, 5: 28000 };
+    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.les.x, y: S.les.y, z: 0.8 }, rec: { x: S.lis.x, y: S.lis.y, z: 1.2 },
+      rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.aud, scatter: 0.15, ground: S.tent.ground, manege: S.tent.manege });
+    $('tInfo').textContent = 'rechnet …';
+  }
+  document.querySelectorAll('#shapeSeg .btn').forEach(b => b.onclick = () => setShape(b.dataset.v));
+  $('tGround').onchange = () => { S.tent.ground = $('tGround').value; applyTent(false); };
+  $('tManege').onchange = () => { S.tent.manege = $('tManege').value; applyTent(false); };
+  const tentMap = { tW: 'W', tLs: 'Ls', tHm: 'hm', tHw: 'hw', tMan: 'man', tAud: 'aud', tTip: 'tip', tMast: 'mast', tKup: 'kup', tHb: 'hb', tSag: 'sagp' };
+  const tentFmt = { tW: v => (+v).toFixed(1) + ' m', tLs: v => (+v).toFixed(1) + ' m', tHm: v => (+v).toFixed(1) + ' m', tHw: v => (+v).toFixed(1) + ' m', tMan: v => (+v).toFixed(1) + ' m', tAud: v => Math.round(v * 100) + ' %', tTip: v => (+v).toFixed(1) + ' m', tMast: v => (+v).toFixed(1) + ' m', tKup: v => (+v).toFixed(1) + ' m', tHb: v => (+v).toFixed(1) + ' m', tSag: v => Math.round(v * 100) + ' %' };
+  Object.entries(tentMap).forEach(([id, key]) => {
+    fmt[id] = tentFmt[id]; $(id).value = S.tent[key]; upd(id);
+    $(id).oninput = () => {
+      S.tent[key] = +$(id).value; upd(id);
+      applyTent(false);
+    };
+  });
+
+  markRoomPreset();
+
+  // ---------------- Zugriegel ----------------
+  const FT = ["16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"];
+  const COL = ['brown', 'brown', 'white', 'white', 'black', 'white', 'black', 'black', 'white'];
+  const dbEls = [];
+  FT.forEach((ft, i) => {
+    const d = document.createElement('div'); d.className = 'db ' + COL[i];
+    d.innerHTML = `<div class="track"><div class="bar"></div></div><div class="ft">${ft}</div>`;
+    const track = d.querySelector('.track');
+    const setFromY = (y) => {
+      const r = track.getBoundingClientRect();
+      const v = Math.max(0, Math.min(8, Math.round((y - r.top) / r.height * 8)));
+      if (v !== S.drawbars[i]) { S.drawbars[i] = v; drawDb(); send({ type: 'drawbars', v: S.drawbars }); markPreset(); }
+    };
+    track.addEventListener('pointerdown', (e) => { track.setPointerCapture(e.pointerId); setFromY(e.clientY); });
+    track.addEventListener('pointermove', (e) => { if (e.buttons) setFromY(e.clientY); });
+    track.addEventListener('wheel', (e) => { e.preventDefault(); S.drawbars[i] = Math.max(0, Math.min(8, S.drawbars[i] + (e.deltaY > 0 ? 1 : -1))); drawDb(); send({ type: 'drawbars', v: S.drawbars }); markPreset(); }, { passive: false });
+    $('drawbars').appendChild(d); dbEls.push(d);
+  });
+  function drawDb() {
+    dbEls.forEach((d, i) => {
+      const v = S.drawbars[i]; const bar = d.querySelector('.bar');
+      bar.style.height = (14 + v / 8 * 154) + 'px'; bar.textContent = v;
+      d.style.opacity = (i === 8 && S.perc.on) ? 0.45 : 1;
+      d.title = (i === 8 && S.perc.on) ? "1' ist bei eingeschalteter Percussion stumm (wie beim Original)" : '';
+    });
+  }
+
+  PRESETS.forEach((p, i) => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = p.n; b.dataset.i = i;
+    b.onclick = () => {
+      S.drawbars = p.db.slice();
+      S.perc = Object.assign({ on: false, third: true, fast: true, soft: false }, p.perc);
+      S.vib = p.vib; S.drive = p.drive; $('drive').value = S.drive; upd('drive');
+      send({ type: 'drawbars', v: S.drawbars }); send({ type: 'perc', v: S.perc }); send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive });
+      syncOrganUI();
+    };
+    $('presets').appendChild(b);
+  });
+  function markPreset() {
+    document.querySelectorAll('#presets .btn').forEach(b => b.classList.toggle('on', PRESETS[b.dataset.i].db.join() === S.drawbars.join()));
+  }
+  document.querySelectorAll('#percSeg .btn').forEach(b => b.onclick = () => {
+    S.perc[b.dataset.k] = !S.perc[b.dataset.k]; send({ type: 'perc', v: S.perc }); syncOrganUI();
+  });
+  document.querySelectorAll('#vibSeg .btn').forEach(b => b.onclick = () => { S.vib = b.dataset.v; send({ type: 'vib', v: S.vib }); syncOrganUI(); });
+  function syncOrganUI() {
+    drawDb(); markPreset();
+    document.querySelectorAll('#percSeg .btn').forEach(b => b.classList.toggle('on', !!S.perc[b.dataset.k]));
+    document.querySelectorAll('#vibSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.v === S.vib));
+  }
+  syncOrganUI();
+
+  // ---------------- Tastatur ----------------
+  const kb = $('kb'); const keyEls = [];
+  const isBlack = (k) => [1, 3, 6, 8, 10].includes(k % 12);
+  (function buildKb() {
+    const ww = 22; let wi = 0;
+    for (let k = 0; k <= 60; k++) {
+      const el = document.createElement('div');
+      if (isBlack(k)) { el.className = 'key b'; el.style.left = (wi * ww - 7) + 'px'; el.style.width = '14px'; }
+      else { el.className = 'key w'; el.style.left = (wi * ww) + 'px'; el.style.width = (ww - 1) + 'px'; if (k % 12 === 0) el.innerHTML = `<span class="lbl">C${k / 12 + 2}</span>`; wi++; }
+      el.dataset.k = k; kb.appendChild(el); keyEls[k] = el;
+    }
+    kb.style.width = (wi * ww) + 'px';
+  })();
+  function keyEl(k, on) { if (keyEls[k]) keyEls[k].classList.toggle('act', on); }
+  const ptrKey = new Map();
+  kb.addEventListener('pointerdown', (e) => { const k = e.target.closest('.key'); if (!k) return; kb.setPointerCapture(e.pointerId); ptrKey.set(e.pointerId, +k.dataset.k); noteOn(+k.dataset.k); });
+  kb.addEventListener('pointermove', (e) => {
+    if (!ptrKey.has(e.pointerId)) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY); const k = el && el.closest && el.closest('.key');
+    const nk = k ? +k.dataset.k : -1; const ok = ptrKey.get(e.pointerId);
+    if (nk !== ok) { noteOff(ok); if (nk >= 0) noteOn(nk); ptrKey.set(e.pointerId, nk); }
+  });
+  const ptrUp = (e) => { if (ptrKey.has(e.pointerId)) { noteOff(ptrKey.get(e.pointerId)); ptrKey.delete(e.pointerId); } };
+  kb.addEventListener('pointerup', ptrUp); kb.addEventListener('pointercancel', ptrUp);
+
+  const KEYMAP = {
+    KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14,
+    KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23, KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28,
+  };
+  const pcHeld = new Map();
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
+    if (e.repeat) { if (e.code === 'Space' || KEYMAP[e.code] !== undefined) e.preventDefault(); return; }
+    if (e.code === 'Space') { e.preventDefault(); setLeslie(S.leslie === 'fast' ? 'slow' : 'fast'); return; }
+    if (KEYMAP[e.code] !== undefined && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault(); const k = 12 + S.octave * 12 + KEYMAP[e.code]; pcHeld.set(e.code, k); noteOn(k);
+    }
+  });
+  window.addEventListener('keyup', (e) => { if (pcHeld.has(e.code)) { noteOff(pcHeld.get(e.code)); pcHeld.delete(e.code); } });
+  window.addEventListener('blur', () => { pcHeld.forEach(k => noteOff(k)); pcHeld.clear(); });
+  const setOct = (d) => { S.octave = Math.max(-1, Math.min(2, S.octave + d)); $('octV').textContent = (S.octave > 0 ? '+' : '') + S.octave; };
+  $('octDn').onclick = () => setOct(-1); $('octUp').onclick = () => setOct(1);
+
+  // ---------------- Hörer ----------------
+  function yawDegUI() { // 0° = Blick "nach oben" im Plan
+    let d = Math.round((S.lis.yaw - Math.PI / 2) * 180 / Math.PI);
+    while (d > 180) d -= 360; while (d < -180) d += 360; return d;
+  }
+  function setYaw(rad, jump) {
+    S.lis.yaw = rad; $('yaw').value = yawDegUI(); upd('yaw'); sendPos(jump);
+  }
+  $('yaw').oninput = () => setYaw(Math.PI / 2 + (+$('yaw').value) * Math.PI / 180);
+  function cabDegUI() { let d = Math.round((S.cabYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+  function setCabYaw(rad, jump) { S.cabYaw = rad; $('cabYaw').value = cabDegUI(); upd('cabYaw'); send({ type: 'cabYaw', v: rad, jump: !!jump }); }
+  fmt.cabYaw = v => v + '°';
+  $('cabYaw').oninput = () => setCabYaw(Math.PI / 2 + (+$('cabYaw').value) * Math.PI / 180);
+  $('cabToLis').onclick = () => setCabYaw(Math.atan2(S.lis.y - S.les.y, S.lis.x - S.les.x));
+  $('cabToWall').onclick = () => { // Rückwand zur nächsten Wand
+    const R = S.room, d = [[S.les.x, Math.PI], [R.Lx - S.les.x, 0], [S.les.y, -Math.PI / 2], [R.Ly - S.les.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0];
+    setCabYaw(d[1] + Math.PI);
+  };
+  $('cabYaw').value = cabDegUI(); upd('cabYaw');
+  $('faceLeslie').onclick = () => setYaw(Math.atan2(S.les.y - S.lis.y, S.les.x - S.lis.x));
+  $('faceAway').onclick = () => setYaw(Math.atan2(S.les.y - S.lis.y, S.les.x - S.lis.x) + Math.PI);
+  $('yaw').value = yawDegUI(); upd('yaw');
+
+  function clampPos() {
+    const R = S.room, c = (v, hi) => Math.max(0.35, Math.min(hi - 0.35, v));
+    S.les.x = c(S.les.x, R.Lx); S.les.y = c(S.les.y, R.Ly); S.lis.x = c(S.lis.x, R.Lx); S.lis.y = c(S.lis.y, R.Ly);
+    if (R.shape === 'zelt') {
+      const g = tentGeo();
+      for (const o of [S.les, S.lis]) {
+        const d = tentPlanD(o.x, o.y), lim = g.W / 2 - 0.6;
+        if (d > lim) { // zum nächsten Punkt der Mastlinie hin zurückziehen
+          const ax = Math.max(-g.Ls / 2, Math.min(g.Ls / 2, o.x - g.cx)) + g.cx, ay = g.cy;
+          o.x = ax + (o.x - ax) * lim / d; o.y = ay + (o.y - ay) * lim / d;
+        }
+      }
+    }
+  }
+  function sendPos(jump) { send({ type: 'pos', les: S.les, lis: S.lis, jump: !!jump }); if (S.room.shape === 'zelt') scheduleTrace(); }
+
+  // ---------------- Raumansicht ----------------
+  const cv = $('room'), g = cv.getContext('2d');
+  let view = { s: 1, ox: 0, oy: 0 };
+  function resize() {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cv.width = r.width * dpr; cv.height = r.height * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  const W2C = (x, y) => [view.ox + x * view.s, view.oy + (S.room.Ly - y) * view.s];
+  const C2W = (px, py) => [(px - view.ox) / view.s, S.room.Ly - (py - view.oy) / view.s];
+
+  let drag = null;
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerdown', (e) => {
+    const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    const [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y);
+    const dl = Math.hypot(px - lx, py - ly), dh = Math.hypot(px - hx, py - hy);
+    if (e.button === 2) drag = { what: 'rot' };
+    else if (dh < 26 && dh <= dl) drag = { what: 'lis' };
+    else if (dl < 34) drag = { what: 'les' };
+    else drag = null;
+    if (drag) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    if (!drag) {
+      const [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y);
+      cv.style.cursor = (Math.hypot(px - lx, py - ly) < 34 || Math.hypot(px - hx, py - hy) < 26) ? 'grab' : 'default';
+      return;
+    }
+    const [wx, wy] = C2W(px, py);
+    if (drag.what === 'rot') setYaw(Math.atan2(wy - S.lis.y, wx - S.lis.x));
+    else { const o = drag.what === 'les' ? S.les : S.lis; o.x = wx; o.y = wy; clampPos(); sendPos(); }
+  });
+  cv.addEventListener('pointerup', () => drag = null);
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, [lx, ly] = W2C(S.les.x, S.les.y);
+    if (Math.hypot(px - lx, py - ly) < 36) setCabYaw(S.cabYaw - Math.sign(e.deltaY) * 7.5 * Math.PI / 180);
+    else setYaw(S.lis.yaw - Math.sign(e.deltaY) * 7.5 * Math.PI / 180);
+  }, { passive: false });
+
+  function drawTentSide(gt, Wc, Hc) {
+    // kleine Schnittzeichnung oben rechts: Zelt entlang der Mittelachse durch zwei Maste
+    const bw = 340, bh = 130, bx = Wc - bw - 12, by = 12;
+    g.fillStyle = 'rgba(20,18,15,.88)'; g.strokeStyle = 'var(--line)'; g.strokeStyle = '#3a342b'; g.lineWidth = 1;
+    g.beginPath(); g.roundRect(bx, by, bw, bh, 8); g.fill(); g.stroke();
+    const R = gt.W / 2, mastTop = gt.hK + gt.hb + 1.5, top = Math.max(gt.hTip, mastTop), sc = Math.min((bw - 30) / gt.W, (bh - 34) / top);
+    const X = (x) => bx + bw / 2 + x * sc, Y = (h) => by + bh - 14 - h * sc;
+    const profile = (dir) => { // Kappe -> Kranzband -> Hauptdach (durchhängend) -> Wand
+      const pts = [[0, gt.hTip], [gt.rK, gt.hK + gt.hb], [gt.rK, gt.hK]];
+      for (let i = 1; i <= 6; i++) { const d = gt.rK + (R - gt.rK) * i / 6; pts.push([d, gt.hw + (gt.hK - gt.hw) * Math.pow((R - d) / (R - gt.rK), gt.sag)]); }
+      pts.push([R, 0]);
+      return pts.map(([d, h]) => [X(dir * d), Y(h)]);
+    };
+    g.fillStyle = 'rgba(138,90,54,.25)'; g.beginPath();
+    const left = profile(-1).reverse(), right = profile(1);
+    [...left, ...right].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+    g.strokeStyle = '#d9a86c'; g.lineWidth = 1.5; g.beginPath(); [...left, ...right].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+    // Kranzband hervorheben
+    g.strokeStyle = '#ffcf7a'; g.lineWidth = 2.5; for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rK), Y(gt.hK)); g.lineTo(X(dir * gt.rK), Y(gt.hK + gt.hb)); g.stroke(); }
+    // Boden, Manege, Tribüne
+    g.strokeStyle = '#6d6150'; g.beginPath(); g.moveTo(X(-R), Y(0)); g.lineTo(X(R), Y(0)); g.stroke();
+    g.fillStyle = 'rgba(120,95,70,.6)';
+    for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rT1), Y(0)); g.lineTo(X(dir * gt.rT1), Y(0.5)); g.lineTo(X(dir * gt.rT2), Y(0.5 + gt.hT)); g.lineTo(X(dir * gt.rT2), Y(0)); g.closePath(); g.fill(); }
+    g.fillStyle = '#5a4a2a'; g.fillRect(X(-gt.rMan), Y(0) - 2, 2 * gt.rMan * sc, 2);
+    // Maste: stehen am Kranzrand (Schnitt durch die Diagonale), ragen über den Kranz hinaus
+    g.strokeStyle = '#e8dcc4'; g.lineWidth = 2;
+    const md = S.tent.mast / 2 * Math.SQRT2;
+    for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * md), Y(0)); g.lineTo(X(dir * md), Y(mastTop)); g.stroke(); g.fillStyle = '#e8dcc4'; g.beginPath(); g.arc(X(dir * md), Y(mastTop), 2.5, 0, Math.PI * 2); g.fill(); }
+    // Leslie und Hörer (Abstand vom Zentrum als Radius)
+    const dl = Math.hypot(S.les.x - gt.cx, S.les.y - gt.cy), dh = Math.hypot(S.lis.x - gt.cx, S.lis.y - gt.cy);
+    g.fillStyle = '#ffcf7a'; g.fillRect(X(-dl) - 3, Y(1.1), 6, 1.1 * sc);
+    g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(X(dh), Y(1.5), 3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#a39887'; g.font = '10.5px system-ui';
+    g.fillText(`Schnitt (Mastdiagonale) · Wand ${gt.hw.toFixed(1)} · Kranz ${gt.hK.toFixed(1)}–${(gt.hK + gt.hb).toFixed(1)} · Spitze ${gt.hTip.toFixed(1)} m`, bx + 10, by + 14);
+  }
+  function draw() {
+    const r = cv.getBoundingClientRect(), Wc = r.width, Hc = r.height;
+    const R = S.room, pad = 34;
+    view.s = Math.min((Wc - 2 * pad) / R.Lx, (Hc - 2 * pad) / R.Ly);
+    view.ox = (Wc - R.Lx * view.s) / 2; view.oy = (Hc - R.Ly * view.s) / 2;
+    g.clearRect(0, 0, Wc, Hc);
+
+    // Raster 1 m
+    const [x0, y0] = W2C(0, R.Ly), [x1, y1] = W2C(R.Lx, 0);
+    g.fillStyle = '#191612'; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.strokeStyle = '#25211b'; g.lineWidth = 1; g.beginPath();
+    const step = R.Lx > 15 || R.Ly > 20 ? 5 : 1;
+    for (let x = step; x < R.Lx; x += step) { const [a] = W2C(x, 0); g.moveTo(a, y0); g.lineTo(a, y1); }
+    for (let y = step; y < R.Ly; y += step) { const [, b] = W2C(0, y); g.moveTo(x0, b); g.lineTo(x1, b); }
+    g.stroke();
+    if (R.shape === 'zelt') {
+      const gt = tentGeo(), rr = gt.W / 2 * view.s, [cx, cy] = W2C(gt.cx, gt.cy), hl = gt.Ls / 2 * view.s;
+      const stadium = (rad) => { g.beginPath(); g.moveTo(cx - hl, cy - rad); g.lineTo(cx + hl, cy - rad); g.arc(cx + hl, cy, rad, -Math.PI / 2, Math.PI / 2); g.lineTo(cx - hl, cy + rad); g.arc(cx - hl, cy, rad, Math.PI / 2, Math.PI * 1.5); g.closePath(); };
+      g.fillStyle = '#1e1a14'; stadium(rr); g.fill();
+      g.strokeStyle = '#8a5a36'; g.lineWidth = 3; stadium(rr); g.stroke();                       // Rundwand
+      // Tribüne
+      g.fillStyle = `rgba(120,95,70,${0.18 + 0.3 * S.tent.aud})`; g.beginPath(); g.arc(cx, cy, gt.rT2 * view.s, 0, Math.PI * 2); g.arc(cx, cy, gt.rT1 * view.s, 0, Math.PI * 2, true); g.fill();
+      // Manege
+      g.fillStyle = '#5a4a2a'; g.beginPath(); g.arc(cx, cy, gt.rMan * view.s, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#a0866a'; g.lineWidth = 2; g.stroke();
+      // Maste
+      // Maste 2x2 + Mastkranz, Spitze
+      const hm2 = S.tent.mast / 2 * view.s;
+      g.setLineDash([3, 4]); g.strokeStyle = '#6a5a44'; g.lineWidth = 1; g.strokeRect(cx - hm2, cy - hm2, 2 * hm2, 2 * hm2); g.setLineDash([]);
+      g.fillStyle = '#e8dcc4'; g.strokeStyle = '#8a5a36'; g.lineWidth = 1.5;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.arc(cx + sx * hm2, cy + sy * hm2, 5, 0, Math.PI * 2); g.fill(); g.stroke(); }
+      g.strokeStyle = '#8a7a60'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, gt.rK * view.s, 0, Math.PI * 2); g.stroke(); // Kuppelkranz
+      g.fillStyle = '#ffcf7a'; g.beginPath(); g.moveTo(cx, cy - 7); g.lineTo(cx + 6, cy + 4); g.lineTo(cx - 6, cy + 4); g.closePath(); g.fill(); // Spitze
+      drawTentSide(gt, Wc, Hc);
+      g.fillStyle = '#7d715f'; g.font = '11.5px system-ui';
+      g.fillText(`Zirkuszelt Ø ${gt.W.toFixed(0)} m, Kranz Ø ${(2 * gt.rK).toFixed(0)} m auf ${gt.hK.toFixed(1)} m, Spitze ${gt.hTip.toFixed(1)} m · Raster ${step} m`, x0, y0 - 9);
+    } else {
+    g.strokeStyle = '#6d6150'; g.lineWidth = 3; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle = '#7d715f'; g.font = '11.5px system-ui';
+    g.fillText(`${R.Lx.toFixed(1)} × ${R.Ly.toFixed(1)} × ${R.Lz.toFixed(1)} m · Raster ${step} m`, x0, y0 - 9);
+    }
+
+    // Rotorwinkel extrapolieren
+    const now = performance.now(), dt = (now - S.rot.t) / 1000;
+    const hornA = S.rot.horn + S.rot.hornHz * 2 * Math.PI * dt, drumA = S.rot.drum + S.rot.drumHz * 2 * Math.PI * dt;
+    $('hornHz').textContent = Math.round(S.rot.hornHz * 60) + ' U/min';
+    $('drumHz').textContent = Math.round(S.rot.drumHz * 60) + ' U/min';
+
+    // Schallwege (direkt + 1. Ordnung Wände) mit Horn-Abstrahlung gewichtet
+    if ($('showRays').checked && R.shape !== 'zelt') {
+      const L = S.les, H = S.lis;
+      const imgs = [[L.x, L.y], [-L.x, L.y], [2 * R.Lx - L.x, L.y], [L.x, -L.y], [L.x, 2 * R.Ly - L.y]];
+      imgs.forEach(([ix, iy], i) => {
+        // Abstrahlrichtung des Horns (gespiegelt)
+        const sx = (i === 1 || i === 2) ? -1 : 1, sy = (i === 3 || i === 4) ? -1 : 1;
+        const dx = sx * Math.cos(hornA), dy = sy * Math.sin(hornA);
+        const vx = H.x - ix, vy = H.y - iy, d = Math.hypot(vx, vy);
+        const u = 0.5 + 0.5 * (dx * vx + dy * vy) / d, w = 0.08 + 0.92 * u * u;
+        // Reflexionspunkt
+        let pts = [[L.x, L.y], [H.x, H.y]];
+        if (i > 0) {
+          let t;
+          if (i === 1) t = (0 - ix) / (H.x - ix); else if (i === 2) t = (R.Lx - ix) / (H.x - ix);
+          else if (i === 3) t = (0 - iy) / (H.y - iy); else t = (R.Ly - iy) / (H.y - iy);
+          pts = [[L.x, L.y], [ix + vx * t, iy + vy * t], [H.x, H.y]];
+        }
+        g.strokeStyle = `rgba(240,162,58,${(i === 0 ? 0.25 : 0.1) + w * (i === 0 ? 0.65 : 0.4)})`;
+        g.lineWidth = i === 0 ? 2.2 : 1.4; g.beginPath();
+        pts.forEach(([x, y], j) => { const [a, b] = W2C(x, y); j ? g.lineTo(a, b) : g.moveTo(a, b); });
+        g.stroke();
+      });
+    }
+
+    if (R.shape === 'zelt' && $('showRays').checked) {
+      const [a1, b1] = W2C(S.les.x, S.les.y), [a2, b2] = W2C(S.lis.x, S.lis.y);
+      g.strokeStyle = 'rgba(240,162,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke();
+    }
+    // Leslie
+    const [lx, ly] = W2C(S.les.x, S.les.y);
+    const cab = Math.max(22, 0.62 * view.s);
+    g.save(); g.translate(lx, ly); g.rotate(-S.cabYaw + Math.PI / 2);
+    const cw = cab * 0.95, cd = cab * 0.7;  // 29 x 20 Zoll
+    g.fillStyle = '#4a2e1c'; g.strokeStyle = '#8a5a36'; g.lineWidth = 2;
+    g.beginPath(); g.roundRect(-cw / 2, -cd / 2, cw, cd, 4); g.fill(); g.stroke();
+    // Lamellen vorn + seitlich, Rückwand geschlossen (dicker Strich)
+    g.strokeStyle = '#c9975a'; g.lineWidth = 1;
+    for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * cw / 6, -cd / 2); g.lineTo(i * cw / 6, -cd / 2 + 5); g.stroke(); }
+    g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.moveTo(-cw / 2, cd / 2); g.lineTo(cw / 2, cd / 2); g.stroke();
+    g.restore();
+    // Trommel
+    const dr = cab * 0.32;
+    g.fillStyle = '#2b1a10'; g.beginPath(); g.arc(lx, ly, dr, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(255,207,122,.55)'; g.beginPath(); g.moveTo(lx, ly);
+    g.arc(lx, ly, dr, -drumA - 0.5, -drumA + 0.5); g.closePath(); g.fill();
+    // Horn
+    const hl = cab * 0.62, hx2 = lx + Math.cos(hornA) * hl, hy2 = ly - Math.sin(hornA) * hl;
+    g.strokeStyle = '#ffcf7a'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(lx, ly); g.lineTo(hx2, hy2); g.stroke();
+    g.fillStyle = '#ffcf7a'; g.beginPath(); g.arc(hx2, hy2, 4.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(255,207,122,.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - Math.cos(hornA) * hl * 0.7, ly + Math.sin(hornA) * hl * 0.7); g.stroke();
+    g.fillStyle = '#c9b89c'; g.font = '12px system-ui'; g.fillText('Leslie', lx - 16, ly + cab / 2 + 15);
+
+    // Hörer + virtuelle Lautsprecher
+    const [hx, hy] = W2C(S.lis.x, S.lis.y);
+    const M = MODES[S.mode], yaw = S.lis.yaw;
+    M.show.forEach((deg) => {
+      const a = yaw + deg * Math.PI / 180, rr = 34;
+      const sx = hx + Math.cos(a) * rr, sy = hy - Math.sin(a) * rr;
+      g.fillStyle = M.virt ? 'rgba(160,150,135,.35)' : '#a39887'; g.beginPath(); g.arc(sx, sy, M.virt ? 3 : 4.5, 0, Math.PI * 2); g.fill();
+    });
+    g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 11, 0, Math.PI * 2); g.fill();
+    // Nase
+    g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 17, hy - Math.sin(yaw) * 17);
+    g.lineTo(hx + Math.cos(yaw + 0.5) * 10, hy - Math.sin(yaw + 0.5) * 10); g.lineTo(hx + Math.cos(yaw - 0.5) * 10, hy - Math.sin(yaw - 0.5) * 10); g.fill();
+    // Ohren
+    g.fillStyle = '#f0a23a';
+    [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 11, hy - Math.sin(yaw + o) * 11, 3.2, 0, Math.PI * 2); g.fill(); });
+    const dist = Math.hypot(S.les.x - S.lis.x, S.les.y - S.lis.y);
+    g.fillStyle = '#c9b89c'; g.fillText(`Du · ${dist.toFixed(1)} m`, hx + 16, hy + 26);
+
+    drawMeters();
+    requestAnimationFrame(draw);
+  }
+  const METER_NAMES = { binaural: ['V', 'VR', 'R', 'HR', 'H', 'HL', 'L', 'VL'], stereo: ['L', 'R'], quad: ['VL', 'VR', 'HL', 'HR'], s51: ['L', 'R', 'C', 'LFE', 'SL', 'SR'] };
+  let meterEls = null, meterMode = null;
+  function drawMeters() {
+    const names = METER_NAMES[S.mode];
+    if (meterMode !== S.mode) {
+      meterMode = S.mode; const box = $('meters'); box.innerHTML = ''; meterEls = [];
+      names.forEach((nm) => { const w = document.createElement('div'); w.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;width:34px';
+        w.innerHTML = `<div style="width:14px;height:36px;background:#0e0c0a;border:1px solid var(--line);border-radius:3px;position:relative;overflow:hidden"><div class="bar" style="position:absolute;left:0;right:0;bottom:0;height:0;background:var(--accent)"></div></div><span>${nm}</span><span class="db" style="font-variant-numeric:tabular-nums">–</span>`;
+        box.appendChild(w); meterEls.push(w); });
+    }
+    if (NATIVE) {
+      if (!S.meters) return;
+      names.forEach((nm, i) => {
+        const phys = S.mode === 's51' ? i : (curSpk ? curSpk.ch[i] : i);
+        const db = S.meters[phys] !== undefined ? S.meters[phys] : -120;
+        meterHold[i] = Math.max(db, meterHold[i] - 0.5);
+        const h = Math.max(0, Math.min(1, (meterHold[i] + 60) / 60));
+        meterEls[i].querySelector('.bar').style.height = (h * 100) + '%';
+        meterEls[i].querySelector('.db').textContent = db > -59 ? db.toFixed(0) : '–';
+      });
+      return;
+    }
+    if (!meters.length) return;
+    names.forEach((nm, i) => {
+      const an = meters[S.mode === 'quad' && curSpk ? curSpk.ch[i] : i]; // 5.1: Reihenfolge = physisch an.getFloatTimeDomainData(meterBuf); let s = 0; for (let k = 0; k < meterBuf.length; k++) s += meterBuf[k] * meterBuf[k];
+      const db = 10 * Math.log10(s / meterBuf.length + 1e-12);
+      meterHold[i] = Math.max(db, meterHold[i] - 0.5);
+      const h = Math.max(0, Math.min(1, (meterHold[i] + 60) / 60));
+      meterEls[i].querySelector('.bar').style.height = (h * 100) + '%';
+      meterEls[i].querySelector('.db').textContent = db > -59 ? db.toFixed(0) : '–';
+    });
+  }
+
+  // ---------------- Demo ----------------
+  let demoTimers = [];
+  function stopDemo() { demoTimers.forEach(clearTimeout); demoTimers = []; $('demo').textContent = '▶ Demo abspielen'; $('demo').classList.remove('on'); }
+  function playDemo() {
+    if (demoTimers.length) { panic(); return; }
+    $('demo').textContent = '■ Demo stoppen'; $('demo').classList.add('on');
+    // eigene Akkordfolge (Tasten: 24 = c', Bass eine Oktave tiefer)
+    const C = [
+      { b: 12, ch: [28, 31, 34, 38] },  // C9
+      { b: 21, ch: [28, 31, 33, 36] },  // Am7
+      { b: 14, ch: [29, 33, 36, 38] },  // Dm7
+      { b: 19, ch: [29, 31, 35, 38] },  // G7
+      { b: 17, ch: [29, 33, 36, 40] },  // Fmaj7
+      { b: 17, ch: [29, 32, 36, 39] },  // Fm7
+      { b: 12, ch: [28, 31, 36, 40] },  // C
+      { b: 19, ch: [29, 31, 35, 38, 41] }, // G7
+      { b: 12, ch: [24, 28, 31, 36, 40] }, // C
+    ];
+    const beat = 650; let t = 0;
+    const at = (ms, f) => demoTimers.push(setTimeout(f, ms));
+    setLeslie('slow');
+    C.forEach((c, i) => {
+      const len = i === C.length - 1 ? beat * 6 : beat * 2;
+      const notes = [c.b, ...c.ch];
+      at(t, () => notes.forEach(noteOn));
+      // kurzer Stab-Rhythmus im zweiten Teil
+      if (i >= 3 && i < 8) { at(t + beat * 0.9, () => c.ch.forEach(noteOff)); at(t + beat * 1.0, () => c.ch.forEach(noteOn)); }
+      at(t + len - 30, () => notes.forEach(noteOff));
+      t += len;
+    });
+    at(beat * 6, () => setLeslie('fast'));
+    at(beat * 14, () => setLeslie('slow'));
+    at(t + 200, () => { setLeslie('slow'); stopDemo(); });
+  }
+  $('demo').onclick = () => { if (!ctx && !NATIVE) { start().then(playDemo); } else playDemo(); };
+  $('panic').onclick = panic;
+  const CHNAMES = { binaural: ['vorne', 'vorne rechts', 'rechts', 'hinten rechts', 'hinten', 'hinten links', 'links', 'vorne links'], stereo: ['Links', 'Rechts'], quad: ['Vorne links', 'Vorne rechts', 'Hinten links', 'Hinten rechts'], s51: ['Vorne links', 'Vorne rechts', 'Center', 'LFE', 'Surround links', 'Surround rechts'] };
+  let testTimers = [];
+  $('chantest').onclick = async () => {
+    if (NATIVE) {
+      testTimers.forEach(clearTimeout); testTimers = [];
+      const names = CHNAMES[S.mode]; const n = names.length; const btn = $('chantest');
+      names.forEach((name, i) => testTimers.push(setTimeout(() => { const phys = curSpk ? curSpk.ch[i] : i; btn.textContent = `${i + 1}/${n}: ${name} (Ausgang ${phys + 1})`; btn.classList.add('on'); nativeInvoke('chantest', S.mode === 's51' && i === 3 ? 3 : phys); }, i * 750)));
+      testTimers.push(setTimeout(() => { btn.textContent = 'Kanaltest'; btn.classList.remove('on'); }, n * 750));
+      return;
+    }
+    if (!ctx) await start();
+    testTimers.forEach(clearTimeout); testTimers = [];
+    const names = CHNAMES[S.mode]; const n = names.length;
+    const btn = $('chantest');
+    names.forEach((name, i) => {
+      testTimers.push(setTimeout(() => {
+        btn.textContent = `${i + 1}/${n}: ${name}`; btn.classList.add('on');
+        const osc = ctx.createOscillator(); const gn = ctx.createGain();
+        const isLfe = S.mode === 's51' && i === 3;
+        osc.type = isLfe ? 'sine' : 'triangle'; osc.frequency.value = isLfe ? 55 : 440;
+        gn.gain.setValueAtTime(0, ctx.currentTime); gn.gain.linearRampToValueAtTime(isLfe ? 0.5 : 0.18, ctx.currentTime + 0.02);
+        gn.gain.setValueAtTime(isLfe ? 0.5 : 0.18, ctx.currentTime + 0.45); gn.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+        osc.connect(gn);
+        if (S.mode === 'binaural') { gn.connect(panners[i]); }
+        else {
+          const phys = S.mode === 'quad' && curSpk ? curSpk.ch[i] : i;
+          const mg = ctx.createChannelMerger(Math.max(2, ctx.destination.channelCount)); gn.connect(mg, 0, Math.min(phys, mg.numberOfInputs - 1)); mg.connect(ctx.destination); testTimers.push(setTimeout(() => mg.disconnect(), 700));
+          btn.textContent = `${i + 1}/${n}: ${name} (Kanal ${phys + 1})`;
+        }
+        osc.start(); osc.stop(ctx.currentTime + 0.55);
+      }, i * 750));
+    });
+    testTimers.push(setTimeout(() => { btn.textContent = 'Kanaltest'; btn.classList.remove('on'); }, n * 750));
+  };
+
+  $('mode').onchange = () => { S.mode = $('mode').value; applyMode(); };
+  async function restartAudio() {
+    const held = [...active];
+    stopDemo();
+    if (ctx) { try { node.port.postMessage({ type: 'panic' }); await ctx.close(); } catch (e) {} }
+    ctx = null; node = null; active.clear();
+    await start();
+    held.forEach(noteOn);
+    $('modeWarn').textContent = '';
+  }
+  $('restart').onclick = () => { if (NATIVE) nativeInvoke('audioSettings'); else restartAudio(); };
+  if (NATIVE) { $('restart').textContent = 'Audio-Einstellungen'; $('restart').title = 'Audiogerät (ASIO/WASAPI), Puffergröße, Ausgänge und MIDI-Eingänge'; }
+  // Audiogerät überwachen: Windows-Umstellung (z.B. auf 5.1) lässt Chrome oft stumm werden
+  let lastMax = null;
+  setInterval(() => {
+    if (!ctx) return;
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume().catch(() => {});
+    const mx = ctx.destination.maxChannelCount;
+    if (lastMax !== null && mx !== lastMax) $('modeWarn').textContent = `Audiogerät hat sich geändert (jetzt ${mx} Ausgänge) – bitte „Audio neu starten“ drücken.`;
+    lastMax = mx;
+  }, 1000);
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => { if (ctx) $('modeWarn').textContent = 'Audiogerät hat sich geändert – falls nichts mehr zu hören ist, „Audio neu starten“ drücken.'; });
+  }
+  $('start').onclick = start;
+
+  if (NATIVE) {
+    const opt = $('mode').querySelector('option[value=binaural]'); if (opt) opt.remove();
+    S.mode = 'stereo'; $('mode').value = 'stereo';
+    $('modeWarn').textContent = '';
+    setTimeout(start, 50);
+  }
+  resize(); requestAnimationFrame(draw); applyMode();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+name: Windows-Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ASIO-SDK laden (Steinberg)
+        id: asio
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Invoke-WebRequest -Uri "https://www.steinberg.net/asiosdk" -OutFile asiosdk.zip -UserAgent "Mozilla/5.0"
+          Expand-Archive asiosdk.zip -DestinationPath asiosdk
+          $common = Get-ChildItem -Path asiosdk -Recurse -Directory -Filter common | Select-Object -First 1
+          if ($null -eq $common) { throw "ASIO-SDK: Ordner 'common' nicht gefunden" }
+          "ASIO_SDK_DIR=$($common.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "ASIO-SDK: $($common.FullName)"
+
+      - name: WebView2-Paket (NuGet)
+        run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
+
+      - name: Konfigurieren
+        shell: pwsh
+        run: |
+          $asio = $env:ASIO_SDK_DIR
+          if ($asio) { Write-Host "Build mit ASIO" } else { Write-Host "Build OHNE ASIO (SDK-Download fehlgeschlagen)" }
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIO_SDK_DIR="$asio" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
+
+      - name: Bauen
+        run: cmake --build build --config Release --parallel
+
+      - name: Programm bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wheelhouse-win64
+          path: build/Wheelhouse_artefacts/Release/*.exe
+          if-no-files-found: error
