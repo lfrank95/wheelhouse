@@ -573,6 +573,7 @@ self.onmessage = (e) => {
     brake: true, cab: { hornfach: 0.45, wobble: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
     pre: { on: true, gain: 0.5 },
+    spring: { mix: 0.2, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 },
     mics: { on: false, hornStereo: true, hornAngle: 180, hornCenter: 0, hornDist: 0.15, hornHeight: 0, hornType: 0, hornPattern: 0, windscreen: false,
       drumStereo: false, drumAngle: 180, drumCenter: 0, drumDist: 0.15, drumType: 2, drumPattern: 0,
       roomArr: 0, roomX: 3, roomY: 3.5, roomZ: 2, roomYaw: Math.PI / 2, roomSpacing: 0.6, roomType: 4, roomPattern: 1, roomOrder: 2, placed: false,
@@ -713,12 +714,13 @@ self.onmessage = (e) => {
   const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
   const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
+  const sendSpring = () => send(Object.assign({ type: 'spring' }, S.spring));
   const sendMics = () => send({ type: 'mics', v: S.mics });
 
   // ---------------- Registerkarten ----------------
   const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['mikros', 'Mikros'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
   const CARD_INFO = {
-    orgel: ['Orgel', 'Tonradgenerator, Kontakte, Vorverstärker', 4],
+    orgel: ['Orgel', 'Tonradgenerator, Kontakte, Vorverstärker, Federhall', 5],
     leslie: ['Leslie', 'Rotoren, Endstufe und Aufstellung', 5],
     raum: ['Raum', 'Form, Material und Reflexionen', 3],
     mikros: ['Mikros', 'Nahmikros, Raumpaar und Pult', 5],
@@ -893,6 +895,7 @@ self.onmessage = (e) => {
   const fk = $('frontKnobs');
   fk.appendChild(knob({ label: 'Vibrato', opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
   fk.appendChild(knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Hall', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
   fk.appendChild(knob({ label: 'Lautst.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
   const TB = [['on', 'PERC\nAN', 'PERC\nAUS', 'Percussion'], ['soft', 'PERC\nLEISE', 'PERC\nNORM', 'Percussion-Lautstärke'], ['fast', 'PERC\nKURZ', 'PERC\nLANG', 'Percussion-Abklingzeit'],
     ['third', 'PERC\n3RD', 'PERC\n2ND', 'Percussion-Harmonische'], ['vibU', 'VIB\nOBER', 'VIB\nOBER', 'Vibrato Obermanual'], ['vibL', 'VIB\nUNTER', 'VIB\nUNTER', 'Vibrato Untermanual']];
@@ -930,6 +933,17 @@ self.onmessage = (e) => {
       rowSeg('Röhren', [[true, 'an'], [false, 'umgangen']], () => S.pre.on, v => { S.pre.on = v; sendPre(); }, true),
       rowVal('Qualität', () => ['Eco', 'HQ', 'Ultra'][S.amp.quality] + ' (wie Endstufe)'),
     ], 'Hinter dem Schweller: 12AX7 und 12BH7-Gegentakt mit Übertrager. Schweller ganz auf und volle Zugriegel – dann zerrt schon die Orgel, bevor das Leslie dazukommt.'));
+    const kickBtn = rowBtn('Tank', 'Anstoßen', () => send({ type: 'springKick', v: 1 }));
+    kickBtn.btn.title = 'Ein Stoß gegen den Hallkasten – die Federn schlagen an';
+    p.appendChild(sec('Federhall', [
+      knob({ label: 'Anteil', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }),
+      knob({ label: 'Nachhall', min: 1, max: 5, step: 0.1, def: 2.8, fmt: v => de(v, 1) + ' s', get: () => S.spring.decay, set: v => { S.spring.decay = v; sendSpring(); } }),
+      knob({ label: 'Klang', min: 0, max: 1, def: 0.5, fmt: v => v < 0.33 ? 'dunkel' : v > 0.66 ? 'hell' : 'mittel', get: () => S.spring.tone, set: v => { S.spring.tone = v; sendSpring(); } }),
+      knob({ label: 'Antrieb', min: 0, max: 1, def: 0.3, fmt: pct, get: () => S.spring.drive, set: v => { S.spring.drive = v; sendSpring(); } }),
+    ], [
+      rowSeg('Federn', [[2, '2'], [3, '3']], () => S.spring.springs, v => { S.spring.springs = v; sendSpring(); }, 3),
+      kickBtn,
+    ], 'Hammond-Tank wie in A-100 und 122RV: sitzt in der Orgel, vor dem Leslie – der Hall dreht sich also mit.'));
   });
 
   // ---------------- Karte Leslie ----------------
@@ -1538,7 +1552,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMics();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendSpring(); sendMics();
     applyMode();
   }
 

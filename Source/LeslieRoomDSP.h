@@ -71,11 +71,12 @@ struct RoomInfo { double rt60[3] = {0, 0, 0}; double rc = 0; int paths = 0; };
 
 } // namespace leslie
 #include "MicRig.h"
+#include "SpringReverb.h"
 namespace leslie {
 
 class LeslieRoomDSP {
 public:
-    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate), pre(sampleRate) { init(); }
+    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate), pre(sampleRate), spring(sampleRate) { init(); }
 
     // ---------------- Steuerung (entspricht den Worklet-Nachrichten) ----------------
     // Manuale: 0 = Ober, 1 = Unter, 2 = Pedal
@@ -92,6 +93,8 @@ public:
     void setDrive(double v) { drive = v; amp.setDrive(v); }
     void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); pre.setQuality(quality); }
     void setPreamp(bool on, double gain) { pre.setEnabled(on); pre.setGain(gain); }
+    void setSpring(bool on, double mixAmt, double t60, double toneAmt, double driveAmt, int springs) { spring.setEnabled(on); spring.setMix(mixAmt); spring.setDecay(t60); spring.setTone(toneAmt); spring.setDrive(driveAmt); spring.setSprings(springs); }
+    void kickSpring(double strength) { spring.kick(strength); }
     void setRotor(int r, double slowHz, double fastHz, double upTau, double dnTau) {
         auto& R = rot[r]; R.slow = slowHz; R.fast = fastHz; R.upTau = upTau; R.dnTau = dnTau; setLeslie(leslieMode);
     }
@@ -177,6 +180,7 @@ private:
     bool brake = true; double hornfachLevel = 0.45, wobbleOverride = -1, masterGain = 1.0;
     amp::LeslieAmp amp;
     amp::OrganPreamp pre;
+    SpringReverb spring;
     std::vector<float> orgBuf;
     Perc perc;
     double percEnv = 0, click = 0.5, clickEnv = 0, organGain = 0.05;
@@ -877,7 +881,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     }
 
     // ---------- 2) Leslie-Endstufe (Schaltung, eigenes Oversampling) ----------
-    pre.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);
+    pre.process(orgBuf.data(), N); spring.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);
 
     // ---------- 3) Weiche, Rotoren, Raum ----------
     for (int n = 0; n < N; n++) {

@@ -69,11 +69,19 @@ statische Gegentakt-Kennlinie.
 Gitterstrom, Koppelkondensatoren mit Blocking, 12BH7-Gegentakt auf einen Übertrager mit Kernsättigung. Qualität wie bei
 der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende Versorgung, atmender Kathoden-Bias).
 
+## Federhall
+
+`Source/SpringReverb.h`: Hammond-Tank wie in A-100 und 122RV, in der Orgel vor dem Leslie. Zwei oder drei Federn als
+Rückkopplungsschleifen mit Ketten gedehnter Allpässe (Dispersion – das typische Zirpen), leicht schwankender Laufzeit,
+weich sättigendem Treiber und bandbegrenztem Wandler; „Anstoßen“ schlägt die Federn an. Modell nach Välimäki, Parker &
+Abel (2010) und Parker (2011). Regler: Hall (vorne), in der Karte Orgel Anteil, Nachhall, Klang, Antrieb, Federn.
+
 ## Dateien
 
 * `Source/LeslieRoomDSP.h` – Klangkern (Orgel, Leslie, Raum, Hall), ohne JUCE-Abhängigkeit
 * `Source/LeslieAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
+* `Source/SpringReverb.h` – Federhall
 * `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
 * `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
