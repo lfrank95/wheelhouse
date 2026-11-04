@@ -22,6 +22,19 @@ jobs:
           "ASIO_SDK_DIR=$($common.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "ASIO-SDK: $($common.FullName)"
 
+      - name: Schriften laden (Barlow Condensed, Yellowtail)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force -Path Resources/fonts | Out-Null
+          $base = "https://raw.githubusercontent.com/google/fonts/main"
+          $files = @("ofl/barlowcondensed/BarlowCondensed-Medium.ttf", "ofl/barlowcondensed/BarlowCondensed-SemiBold.ttf", "ofl/barlowcondensed/BarlowCondensed-Bold.ttf", "apache/yellowtail/Yellowtail-Regular.ttf")
+          foreach ($f in $files) { Invoke-WebRequest -Uri "$base/$f" -OutFile ("Resources/fonts/" + (Split-Path $f -Leaf)) }
+          Get-ChildItem Resources/fonts
+
+      - name: Oberfläche zusammenbauen
+        run: python tools/build_ui.py
+
       - name: WebView2-Paket (NuGet)
         run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
 

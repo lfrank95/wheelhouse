@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Wheelhouse</title>
+<style>
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; src: url(/fonts/BarlowCondensed-Medium.ttf); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(/fonts/BarlowCondensed-SemiBold.ttf); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(/fonts/BarlowCondensed-Bold.ttf); }
+@font-face { font-family: 'Yellowtail'; font-weight: 400; src: url(/fonts/Yellowtail-Regular.ttf); }
+html, body { margin: 0; height: 100%; background: #0b0907; overflow: hidden; }
+* { box-sizing: border-box; }
+button, select { font: inherit; color: inherit; cursor: pointer; }
+select option { background: #1a1511; color: #e8dcc4; }
+#stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; padding: 0 16px 8px;
+  font-family: 'Barlow Condensed', 'Arial Narrow', 'Segoe UI', sans-serif; font-weight: 500; color: #e8dcc4;
+  display: flex; flex-direction: column; gap: 8px; overflow: hidden; user-select: none; -webkit-user-select: none; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: #a8977c; }
+.hi { color: #f2c879; }
+
+/* ---------- Kopfleiste ---------- */
+.top { height: 52px; flex: none; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #2a221b; }
+.logo { font-family: 'Yellowtail', 'Brush Script MT', cursive; font-size: 34px; line-height: 1; color: #f2c879; letter-spacing: .5px; padding-right: 4px; }
+.sel { font-size: 15px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 6px; padding: 6px 10px; }
+.tabs { display: flex; gap: 2px; background: #120f0c; border: 1px solid #2e2620; border-radius: 8px; padding: 3px; }
+.tabs button { font-size: 14.5px; font-weight: 600; letter-spacing: .6px; border: none; border-radius: 5px; padding: 7px 13px; background: transparent; color: #e8dcc4; }
+.tabs button.on { background: #f2a33a; color: #1a1206; }
+.oseg { display: flex; background: #1a1511; border: 1px solid #3a2f25; border-radius: 7px; padding: 3px; gap: 3px; }
+.oseg button { font-size: 14px; border: none; border-radius: 5px; padding: 6px 12px; background: transparent; color: #e8dcc4; }
+.oseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
+.meters { display: flex; align-items: flex-end; gap: 6px; height: 40px; }
+.meter { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.meter .t { width: 8px; height: 24px; background: #120f0c; border: 1px solid #3a2f25; border-radius: 2px; position: relative; overflow: hidden; }
+.meter .f { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: #f2a33a; }
+.meter .f.clip { background: #e8553a; }
+.meter span { font-size: 10.5px; color: #a8977c; }
+.cpu { font-size: 12.5px; color: #a8977c; white-space: nowrap; }
+.cpu b { color: #e8dcc4; font-weight: 500; }
+.btn { font-size: 13.5px; letter-spacing: .3px; background: #1a1511; border: 1px solid #3a2f25; border-radius: 6px; padding: 6px 12px; color: #e8dcc4; }
+.btn:hover { border-color: #5a4a3a; }
+.btn.primary { font-size: 14px; font-weight: 700; color: #1a1206; background: #f2a33a; border-color: #f2a33a; padding: 7px 14px; }
+.btn.on { background: #f2a33a; color: #1a1206; border-color: #f2a33a; font-weight: 700; }
+.btn.big { font-size: 14px; letter-spacing: .6px; padding: 8px 14px; border-radius: 7px; }
+
+/* ---------- Gehäuse ---------- */
+.wood { background: repeating-linear-gradient(92deg, rgba(0,0,0,0) 0px, rgba(0,0,0,.10) 3px, rgba(0,0,0,0) 7px, rgba(255,210,160,.04) 11px, rgba(0,0,0,0) 16px), linear-gradient(180deg, #5a321b 0%, #43230f 55%, #331a0b 100%);
+  box-shadow: 0 10px 30px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,220,180,.18); border-radius: 10px; }
+.case { height: 440px; flex: none; padding: 14px; position: relative; }
+.play { height: 100%; display: flex; gap: 14px; }
+.panel { background: #17130f; border-radius: 6px; box-shadow: inset 0 2px 8px rgba(0,0,0,.7), 0 1px 0 rgba(255,220,180,.12); }
+.ph { display: flex; justify-content: space-between; align-items: baseline; }
+.ph > span:first-child { font-size: 13px; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; }
+.linkbtn { font-size: 12.5px; color: #f2c879; background: none; border: none; padding: 0; }
+.linkbtn:hover { color: #ffdc9a; }
+
+.lesP { width: 330px; flex: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.rpm { display: flex; flex-direction: column; gap: 2px; }
+.rpm .l { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: #a8977c; }
+.rpm .v { font-size: 30px; font-weight: 600; line-height: 1; color: #f2c879; font-variant-numeric: tabular-nums; }
+.rpm .v small { font-size: 14px; color: #a8977c; font-weight: 500; }
+.speed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #0c0a08; border-radius: 22px; padding: 4px; box-shadow: inset 0 2px 6px rgba(0,0,0,.8); margin-top: auto; }
+.speed.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.speed button { font-size: 14px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; border: none; border-radius: 18px; padding: 9px 0; background: transparent; color: #a8977c; }
+.speed button.on { background: linear-gradient(180deg, #f6f0e4, #cfc4ae); color: #2a2016; box-shadow: 0 2px 4px rgba(0,0,0,.6); }
+
+.orgP { flex: 1; min-width: 0; padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+.dbgroups { flex: 1; min-height: 0; display: flex; justify-content: center; gap: 22px; }
+.dbg { display: flex; flex-direction: column; gap: 6px; }
+.dbgh { height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 6px; border-bottom: 1px solid #2e2620; padding-bottom: 4px; }
+.dbgh > span { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; white-space: nowrap; }
+.dbgh select { font-size: 13px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 4px; padding: 2px 4px; max-width: 120px; }
+.dbbars { flex: 1; display: flex; gap: 5px; }
+.dbc { width: 28px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dbc .ft { font-size: 12px; font-weight: 600; height: 15px; white-space: nowrap; }
+.dbt { width: 24px; flex: 1; padding: 0; border: none; border-radius: 3px; background: #070605; box-shadow: inset 0 2px 5px rgba(0,0,0,.9), 0 1px 0 rgba(255,220,180,.08); position: relative; overflow: visible; cursor: ns-resize; touch-action: none; }
+.dbt .sh { position: absolute; left: 5px; right: 5px; top: 0; display: block; border-radius: 0 0 2px 2px; }
+.dbt .hd { position: absolute; left: -2px; right: -2px; height: 34px; border-radius: 4px 4px 7px 7px; box-shadow: 0 3px 5px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.25);
+  font-size: 15px; font-weight: 700; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
+.front { flex: none; display: flex; justify-content: center; align-items: flex-end; gap: 18px; padding-top: 8px; border-top: 1px solid #2e2620; }
+.vsep { width: 1px; align-self: stretch; background: #2e2620; }
+.tablets { display: flex; gap: 6px; }
+.tablet { width: 34px; height: 88px; padding: 8px 1px 0; border: none; border-radius: 4px; display: flex; justify-content: center; align-items: flex-start;
+  background: linear-gradient(180deg, #faf6ee 0%, #e9e1d0 55%, #bdb29c 100%); box-shadow: 0 4px 6px rgba(0,0,0,.55); }
+.tablet.on { background: linear-gradient(180deg, #bdb29c 0%, #e9e1d0 45%, #faf6ee 100%); box-shadow: inset 0 3px 4px rgba(0,0,0,.35), 0 1px 0 rgba(255,220,180,.1); }
+.tablet span { white-space: pre-line; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; line-height: 1.15; color: #2a2016; display: block; }
+
+/* Drehknopf */
+.knob { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 58px; }
+.knob .kb { width: 46px; height: 46px; padding: 0; border: none; border-radius: 50%; background: repeating-conic-gradient(#2c2622 0deg 7deg, #1a1614 7deg 14deg);
+  box-shadow: 0 3px 6px rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; }
+.knob .kc { width: 35px; height: 35px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5a524c, #1b1715 72%); position: relative; display: block; }
+.knob .kp { position: absolute; left: 50%; top: 4px; width: 3px; height: 11px; margin-left: -1.5px; border-radius: 2px; background: #f2c879; display: block; }
+.knob .kl { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #a8977c; white-space: nowrap; }
+.knob .kv { font-size: 12.5px; color: #e8dcc4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.knob .kb:focus-visible, .dbt:focus-visible { outline: 2px solid #f2a33a; outline-offset: 2px; }
+
+.roomP { width: 400px; flex: none; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+.rview { flex: 1; min-height: 0; border-radius: 6px; background: #0b100e; box-shadow: inset 0 0 0 1px #24302a, inset 0 4px 14px rgba(0,0,0,.8); position: relative; overflow: hidden; }
+.rview canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.rinfo { position: absolute; left: 10px; bottom: 7px; font-size: 11.5px; color: #8f8370; pointer-events: none; }
+.rhint { position: absolute; left: 12px; top: 10px; font-size: 12px; color: #8f8370; pointer-events: none; }
+.rpre { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.rpre button { height: 32px; font-size: 13.5px; font-weight: 600; border-radius: 4px; padding: 0; background: linear-gradient(180deg, #2b2420, #141110); color: #e8dcc4; border: 1px solid #3a2f25; }
+.rpre button.on { background: #f2a33a; color: #1a1206; border-color: #f2a33a; }
+
+/* Karte */
+.card { position: absolute; left: 14px; right: 14px; top: 14px; bottom: 14px; border-radius: 6px; background: #17130f; box-shadow: 0 12px 30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,220,180,.14); display: flex; flex-direction: column; overflow: hidden; }
+.card[hidden] { display: none; }
+.hinge { height: 6px; flex: none; background: linear-gradient(180deg, #d9b56a, #8a6a30); box-shadow: 0 1px 0 #3a2a10; }
+.chead { flex: none; display: flex; align-items: center; gap: 16px; padding: 12px 18px 10px; border-bottom: 1px solid #2e2620; }
+.chead .ct { font-size: 18px; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; }
+.chead .cs { font-size: 13.5px; color: #a8977c; }
+.cbody { flex: 1; min-height: 0; display: flex; gap: 14px; padding: 14px 18px; }
+.bigroom { width: 620px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.bigroom[hidden] { display: none; }
+.rstats { display: flex; gap: 18px; font-size: 13px; color: #a8977c; white-space: nowrap; }
+.rstats b { color: #f2c879; font-weight: 500; }
+.secs { flex: 1; min-width: 0; display: grid; gap: 14px; align-content: start; }
+.secs[hidden] { display: none; }
+.sec { background: #120f0c; border: 1px solid #2a231c; border-radius: 6px; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sec[hidden] { display: none; }
+.sec > .st { font-size: 12.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #e8dcc4; }
+.kgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 4px; justify-items: center; }
+.kgrid .knob { min-width: 0; }
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.row > .rl { width: 92px; flex: none; font-size: 13.5px; color: #a8977c; }
+.row select { flex: 1; min-width: 0; font-size: 14px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 5px; padding: 4px 8px; }
+.row .rv { flex: 1; min-width: 0; font-size: 14px; color: #f2c879; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rseg { flex: 1; display: flex; background: #0c0a08; border: 1px solid #2e2620; border-radius: 6px; padding: 2px; gap: 2px; min-width: 0; }
+.rseg button { flex: 1; font-size: 13.5px; border: none; border-radius: 4px; padding: 4px 3px; background: transparent; color: #e8dcc4; white-space: nowrap; min-width: 0; }
+.rseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
+.note { font-size: 12.5px; color: #a8977c; line-height: 1.4; }
+
+/* ---------- Manuale + Pedal ---------- */
+.keys { flex: 1; min-height: 0; padding: 0 16px 8px; display: flex; flex-direction: column;
+  background: repeating-linear-gradient(92deg, rgba(0,0,0,0) 0px, rgba(0,0,0,.10) 3px, rgba(0,0,0,0) 7px, rgba(255,210,160,.04) 11px, rgba(0,0,0,0) 16px), linear-gradient(180deg, #4a2812 0%, #351c0b 100%); }
+.kstrip { height: 30px; flex: none; display: flex; align-items: center; gap: 18px; padding: 0 48px; font-size: 13px; color: #e3cfae; white-space: nowrap; }
+.kstrip .hi { color: #f2c879; }
+.swbar { width: 110px; height: 8px; border-radius: 4px; background: #1c0f06; box-shadow: inset 0 1px 2px rgba(0,0,0,.8); position: relative; display: block; }
+.swbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #f2a33a; display: block; }
+.octb { width: 26px; height: 22px; border-radius: 5px; border: 1px solid #6b4426; background: #2a170a; padding: 0; color: #e3cfae; }
+.pcseg { display: flex; gap: 2px; background: #2a170a; border: 1px solid #6b4426; border-radius: 5px; padding: 1px; }
+.pcseg button { border: none; background: transparent; color: #e3cfae; font-size: 12.5px; padding: 1px 7px; border-radius: 3px; }
+.pcseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
+.manual { height: 122px; flex: none; display: flex; flex-direction: column; }
+.manual .felt { height: 4px; flex: none; margin: 0 48px; background: #7a1c16; }
+.mrow { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 10px; }
+.vlab { width: 22px; flex: none; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 11.5px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #e3cfae; }
+.kbd { width: 1440px; position: relative; touch-action: none; }
+.kw { position: absolute; top: 0; bottom: 0; width: 39px; border-radius: 0 0 4px 4px; background: linear-gradient(180deg, #f6f1e6, #ddd3c2); border: 1px solid #8d8170;
+  box-shadow: inset 0 -5px 0 rgba(0,0,0,.10), 0 3px 4px rgba(0,0,0,.35); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font-size: 10.5px; color: #6b604f; }
+.kw.act { background: linear-gradient(180deg, #ffe0a6, #f2b257); }
+.kk { position: absolute; top: 0; height: 60%; width: 24px; border-radius: 0 0 4px 4px; background: linear-gradient(180deg, #2a251f, #0e0c0a); box-shadow: 0 4px 5px rgba(0,0,0,.55), inset 0 -4px 0 rgba(255,255,255,.06); z-index: 1; }
+.kk.act { background: linear-gradient(180deg, #b5731e, #7a4a10); }
+.pedrow { flex: 1; min-height: 0; margin-top: 6px; display: flex; justify-content: center; align-items: stretch; gap: 14px; }
+.pedrow svg { flex: none; display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ============ Kopfleiste ============ -->
+  <header class="top">
+    <div class="logo">Wheelhouse</div>
+    <select id="preset" class="sel" style="width: 190px" aria-label="Preset"></select>
+    <nav class="tabs" id="tabs" aria-label="Bereiche"></nav>
+    <div style="flex: 1"></div>
+    <div class="oseg" id="outSeg" aria-label="Ausgabeformat"></div>
+    <div class="meters" id="meters" aria-label="Pegel je Ausgang"></div>
+    <span class="cpu">CPU <b id="cpu" class="num">–</b></span>
+    <button type="button" class="btn big" id="panic" title="Alle Töne aus (MIDI CC 123)">Panik</button>
+  </header>
+
+  <!-- ============ Gehäuse ============ -->
+  <section class="case wood">
+    <div class="play">
+
+      <!-- Leslie -->
+      <div class="panel lesP">
+        <div class="ph"><span>Leslie</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Modell 122</span></div>
+        <div style="display: flex; gap: 16px; align-items: stretch">
+          <svg width="140" height="200" viewBox="0 0 140 200" role="img" aria-label="Leslie-Gehäuse mit offener Front" style="flex: none; display: block">
+            <defs>
+              <linearGradient id="lw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3b1f0d"/><stop offset="0.12" stop-color="#6e3d1d"/><stop offset="0.5" stop-color="#7c4724"/><stop offset="0.88" stop-color="#6a3a1b"/><stop offset="1" stop-color="#341b0b"/></linearGradient>
+              <linearGradient id="lcap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5430"/><stop offset="1" stop-color="#4a2611"/></linearGradient>
+              <linearGradient id="lcav" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0805"/><stop offset="1" stop-color="#1c110a"/></linearGradient>
+              <linearGradient id="ldrum" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1a110a"/><stop offset="0.35" stop-color="#4a3322"/><stop offset="0.55" stop-color="#5a3f2a"/><stop offset="1" stop-color="#140c07"/></linearGradient>
+              <linearGradient id="lbell" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d6a52"/><stop offset="0.5" stop-color="#cdb894"/><stop offset="1" stop-color="#7d6a52"/></linearGradient>
+              <linearGradient id="lslat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5530"/><stop offset="0.6" stop-color="#5e3218"/><stop offset="1" stop-color="#2e170a"/></linearGradient>
+            </defs>
+            <rect x="6" y="10" width="128" height="178" rx="3" fill="url(#lw)"/>
+            <rect x="2" y="4" width="136" height="9" rx="2.5" fill="url(#lcap)"/>
+            <rect x="2" y="12" width="136" height="1.5" fill="#1d0e05" opacity="0.7"/>
+            <rect x="14" y="20" width="112" height="54" rx="2" fill="url(#lcav)"/>
+            <ellipse id="orbit" cx="70" cy="44" rx="44" ry="7" fill="none" stroke="#f2a33a" stroke-width="1" stroke-dasharray="2 3" opacity="0.25"/>
+            <g id="hornBackG"><path id="hbNeck" fill="#2a1d12"/><ellipse id="hbBell" cy="44" ry="10" fill="#1d140c" stroke="#3a2a1b" stroke-width="1"/></g>
+            <rect x="64" y="44" width="12" height="26" rx="2" fill="#1a1612"/>
+            <rect x="60" y="66" width="20" height="6" rx="1.5" fill="#2a2420"/>
+            <circle cx="70" cy="44" r="5" fill="#3a332c" stroke="#5a5047" stroke-width="1"/>
+            <g id="hornFrontG"><path id="hfNeck" fill="url(#lbell)"/><ellipse id="hfBell" cy="44" ry="12" fill="#f2c879" stroke="#a88a55" stroke-width="1.2"/><ellipse id="hfIn" cy="44" ry="7.5" fill="#2a1d0e"/></g>
+            <g id="slatsTop"></g>
+            <rect x="12" y="19" width="116" height="56" rx="2" fill="none" stroke="#2a1508" stroke-width="2"/>
+            <rect x="10" y="78" width="120" height="20" rx="1.5" fill="url(#lw)"/>
+            <rect x="10" y="78" width="120" height="1.5" fill="#2a1508" opacity="0.8"/>
+            <rect x="10" y="96.5" width="120" height="1.5" fill="#2a1508" opacity="0.8"/>
+            <rect x="56" y="84" width="28" height="8" rx="1.5" fill="#c9a45e" stroke="#7a5a26" stroke-width="0.8"/>
+            <rect x="59" y="87" width="22" height="2" rx="1" fill="#8a6a30" opacity="0.8"/>
+            <rect x="14" y="102" width="112" height="68" rx="2" fill="url(#lcav)"/>
+            <rect x="24" y="108" width="92" height="56" rx="4" fill="url(#ldrum)"/>
+            <ellipse cx="70" cy="108" rx="46" ry="5" fill="#5a3f2a" stroke="#2a1a10" stroke-width="1"/>
+            <g id="drumWin"><rect id="dwRect" y="114" height="44" rx="2" fill="#0a0604" stroke="#f2a33a" stroke-width="1.2" opacity="0.95"/><path id="dwBaffle" stroke="#7a5a3c" stroke-width="2" fill="none"/></g>
+            <ellipse cx="70" cy="164" rx="46" ry="4" fill="#120b06"/>
+            <g id="slatsBot"></g>
+            <rect x="12" y="101" width="116" height="70" rx="2" fill="none" stroke="#2a1508" stroke-width="2"/>
+            <rect x="6" y="174" width="128" height="14" rx="1.5" fill="#3a1d0c"/>
+            <rect x="6" y="174" width="128" height="1.5" fill="#8a5430" opacity="0.6"/>
+            <rect x="12" y="188" width="14" height="6" rx="1.5" fill="#1a0e06"/>
+            <rect x="114" y="188" width="14" height="6" rx="1.5" fill="#1a0e06"/>
+            <rect x="6" y="10" width="2" height="178" fill="#a86a3c" opacity="0.35"/>
+          </svg>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: space-between">
+            <div class="rpm"><span class="l">Horn</span><span class="v"><span id="hornRpm">0</span><small> U/min</small></span></div>
+            <div class="rpm"><span class="l">Trommel</span><span class="v"><span id="drumRpm">0</span><small> U/min</small></span></div>
+            <div style="font-size: 12.5px; color: #a8977c; line-height: 1.35" id="lesHint">Leertaste oder Modwheel schaltet um</div>
+          </div>
+        </div>
+        <div class="speed" id="speed" aria-label="Leslie-Geschwindigkeit"></div>
+      </div>
+
+      <!-- Orgel -->
+      <div class="panel orgP">
+        <div class="dbgroups" id="dbgroups"></div>
+        <div class="front">
+          <div id="frontKnobs" style="display: flex; gap: 18px; align-items: flex-end"></div>
+          <div class="vsep"></div>
+          <div class="tablets" id="tablets" aria-label="Percussion und Vibrato"></div>
+        </div>
+      </div>
+
+      <!-- Raum -->
+      <div class="panel roomP">
+        <div class="ph"><span>Raum</span><button type="button" class="linkbtn" id="openRoom">Einstellungen ›</button></div>
+        <div class="rview"><canvas id="roomS"></canvas><div class="rinfo" id="rinfoS"></div></div>
+        <div class="rpre" id="roomPre"></div>
+      </div>
+    </div>
+
+    <!-- Aufgeklappte Karte -->
+    <div class="card" id="card" hidden>
+      <div class="hinge"></div>
+      <div class="chead">
+        <span class="ct" id="cTitle"></span><span class="cs" id="cSub"></span>
+        <div style="flex: 1"></div>
+        <button type="button" class="btn" id="cReset">Zurücksetzen</button>
+        <button type="button" class="btn primary" id="cClose">Zurück zum Spielen</button>
+      </div>
+      <div class="cbody" id="cbody">
+        <div class="bigroom" id="bigRoom" hidden>
+          <div class="rview"><canvas id="roomB"></canvas><div class="rhint">Grundriss · Ziehen: Leslie / Kopf · Rechts ziehen: Blickrichtung · Mausrad: drehen</div></div>
+          <div class="rstats">
+            <span>RT60 tief / mittel / hoch <b id="stRt">–</b></span>
+            <span>Hallradius <b id="stRc">–</b></span>
+            <span>Schallwege <b id="stPaths">–</b></span>
+            <span>Rechenlast <b id="stCpu">–</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Manuale + Pedal ============ -->
+  <section class="keys wood">
+    <div class="kstrip">
+      <span style="display: flex; align-items: center; gap: 8px">Schweller <span class="swbar"><i id="swBar"></i></span></span>
+      <span id="chanInfo"></span>
+      <div style="flex: 1"></div>
+      <span id="midiInfo">MIDI –</span>
+      <span style="display: flex; align-items: center; gap: 8px">PC-Tastatur <span class="pcseg" id="pcSeg"></span></span>
+      <span style="display: flex; align-items: center; gap: 8px">Oktave
+        <button type="button" class="octb" id="octDn" aria-label="Oktave tiefer">−</button>
+        <span id="octV" class="hi" style="min-width: 14px; text-align: center">0</span>
+        <button type="button" class="octb" id="octUp" aria-label="Oktave höher">+</button>
+      </span>
+    </div>
+    <div class="manual"><div class="felt"></div><div class="mrow"><span class="vlab">Ober</span><div class="kbd" id="kbd0"></div><span style="width: 22px; flex: none"></span></div></div>
+    <div class="manual" style="margin-top: 6px"><div class="felt"></div><div class="mrow"><span class="vlab">Unter</span><div class="kbd" id="kbd1"></div><span style="width: 22px; flex: none"></span></div></div>
+    <div class="pedrow">
+      <span class="vlab">Pedal</span>
+      <svg id="pedSvg" width="710" height="86" viewBox="0 0 760 92" role="img" aria-label="Pedal mit 25 Tönen">
+        <defs>
+          <linearGradient id="pedWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f7448"/><stop offset="0.18" stop-color="#d9c398"/><stop offset="0.5" stop-color="#e8d7b0"/><stop offset="0.82" stop-color="#d2bb8e"/><stop offset="1" stop-color="#86693e"/></linearGradient>
+          <linearGradient id="pedOn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9a6520"/><stop offset="0.5" stop-color="#f2b257"/><stop offset="1" stop-color="#9a6520"/></linearGradient>
+          <linearGradient id="pedSharp" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0c0a09"/><stop offset="0.35" stop-color="#3a342e"/><stop offset="0.65" stop-color="#2a2521"/><stop offset="1" stop-color="#0c0a09"/></linearGradient>
+          <linearGradient id="pedSharpOn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5a3a10"/><stop offset="0.5" stop-color="#b5731e"/><stop offset="1" stop-color="#5a3a10"/></linearGradient>
+          <linearGradient id="pedRail" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a321b"/><stop offset="1" stop-color="#2e170a"/></linearGradient>
+          <linearGradient id="pedGrain" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.18"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.06"/></linearGradient>
+        </defs>
+        <rect x="22" y="4" width="716" height="86" rx="3" fill="#140a04"/>
+        <rect x="22" y="0" width="716" height="9" rx="2" fill="url(#pedRail)"/>
+        <g id="pedKeys"></g>
+      </svg>
+      <svg id="swellSvg" width="60" height="86" viewBox="0 0 64 92" role="slider" aria-label="Schwellerpedal" style="cursor: ns-resize">
+        <path d="M10 4 L54 4 L60 86 L4 86 Z" fill="#1a1512" stroke="#3a312a" stroke-width="1.2"/>
+        <path d="M14 10 L50 10 L54 78 L10 78 Z" fill="#26201c"/>
+        <path d="M16 16 L48 16 M15 24 L49 24 M15 32 L49 32 M14 40 L50 40 M13 48 L51 48 M13 56 L51 56 M12 64 L52 64 M12 72 L52 72" stroke="#3e352e" stroke-width="3" stroke-linecap="round"/>
+        <rect x="4" y="86" width="56" height="5" rx="1.5" fill="#0d0a08"/>
+        <rect x="58" y="18" width="4" height="62" rx="2" fill="#120f0c"/>
+        <rect id="swFill" x="58" y="34" width="4" height="46" rx="2" fill="#f2a33a"/>
+      </svg>
+      <span style="width: 22px; flex: none"></span>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="tracer-src">
+/*TRACER*/
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const de = (x, d = 1) => (+x).toFixed(d).replace('.', ',');
+  const pct = (v) => Math.round(v * 100) + ' %';
+
+  // ---------------- Bühne skalieren (1600 × 900) ----------------
+  const stage = $('stage'); let SCALE = 1;
+  function fit() {
+    SCALE = Math.min(innerWidth / 1600, innerHeight / 900);
+    stage.style.transform = `translate(${Math.round((innerWidth - 1600 * SCALE) / 2)}px, ${Math.round((innerHeight - 900 * SCALE) / 2)}px) scale(${SCALE})`;
+    rooms.forEach(r => r.resize());
+  }
+
+  // ---------------- Verbindung zum Programm ----------------
+  const NATIVE = !!(window.__JUCE__ && window.__JUCE__.backend);
+  const promises = new Map(); let pid = 0;
+  const nativeInvoke = (name, ...params) => new Promise(res => {
+    if (!NATIVE) { res(null); return; }
+    const id = pid++; promises.set(id, res); window.__JUCE__.backend.emitEvent('__juce__invoke', { name, params, resultId: id });
+  });
+  if (NATIVE) window.__JUCE__.backend.addEventListener('__juce__complete', ({ promiseId, result }) => { const p = promises.get(promiseId); if (p) { p(result); promises.delete(promiseId); } });
+  let ready = false;
+  const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); if (ready) scheduleSave(); };
+
+  // ---------------- Zustand ----------------
+  const DEF = {
+    room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'holz', shape: 'quader' },
+    chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
+    tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, man: 13, aud: 0.8, tip: 3.5, mast: 10, kup: 14.1, sagp: 0.45, ground: 'wiese', manege: 'sand' },
+    les: { x: 4.2, y: 6.3 }, lis: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
+    db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] },
+    perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
+    vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
+    organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+    rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
+    brake: true, cab: { hornfach: 0.45, wobble: -1 },
+    amp: { model: 0, quality: 1, sag: 0.5 },
+    out: { masterDb: 0, lfeHz: 100 }, chmap: { stereo: null, quad: null, s51: null },
+    midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
+    leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
+  };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const S = clone(DEF);
+  S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
+  S.meters = null;
+  let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, latencyMs: 0, channelNames: [], midiDevices: [] };
+  let ampText = '–', tInfoText = '–', cpuText = '–', warnText = '', slowSync = 0, roomInfo = null;
+  const SAVE_KEYS = Object.keys(DEF);
+  let saveTimer = null;
+  function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { const o = {}; SAVE_KEYS.forEach(k => o[k] = S[k]); nativeInvoke('saveUi', JSON.stringify(o)); }, 800); }
+  function deepMerge(dst, src) {
+    for (const k of Object.keys(src)) {
+      if (!(k in dst)) continue;
+      const a = dst[k], b = src[k];
+      if (a && typeof a === 'object' && !Array.isArray(a) && b && typeof b === 'object' && !Array.isArray(b)) deepMerge(a, b);
+      else if (Array.isArray(a) && Array.isArray(b)) { if (a.length === b.length) dst[k] = b.slice(); }
+      else if (b === null || typeof b === typeof a || a === null) dst[k] = b;
+    }
+  }
+
+  const MODES = {
+    stereo: { ch: 2, names: ['L', 'R'], long: ['Links', 'Rechts'], spk: { az: [30, -30], ch: [0, 1], lfe: -1, stereo: true }, show: [30, -30] },
+    quad: { ch: 4, names: ['VL', 'VR', 'HL', 'HR'], long: ['Vorne links', 'Vorne rechts', 'Hinten links', 'Hinten rechts'], spk: { az: [45, -45, 135, -135], ch: [0, 1, 2, 3], lfe: -1 }, show: [45, -45, 135, -135] },
+    s51: { ch: 6, names: ['L', 'R', 'C', 'LFE', 'SL', 'SR'], long: ['Vorne links', 'Vorne rechts', 'Center', 'LFE', 'Surround links', 'Surround rechts'], spk: { az: [30, -30, 0, 110, -110], ch: [0, 1, 2, 4, 5], lfe: 3 }, show: [30, -30, 0, 110, -110] },
+  };
+  const ROOMS = [
+    { n: 'Wohnzimmer', s: 'Wohnz.', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'holz' },
+    { n: 'Proberaum', s: 'Probe', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'holz' },
+    { n: 'Club', s: 'Club', Lx: 12, Ly: 18, Lz: 4.5, absorb: 0.27, reverb: 1, material: 'beton' },
+    { n: 'Festzelt', s: 'Festzelt', Lx: 20, Ly: 30, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'zelt', noQuick: true },
+    { n: 'Halle', s: 'Halle', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'beton' },
+    { n: 'Kirche', s: 'Kirche', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stein' },
+    { n: 'Zirkuszelt', s: 'Zirkus', tent: true },
+  ];
+  const MATERIALS = [['holz', 'Holz / Trockenbau'], ['beton', 'Beton'], ['stein', 'Stein'], ['glas', 'Glas / Fliesen'], ['zelt', 'Zeltplane']];
+  const MAT_SHORT = { holz: 'Holz', beton: 'Beton', stein: 'Stein', glas: 'Glas', zelt: 'Plane' };
+  const UPPER_PRESETS = [
+    ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Gospel', [8, 8, 8, 8, 8, 8, 8, 8, 8]], ['Rock', [8, 8, 8, 8, 0, 0, 0, 0, 0]], ['Ballade', [8, 3, 8, 0, 0, 0, 0, 0, 0]],
+    ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]], ['Theater', [8, 7, 6, 5, 4, 3, 2, 1, 1]], ['Perc 2nd', [8, 4, 8, 0, 0, 0, 0, 0, 0]], ['Smith', [8, 8, 8, 8, 0, 0, 0, 0, 8]],
+  ];
+  const LOWER_PRESETS = [
+    ['Begleitung', [0, 0, 8, 4, 0, 0, 0, 0, 0]], ['Weich', [0, 0, 6, 6, 0, 0, 0, 0, 0]], ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]],
+    ['Streicher', [0, 0, 4, 5, 4, 4, 2, 0, 0]], ['Voll', [8, 8, 8, 8, 8, 8, 8, 8, 8]],
+  ];
+  const PRESETS = [
+    { n: 'Jazz Combo', u: [8, 8, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3', drive: 0.3 },
+    { n: 'Gospel voll', u: [8, 8, 8, 8, 8, 8, 8, 8, 8], l: [8, 8, 8, 8, 0, 0, 0, 0, 0], p: [8, 5], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.45 },
+    { n: 'Rock', u: [8, 8, 8, 8, 0, 0, 0, 0, 0], l: [8, 8, 8, 0, 0, 0, 0, 0, 0], p: [8, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3', drive: 0.75 },
+    { n: 'Ballade', u: [8, 3, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 6, 6, 0, 0, 0, 0, 0], p: [5, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.15 },
+    { n: 'Flöte', u: [0, 0, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 0, 0, 0, 0, 0, 0], p: [4, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v2', drive: 0.1 },
+    { n: 'Theater', u: [8, 7, 6, 5, 4, 3, 2, 1, 1], l: [0, 0, 4, 5, 4, 4, 2, 0, 0], p: [7, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v3', drive: 0.2 },
+    { n: 'Perc 2nd', u: [8, 4, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: false, fast: false, soft: false, vibU: true, vibL: false }, vib: 'c2', drive: 0.3 },
+  ];
+  const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
+  const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
+
+  // ---------------- Steuerelemente ----------------
+  const all = [];                 // alle Elemente mit sync()
+  const cardCtl = {};             // Karte -> Elemente mit reset()
+  let curCard = null;
+  const reg = (c) => { all.push(c); if (curCard) (cardCtl[curCard] = cardCtl[curCard] || []).push(c); return c; };
+  const syncAll = () => all.forEach(c => c.sync && c.sync());
+
+  // Drehknopf: o = { label, get, set, min, max, def, fmt, step, log, opts (diskret), auto }
+  function knob(o) {
+    const el = h('div', 'knob', `<button type="button" class="kb"><span class="kc"><span class="kp"></span></span></button><span class="kl"></span><span class="kv"></span>`);
+    const kb = el.querySelector('.kb'), kc = el.querySelector('.kc'), kv = el.querySelector('.kv');
+    el.querySelector('.kl').textContent = o.label; kb.setAttribute('aria-label', o.label);
+    const disc = !!o.opts, n = disc ? o.opts.length : 0;
+    const toF = (v) => disc ? Math.max(0, o.opts.findIndex(x => x[0] === v)) / (n - 1) : o.log ? Math.log(v / o.min) / Math.log(o.max / o.min) : (v - o.min) / (o.max - o.min);
+    const fromF = (f) => { f = clamp(f, 0, 1); if (disc) return o.opts[Math.round(f * (n - 1))][0]; let v = o.log ? o.min * Math.pow(o.max / o.min, f) : o.min + f * (o.max - o.min); if (o.step) v = Math.round(v / o.step) * o.step; return +v.toFixed(6); };
+    const c = { el, sync() {
+      const v = o.get(), isAuto = o.auto && v === o.auto.v;
+      const f = isAuto ? toF(o.auto.show()) : toF(v);
+      kc.style.transform = `rotate(${Math.round(-135 + 270 * clamp(f, 0, 1))}deg)`;
+      kv.textContent = isAuto ? o.auto.label : disc ? o.opts.find(x => x[0] === v)?.[1] ?? v : o.fmt(v);
+      kb.setAttribute('aria-valuetext', kv.textContent);
+    }, reset() { o.set(o.def); c.sync(); } };
+    let drag = null;
+    const cur = () => { const v = o.get(); return o.auto && v === o.auto.v ? toF(o.auto.show()) : toF(v); };
+    const apply = (f) => { const v = fromF(f); if (v !== o.get()) { o.set(v); c.sync(); } };
+    kb.addEventListener('pointerdown', (e) => { kb.setPointerCapture(e.pointerId); drag = { y: e.clientY, f: cur() }; e.preventDefault(); });
+    kb.addEventListener('pointermove', (e) => { if (!drag) return; const sens = (e.shiftKey ? 600 : 160) * SCALE; apply(drag.f + (drag.y - e.clientY) / sens); });
+    const up = () => drag = null; kb.addEventListener('pointerup', up); kb.addEventListener('pointercancel', up);
+    kb.addEventListener('wheel', (e) => { e.preventDefault(); const d = e.deltaY < 0 ? 1 : -1; apply(cur() + d * (disc ? 1 / (n - 1) : e.shiftKey ? 0.005 : 0.025)); }, { passive: false });
+    kb.addEventListener('dblclick', () => c.reset());
+    kb.addEventListener('keydown', (e) => { const d = (e.key === 'ArrowUp' || e.key === 'ArrowRight') ? 1 : (e.key === 'ArrowDown' || e.key === 'ArrowLeft') ? -1 : 0; if (d) { e.preventDefault(); e.stopPropagation(); apply(cur() + d * (disc ? 1 / (n - 1) : 0.025)); } });
+    kb.title = 'Ziehen oder Mausrad · Umschalt = fein · Doppelklick = Standard';
+    c.sync(); return reg(c);
+  }
+  // Zeilen der Karten
+  function rowSeg(label, opts, get, set, def) {
+    const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const sg = h('div', 'rseg'); r.appendChild(sg);
+    const bs = opts.map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { set(v); c.sync(); }; sg.appendChild(b); return [v, b]; });
+    const c = { el: r, sync() { const v = get(); bs.forEach(([x, b]) => b.classList.toggle('on', x === v)); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
+    c.sync(); return reg(c);
+  }
+  function rowSel(label, opts, get, set, def) {
+    const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const s = h('select'); s.setAttribute('aria-label', label); r.appendChild(s);
+    let sig = '';
+    const fill = (list) => { const ns = JSON.stringify(list); if (ns === sig) return; sig = ns; s.innerHTML = ''; list.forEach(([v, t]) => { const op = h('option', '', t); op.value = String(v); s.appendChild(op); }); };
+    fill(typeof opts === 'function' ? opts() : opts);
+    s.onchange = () => { const raw = s.value; const list = typeof opts === 'function' ? opts() : opts; const it = list.find(x => String(x[0]) === raw); set(it ? it[0] : raw); c.sync(); };
+    const c = { el: r, sel: s, sync() { if (typeof opts === 'function') fill(opts()); s.value = String(get()); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
+    c.sync(); return reg(c);
+  }
+  function rowVal(label, getText) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const v = h('span', 'rv'); r.appendChild(v); const c = { el: r, sync() { v.textContent = getText(); } }; c.sync(); return reg(c); }
+  function rowBtn(label, text, onclick) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const b = h('button', 'btn', text); b.type = 'button'; b.onclick = onclick; r.appendChild(b); return { el: r, btn: b }; }
+  function sec(title, knobs, rows, note, opts = {}) {
+    const s = h('div', 'sec'); s.appendChild(h('span', 'st', title));
+    if (knobs && knobs.length) { const g = h('div', 'kgrid'); if (opts.kcols) g.style.gridTemplateColumns = `repeat(${opts.kcols}, minmax(0, 1fr))`; knobs.forEach(k => g.appendChild(k.el)); s.appendChild(g); }
+    if (rows && rows.length) { const g = h('div', 'rows'); if (opts.rcols) { g.style.display = 'grid'; g.style.gridTemplateColumns = `repeat(${opts.rcols}, minmax(0, 1fr))`; g.style.columnGap = '18px'; } rows.forEach(r => g.appendChild(r.el)); s.appendChild(g); }
+    if (note) { const n = h('span', 'note'); n.textContent = note; s.appendChild(n); }
+    if (opts.span) s.style.gridColumn = `span ${opts.span}`;
+    if (opts.id) s.id = opts.id;
+    return s;
+  }
+
+  // ---------------- Senden je Bereich ----------------
+  const sendDb = (man) => send({ type: 'drawbars', man, v: man === 0 ? S.db.upper : man === 1 ? S.db.lower : S.db.pedal });
+  const sendPerc = () => send({ type: 'perc', v: S.perc });
+  const sendChr = () => send({ type: 'character', v: S.chr });
+  const sendOrgan = () => send(Object.assign({ type: 'organDetail' }, S.organ));
+  const sendRotor = (r) => send(Object.assign({ type: 'rotor', r }, S.rotor[r]));
+  const sendAmp = () => send(Object.assign({ type: 'amp' }, S.amp));
+  const sendCab = () => send(Object.assign({ type: 'cabDetail' }, S.cab));
+  const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
+  const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
+
+  // ---------------- Registerkarten ----------------
+  const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
+  const CARD_INFO = {
+    orgel: ['Orgel', 'Tonradgenerator, Kontakte und Alterung', 3],
+    leslie: ['Leslie', 'Rotoren, Endstufe und Aufstellung', 5],
+    raum: ['Raum', 'Form, Material und Reflexionen', 3],
+    ausgabe: ['Ausgabe', 'Format, Kanäle und Pegel', 3],
+    midi: ['MIDI', 'Kanäle, Controller und PC-Tastatur', 3],
+    audio: ['Audio', 'Gerät, Treiber und Latenz', 3],
+  };
+  let tab = 'spielen';
+  const tabBtns = TABS.map(([id, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setTab(id); $('tabs').appendChild(b); return [id, b]; });
+  const cardPages = {};
+  function setTab(id) {
+    tab = id; tabBtns.forEach(([x, b]) => { b.classList.toggle('on', x === id); b.setAttribute('aria-current', x === id ? 'page' : 'false'); });
+    const info = CARD_INFO[id];
+    $('card').hidden = !info;
+    if (info) { $('cTitle').textContent = info[0]; $('cSub').textContent = info[1]; }
+    Object.entries(cardPages).forEach(([k, el]) => el.hidden = k !== id);
+    $('bigRoom').hidden = id !== 'raum';
+    if (id === 'raum') requestAnimationFrame(() => rooms[1].resize());
+    if (id === 'audio' || id === 'ausgabe' || id === 'midi') nativeInvoke('audioInfo');
+    syncAll();
+  }
+  $('cClose').onclick = () => setTab('spielen');
+  $('openRoom').onclick = () => setTab('raum');
+  $('cReset').onclick = () => { (cardCtl[tab] || []).forEach(c => c.reset && c.reset()); syncAll(); };
+  function page(id, build) {
+    const p = h('div', 'secs'); p.style.gridTemplateColumns = `repeat(${CARD_INFO[id][2]}, minmax(0, 1fr))`; p.hidden = true;
+    curCard = id; build(p); curCard = null;
+    $('cbody').appendChild(p); cardPages[id] = p;
+  }
+
+  // ---------------- Kopfleiste: Preset, Ausgabe, Pegel ----------------
+  const presetSel = $('preset');
+  (() => { const o0 = h('option', '', 'Eigene Einstellung'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0); PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; presetSel.appendChild(o); }); })();
+  presetSel.onchange = () => {
+    const p = PRESETS[+presetSel.value]; if (!p) return;
+    S.db.upper = p.u.slice(); S.db.lower = p.l.slice(); S.db.pedal = p.p.slice(); S.perc = Object.assign({}, p.perc); S.vib = p.vib; S.drive = p.drive;
+    [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive });
+    syncAll();
+  };
+  const markPreset = () => {
+    const i = PRESETS.findIndex(p => p.u.join() === S.db.upper.join() && p.l.join() === S.db.lower.join() && p.p.join() === S.db.pedal.join() && p.vib === S.vib && p.perc.on === S.perc.on);
+    presetSel.value = i >= 0 ? String(i) : '';
+  };
+  reg({ sync: markPreset });
+
+  const outBtns = [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']].map(([m, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { S.mode = m; applyMode(); syncAll(); }; $('outSeg').appendChild(b); return [m, b]; });
+  reg({ sync() { outBtns.forEach(([m, b]) => b.classList.toggle('on', m === S.mode)); } });
+
+  let meterEls = [], meterMode = null; const meterHold = new Array(8).fill(-120);
+  function buildMeters() {
+    meterMode = S.mode; $('meters').innerHTML = ''; meterEls = [];
+    MODES[S.mode].names.forEach(nm => { const m = h('div', 'meter', `<div class="t"><div class="f"></div></div><span>${nm}</span>`); $('meters').appendChild(m); meterEls.push(m.querySelector('.f')); });
+  }
+  function drawMeters() {
+    if (meterMode !== S.mode) buildMeters();
+    if (!S.meters) return;
+    MODES[S.mode].names.forEach((nm, i) => {
+      const phys = physCh(i); const db = S.meters[phys] !== undefined ? S.meters[phys] : -120;
+      meterHold[i] = Math.max(db, meterHold[i] - 0.6);
+      meterEls[i].style.height = (clamp((meterHold[i] + 60) / 60, 0, 1) * 100) + '%';
+      meterEls[i].classList.toggle('clip', meterHold[i] > -1);
+    });
+  }
+
+  // ---------------- Kanalzuordnung ----------------
+  function autoMap(mode) { const M = MODES[mode]; const out = []; for (let i = 0; i < M.ch; i++) out.push(i); return out; }
+  function curMap() { const m = S.chmap[S.mode]; return m && m.length === MODES[S.mode].ch ? m : autoMap(S.mode); }
+  function physCh(i) { return curMap()[i]; }
+  let curSpk = null;
+  function applyMode() {
+    const M = MODES[S.mode], map = curMap();
+    curSpk = Object.assign({}, M.spk);
+    if (S.mode === 's51') { curSpk.ch = [map[0], map[1], map[2], map[4], map[5]]; curSpk.lfe = map[3]; }
+    else curSpk.ch = map.slice();
+    send(Object.assign({ type: 'speakers' }, curSpk));
+    updateChanInfo();
+  }
+  function updateChanInfo() {
+    const M = MODES[S.mode], have = audioInfo.outputs || 0;
+    const need = Math.max(...curMap()) + 1;
+    warnText = have && have < need ? `Das Audiogerät hat nur ${have} aktive Ausgänge – für ${S.mode === 's51' ? '5.1' : S.mode === 'quad' ? 'Quad' : 'Stereo'} sind ${need} nötig (Karte Audio → Audio-Einstellungen).` : '';
+  }
+  const outName = (i) => { const n = audioInfo.channelNames && audioInfo.channelNames[i]; return `Ausgang ${i + 1}` + (n ? ` · ${n}` : ''); };
+
+  // ---------------- Leslie (Spielfläche) ----------------
+  (() => {
+    const top = $('slatsTop'), bot = $('slatsBot');
+    const mk = (g, y, hgt, op) => { const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('x', 12); r.setAttribute('y', y); r.setAttribute('width', 116); r.setAttribute('height', hgt); r.setAttribute('fill', 'url(#lslat)'); r.setAttribute('opacity', op); g.appendChild(r); };
+    [[21, .92], [28, .88], [35, .85], [42, .85], [49, .85], [56, .88], [63, .92]].forEach(([y, o]) => mk(top, y, 3.5, o)); mk(top, 70, 4, 1);
+    [[103, .92], [110, .86], [117, .82], [124, .82], [131, .82], [138, .82], [145, .82], [152, .86], [159, .9]].forEach(([y, o]) => mk(bot, y, 3.5, o)); mk(bot, 166, 4, 1);
+  })();
+  const speedBtns = [['slow', 'Choral'], ['stop', 'Stopp'], ['fast', 'Tremolo']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
+  reg({ sync() {
+    speedBtns.forEach(([v, b]) => { b.classList.toggle('on', v === S.leslie); if (v === 'stop') b.hidden = S.halfMoon !== 'stop'; });
+    $('speed').classList.toggle('two', S.halfMoon !== 'stop');
+    $('lesModel').textContent = 'Modell ' + ['122', '122 früh', '147'][S.amp.model];
+    $('lesHint').textContent = `Leertaste oder ${S.midi.leslieCC === 64 ? 'Sustain-Pedal' : S.midi.leslieCC === 1 ? 'Modwheel' : 'CC ' + S.midi.leslieCC} schaltet um`;
+  } });
+  function setLeslie(v) { if (v === 'stop' && S.halfMoon !== 'stop') v = 'slow'; S.leslie = v; send({ type: 'leslie', v }); syncAll(); }
+  const svgSet = (id, attrs) => { const e = $(id); for (const k in attrs) e.setAttribute(k, attrs[k]); };
+  function drawCabinet(hornA, drumA) {
+    const horn = (ang) => {
+      const sx = Math.sin(ang), depth = Math.cos(ang), x = 70 + 38 * sx, rx = Math.max(2.5, 11 * Math.abs(depth)), tipH = 9 + 2 * depth;
+      const nx = (x - (x > 70 ? rx * 0.3 : -rx * 0.3)).toFixed(1);
+      return { x: x.toFixed(1), rx: rx.toFixed(1), rxIn: (rx * 0.62).toFixed(1), neck: `M70 41.5 L${nx} ${(44 - tipH).toFixed(1)} L${nx} ${(44 + tipH).toFixed(1)} L70 46.5 Z`, front: depth >= 0 };
+    };
+    // Winkel relativ zur Gehäusefront (Front zeigt zum Betrachter)
+    const a = hornA - S.cabYaw, f = horn(a), b = horn(a + Math.PI);
+    const F = f.front ? f : b, B = f.front ? b : f;
+    svgSet('hfNeck', { d: F.neck }); svgSet('hfBell', { cx: F.x, rx: F.rx }); svgSet('hfIn', { cx: F.x, rx: F.rxIn });
+    svgSet('hbNeck', { d: B.neck }); svgSet('hbBell', { cx: B.x, rx: B.rx });
+    const d = drumA - S.cabYaw, dc = Math.cos(d), dxw = 70 + 40 * Math.sin(d), dw = Math.max(4, 30 * dc);
+    $('drumWin').style.display = dc > 0.05 ? '' : 'none';
+    svgSet('dwRect', { x: (dxw - dw / 2).toFixed(1), width: dw.toFixed(1) });
+    svgSet('dwBaffle', { d: `M${(dxw - dw / 2 + 2).toFixed(1)} 156 L${(dxw + dw / 2 - 2).toFixed(1)} 118` });
+    $('orbit').setAttribute('opacity', S.rot.hornHz > 3 ? 0.55 : 0.25);
+  }
+
+  // ---------------- Zugriegel ----------------
+  const FT = ["16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"];
+  const KIND = ['brown', 'brown', 'white', 'white', 'black', 'white', 'black', 'black', 'white'];
+  const LOOK = {
+    brown: { h: 'linear-gradient(180deg, #8a5030, #5e3018)', sh: '#6b3d22', n: '#f3dcc6' },
+    white: { h: 'linear-gradient(180deg, #faf6ee, #d6ccb9)', sh: '#d8cfbf', n: '#2a2218' },
+    black: { h: 'linear-gradient(180deg, #34302b, #121010)', sh: '#2a2622', n: '#e8dfcf' },
+    pedal: { h: 'linear-gradient(180deg, #a05a2c, #6a3416)', sh: '#7a4422', n: '#f3dcc6' },
+    muted: { h: 'linear-gradient(180deg, #5a554e, #3a3631)', sh: '#3a3530', n: '#a8a092' },
+  };
+  function dbGroup(name, key, man, fts, kinds, presets) {
+    const g = h('div', 'dbg'); const hd = h('div', 'dbgh'); hd.appendChild(h('span', '', name)); g.appendChild(hd);
+    let psel = null;
+    if (presets) {
+      psel = h('select'); psel.setAttribute('aria-label', 'Register ' + name);
+      const o0 = h('option', '', '–'); o0.value = ''; o0.disabled = true; psel.appendChild(o0);
+      presets.forEach(([n], i) => { const o = h('option', '', n); o.value = i; psel.appendChild(o); });
+      psel.onchange = () => { const p = presets[+psel.value]; if (!p) return; S.db[key] = p[1].slice(); sendDb(man); syncAll(); };
+      hd.appendChild(psel);
+    }
+    const bars = h('div', 'dbbars'); g.appendChild(bars);
+    const els = fts.map((ft, i) => {
+      const c = h('div', 'dbc'); c.appendChild(h('span', 'ft', ft));
+      const t = h('button', 'dbt', '<span class="sh"></span><span class="hd"></span>'); t.type = 'button'; c.appendChild(t); bars.appendChild(c);
+      const setV = (v) => { v = clamp(v, 0, 8); if (v !== S.db[key][i]) { S.db[key][i] = v; sendDb(man); syncAll(); } };
+      const fromY = (y) => { const r = t.getBoundingClientRect(); return Math.round(((y - r.top) / SCALE - 21) / 18); };
+      let drag = false;
+      t.addEventListener('pointerdown', (e) => { t.setPointerCapture(e.pointerId); drag = true; setV(fromY(e.clientY)); });
+      t.addEventListener('pointermove', (e) => { if (drag) setV(fromY(e.clientY)); });
+      t.addEventListener('pointerup', () => drag = false); t.addEventListener('pointercancel', () => drag = false);
+      t.addEventListener('wheel', (e) => { e.preventDefault(); setV(S.db[key][i] + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+      t.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setV(S.db[key][i] + 1); } else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setV(S.db[key][i] - 1); } });
+      return { t, sh: t.querySelector('.sh'), hd: t.querySelector('.hd'), ft, kind: kinds[i] };
+    });
+    reg({ sync() {
+      els.forEach((e, i) => {
+        const v = S.db[key][i], muted = man === 0 && i === 8 && S.perc.on, lk = LOOK[muted ? 'muted' : e.kind], shaft = 6 + v * 18;
+        e.sh.style.height = shaft + 'px'; e.sh.style.background = lk.sh;
+        e.hd.style.top = (shaft - 2) + 'px'; e.hd.style.background = lk.h; e.hd.style.color = lk.n; e.hd.textContent = v;
+        e.t.setAttribute('aria-label', `${name} ${e.ft} Zugriegel ${v}` + (muted ? ', stumm bei Percussion' : ''));
+        e.t.title = muted ? "1' ist bei eingeschalteter Percussion stumm (wie beim Original)" : `${e.ft}: ziehen oder Mausrad`;
+      });
+      if (psel) { const i = presets.findIndex(p => p[1].join() === S.db[key].join()); psel.value = i >= 0 ? String(i) : ''; }
+    } });
+    $('dbgroups').appendChild(g);
+  }
+  dbGroup('Obermanual', 'upper', 0, FT, KIND, UPPER_PRESETS);
+  dbGroup('Pedal', 'pedal', 2, ["16'", "8'"], ['pedal', 'pedal'], null);
+  dbGroup('Untermanual', 'lower', 1, FT, KIND, LOWER_PRESETS);
+
+  // Frontknöpfe und Wippen
+  const fk = $('frontKnobs');
+  fk.appendChild(knob({ label: 'Vibrato', opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
+  fk.appendChild(knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Lautst.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
+  const TB = [['on', 'PERC\nAN', 'PERC\nAUS', 'Percussion'], ['soft', 'PERC\nLEISE', 'PERC\nNORM', 'Percussion-Lautstärke'], ['fast', 'PERC\nKURZ', 'PERC\nLANG', 'Percussion-Abklingzeit'],
+    ['third', 'PERC\n3RD', 'PERC\n2ND', 'Percussion-Harmonische'], ['vibU', 'VIB\nOBER', 'VIB\nOBER', 'Vibrato Obermanual'], ['vibL', 'VIB\nUNTER', 'VIB\nUNTER', 'Vibrato Untermanual']];
+  TB.forEach(([k, on, off, aria]) => {
+    const b = h('button', 'tablet', '<span></span>'); b.type = 'button'; b.setAttribute('aria-label', aria); b.title = aria;
+    b.onclick = () => { S.perc[k] = !S.perc[k]; sendPerc(); syncAll(); };
+    $('tablets').appendChild(b);
+    reg({ sync() { const v = !!S.perc[k]; b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); b.firstChild.textContent = v ? on : off; } });
+  });
+
+  // ---------------- Karte Orgel ----------------
+  page('orgel', (p) => {
+    const condK = (id, label, def) => knob({ label, min: 0, max: 1, def, fmt: pct, get: () => S.chr[id], set: v => {
+      S.chr[id] = v;
+      if (id === 'cond') { S.chr.leak = v; S.chr.contact = v; S.chr.motor = Math.min(1, v * 0.8 + 0.1); }
+      sendChr(); syncAll();
+    } });
+    p.appendChild(sec('Charakter', [condK('cond', 'Zustand', 0.5), condK('leak', 'Übersprechen', 0.5), condK('contact', 'Kontakte', 0.5), condK('motor', 'Motor', 0.4)], [],
+      '„Zustand“ zieht die anderen drei mit: von fabrikneu bis 40 Jahre Tour.'));
+    p.appendChild(sec('Generator', [], [
+      rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
+      rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
+      rowSeg('Tiefe Räder', [[true, 'komplex'], [false, 'Sinus']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
+      rowVal('Tonräder', () => '91 · Zahnradübersetzungen wie im Original'),
+    ], 'Die Sammelschiene lässt viele gleichzeitige Töne etwas einsacken – wie bei der echten Matching-Transformer-Last.'));
+    p.appendChild(sec('Percussion · Vibrato · Click', [
+      knob({ label: 'Key-Click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
+      knob({ label: 'Perc-Pegel', min: 0, max: 1.5, def: 1, fmt: pct, get: () => S.organ.percLevel, set: v => { S.organ.percLevel = v; sendOrgan(); } }),
+      knob({ label: 'Abkl. kurz', min: 0.1, max: 0.6, def: 0.2, step: 0.01, fmt: v => de(v, 2) + ' s', get: () => S.organ.percShort, set: v => { S.organ.percShort = v; sendOrgan(); } }),
+      knob({ label: 'Abkl. lang', min: 0.5, max: 2.5, def: 1.0, step: 0.05, fmt: v => de(v, 1) + ' s', get: () => S.organ.percLong, set: v => { S.organ.percLong = v; sendOrgan(); } }),
+    ], [rowSeg('Vibrato', VIB, () => S.vib, v => { S.vib = v; send({ type: 'vib', v }); syncAll(); }, 'c3')]));
+  });
+
+  // ---------------- Karte Leslie ----------------
+  const rpmFmt = (v) => Math.round(v * 60) + ' U/min';
+  const secFmt = (v) => de(v, 1) + ' s';
+  function cabDeg() { let d = Math.round((S.cabYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+  function setCabYaw(rad, jump) { S.cabYaw = rad; send({ type: 'cabYaw', v: rad, jump: !!jump }); syncAll(); }
+  page('leslie', (p) => {
+    const rk = (r, k, label, min, max, def, fmt, log) => knob({ label, min, max, def, fmt, log, get: () => S.rotor[r][k], set: v => { S.rotor[r][k] = v; sendRotor(r); } });
+    p.appendChild(sec('Horn', [rk(0, 'slow', 'Langsam', 0.5, 1.2, 0.75, rpmFmt), rk(0, 'fast', 'Schnell', 5.5, 7.6, 6.8, rpmFmt), rk(0, 'up', 'Hochlauf', 0.3, 3, 0.8, secFmt, true), rk(0, 'down', 'Auslauf', 0.5, 4, 1.4, secFmt, true)], [],
+      'Das leichte Horn ist in unter einer Sekunde auf Tempo.'));
+    p.appendChild(sec('Trommel', [rk(1, 'slow', 'Langsam', 0.4, 1.0, 0.62, rpmFmt), rk(1, 'fast', 'Schnell', 4.5, 6.5, 5.7, rpmFmt), rk(1, 'up', 'Hochlauf', 2, 8, 4.5, secFmt, true), rk(1, 'down', 'Auslauf', 2, 10, 5.5, secFmt, true)],
+      [rowSeg('Bremse', [[true, 'an'], [false, 'aus']], () => S.brake, v => { S.brake = v; send({ type: 'brake', v }); }, true)]));
+    p.appendChild(sec('Endstufe', [
+      knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }),
+      knob({ label: 'Netzteil-Sag', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.amp.sag, set: v => { S.amp.sag = v; sendAmp(); } }),
+    ], [
+      rowSel('Modell', AMP_MODELS, () => S.amp.model, v => { S.amp.model = +v; sendAmp(); syncAll(); }, 0),
+      rowSeg('Qualität', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); }, 1),
+      rowVal('Anode / Kath.', () => ampText),
+    ], 'Eco: Kennlinie. HQ und Ultra rechnen Röhren und Ausgangsübertrager als Schaltung (Glow/Iron aus Amberwave).'));
+    p.appendChild(sec('Gehäuse · Aufstellung', [
+      knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
+      knob({ label: 'Hornfach', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornfach, set: v => { S.cab.hornfach = v; sendCab(); } }),
+      knob({ label: 'Unrund', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
+      knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° Front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
+    ], [
+      rowBtn('Schnell drehen', 'Front zum Hörer', () => setCabYaw(Math.atan2(S.lis.y - S.les.y, S.lis.x - S.les.x))),
+      rowBtn('', 'Rücken zur Wand', () => { const R = S.room, d = [[S.les.x, Math.PI], [R.Lx - S.les.x, 0], [S.les.y, -Math.PI / 2], [R.Ly - S.les.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
+    ]));
+    p.appendChild(sec('Steuerung', [], [
+      rowSel('Umschalten mit', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSeg('Halbmond', [['two', '2 Stufen'], ['stop', 'mit Stopp']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.leslie === 'stop') setLeslie('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
+    ], 'Leertaste schaltet immer zwischen Choral und Tremolo. Das Leslie lässt sich im Grundriss auch mit dem Mausrad drehen.'));
+  });
+
+  // ---------------- Karte Raum ----------------
+  page('raum', (p) => {
+    const m = (v) => de(v, 1) + ' m';
+    const rk = (id, label, min, max, def, fmt) => knob({ label, min, max, def, step: id === 'absorb' || id === 'reverb' ? 0.01 : 0.1, fmt, get: () => S.room[id], set: v => { S.room[id] = v; clampPos(); send({ type: 'room', v: { [id]: v } }); sendPos(); } });
+    p.appendChild(sec('Maße', [rk('Lx', 'Breite', 3, 30, 6, m), rk('Ly', 'Länge', 3, 40, 8, m), rk('Lz', 'Höhe', 2.2, 15, 2.8, m), rk('reverb', 'Nachhall', 0, 2, 1, pct)],
+      [rowSeg('Form', [['quader', 'Quader'], ['zelt', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'quader')], '', { id: 'secBox' }));
+    p.appendChild(sec('Oberflächen · Hörer', [
+      rk('absorb', 'Dämpfung', 0.05, 0.8, 0.3, pct),
+      knob({ label: 'Blickricht.', min: -180, max: 180, step: 1, def: 0, fmt: v => v + '°', get: () => yawDeg(), set: v => setYaw(Math.PI / 2 + v * Math.PI / 180) }),
+    ], [
+      rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'holz'),
+      rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.les.y - S.lis.y, S.les.x - S.lis.x))),
+    ], '', { id: 'secSurf' }));
+    // Zelt
+    const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; applyTent(false); } });
+    p.appendChild(sec('Zirkuszelt', [
+      tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('kup', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
+      tk('hm', 'Kranzhöhe', 5, 16, 8.5, m, 0.1), tk('hb', 'Kranzband', 0.3, 3, 1.3, m, 0.1), tk('tip', 'Spitze', 0.5, 8, 3.5, m, 0.1), tk('hw', 'Wandhöhe', 2.2, 5, 4, m, 0.1),
+      tk('sagp', 'Durchhang', 0, 1, 0.45, pct, 0.01), tk('man', 'Manege-Ø', 8, 18, 13, m, 0.5), tk('aud', 'Publikum', 0, 1, 0.8, pct, 0.01),
+    ], [
+      rowSel('Untergrund', [['wiese', 'Wiese'], ['schotter', 'Schotter / Kies'], ['sandplatz', 'Sandplatz'], ['asphalt', 'Asphalt'], ['beton', 'Betonplatz'], ['pflaster', 'Pflaster'], ['holzboden', 'Holzboden'], ['schnee', 'Schnee']],
+        () => S.tent.ground, v => { S.tent.ground = v; applyTent(false); }, 'wiese'),
+      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['untergrund', 'wie Untergrund']], () => S.tent.manege, v => { S.tent.manege = v; applyTent(false); }, 'sand'),
+      rowSeg('Form', [['quader', 'Quader'], ['zelt', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'quader'),
+      rowVal('Strahlen', () => tInfoText),
+    ], '', { id: 'secTent', span: 2, kcols: 6, rcols: 2 }));
+    p.appendChild(sec('Berechnung · Vorlagen', [], [
+      rowSeg('Reflexionen', [1, 2, 3, 4, 5].map(v => [v, String(v)]), () => S.room.order, v => { S.room.order = v; send({ type: 'room', v: { order: v } }); scheduleTrace(); }, 2),
+      rowSel('Raum laden', () => [['', matchRoom() !== null ? '–' : 'Eigener Raum'], ...ROOMS.map((r, i) => [i, r.n])], () => { const i = matchRoom(); return i === null ? '' : i; }, v => { if (v !== '') loadRoom(+v); }),
+      rowVal('Rechenlast', () => cpuText),
+    ], 'Höhere Ordnung = dichtere frühe Reflexionen, kostet Rechenzeit.'));
+  });
+  reg({ sync() { const z = S.room.shape === 'zelt'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
+
+  // ---------------- Karte Ausgabe ----------------
+  page('ausgabe', (p) => {
+    p.appendChild(sec('Format', [
+      knob({ label: 'LFE', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.lfe, set: v => { S.lfe = v; send({ type: 'lfe', v }); } }),
+      knob({ label: 'LFE-Weiche', min: 60, max: 160, step: 5, def: 100, fmt: v => v + ' Hz', get: () => S.out.lfeHz, set: v => { S.out.lfeHz = v; sendOut(); } }),
+      knob({ label: 'Ausgang', min: -24, max: 6, step: 0.5, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + de(Math.abs(v), 1) + ' dB', get: () => S.out.masterDb, set: v => { S.out.masterDb = v; sendOut(); } }),
+    ], [rowSeg('Ausgabe', [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']], () => S.mode, v => { S.mode = v; applyMode(); syncAll(); }, 'stereo')],
+      'LFE und Weiche wirken nur bei 5.1.'));
+    // Kanalzuordnung: Zeilen für bis zu 6 Kanäle, sichtbare Anzahl je Format
+    const mapRows = [0, 1, 2, 3, 4, 5].map(i => {
+      const r = rowSel('Kanal ' + (i + 1), () => { const n = Math.max(audioInfo.outputs || 0, 8); return Array.from({ length: n }, (_, k) => [k, outName(k)]); },
+        () => curMap()[i] ?? i, v => { const m = curMap().slice(); m[i] = +v; S.chmap[S.mode] = m; applyMode(); syncAll(); });
+      return r;
+    });
+    const s2 = sec('Kanalzuordnung', [], [...mapRows, rowBtn('', 'Automatisch (1, 2, 3 …)', () => { S.chmap[S.mode] = null; applyMode(); syncAll(); })]);
+    p.appendChild(s2);
+    reg({ sync() { const M = MODES[S.mode]; mapRows.forEach((r, i) => { r.el.hidden = i >= M.ch; r.el.style.display = i >= M.ch ? 'none' : ''; r.el.querySelector('.rl').textContent = M.long[i] || ''; }); }, reset() { S.chmap = { stereo: null, quad: null, s51: null }; applyMode(); } });
+    const testRow = rowBtn('Kanaltest', 'Alle Kanäle anpiepen', () => chanTest(testRow.btn));
+    p.appendChild(sec('Prüfen', [], [testRow, rowVal('Gerät', () => audioInfo.device ? `${audioInfo.device}, ${audioInfo.outputs} Ausgänge` : '–'), rowVal('Hinweis', () => warnText || 'alles in Ordnung')],
+      'Bei einer Quelle direkt vor dir sollten die hinteren Kanäle deutlich leiser sein als die vorderen.'));
+  });
+  let testTimers = [];
+  function chanTest(btn) {
+    testTimers.forEach(clearTimeout); testTimers = [];
+    const M = MODES[S.mode], n = M.ch;
+    M.long.forEach((name, i) => testTimers.push(setTimeout(() => { const phys = physCh(i); btn.textContent = `${i + 1}/${n}: ${name} → ${phys + 1}`; btn.classList.add('on'); nativeInvoke('chantest', phys); }, i * 750)));
+    testTimers.push(setTimeout(() => { btn.textContent = 'Alle Kanäle anpiepen'; btn.classList.remove('on'); }, n * 750));
+  }
+
+  // ---------------- Karte MIDI ----------------
+  page('midi', (p) => {
+    const chOpts = (omni) => [[0, omni ? 'Omni (alle)' : 'aus'], ...Array.from({ length: 16 }, (_, i) => [i + 1, 'Kanal ' + (i + 1)])];
+    const chRow = (label, k, def, omni) => rowSel(label, chOpts(omni), () => S.midi[k], v => { S.midi[k] = +v; sendMidi(); syncAll(); }, def);
+    p.appendChild(sec('Kanäle', [], [chRow('Obermanual', 'upper', 1, true), chRow('Untermanual', 'lower', 2, false), chRow('Pedal', 'pedal', 3, false)],
+      'Ober auf „Omni“: alles, was nicht auf dem Unter- oder Pedalkanal kommt, spielt oben.'));
+    p.appendChild(sec('Controller', [], [
+      rowSel('Leslie', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSel('Schweller', [[11, 'CC 11 Expression'], [7, 'CC 7 Volume'], [4, 'CC 4 Fußcontroller']], () => S.midi.swellCC, v => { S.midi.swellCC = +v; sendMidi(); syncAll(); }, 11),
+      rowVal('Geräte', () => (audioInfo.midiDevices && audioInfo.midiDevices.length) ? audioInfo.midiDevices.join(', ') : 'keins gefunden'),
+      rowBtn('', 'MIDI-Eingänge …', () => nativeInvoke('audioSettings')),
+    ], 'Neu angesteckte MIDI-Geräte werden automatisch eingeschaltet.'));
+    p.appendChild(sec('PC-Tastatur', [], [
+      rowSeg('Spielt', [[0, 'Ober'], [1, 'Unter'], [2, 'Pedal']], () => S.pcMan, v => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }, 0),
+      rowVal('Oktave', () => (S.octave > 0 ? '+' : '') + S.octave),
+      rowVal('Tasten', () => 'Y–M und Q–P, Halbtöne darüber'),
+    ], 'Leertaste: Leslie umschalten · Esc: Panik.'));
+  });
+
+  // ---------------- Karte Audio ----------------
+  page('audio', (p) => {
+    p.appendChild(sec('Gerät', [], [
+      rowVal('Treiber', () => audioInfo.type || '–'), rowVal('Gerät', () => audioInfo.device || '–'),
+      rowBtn('', 'Audio-Einstellungen …', () => nativeInvoke('audioSettings')),
+    ], 'Treiber (ASIO, Windows Audio), Gerät, Abtastrate, Puffer und Ausgänge stellst du im Audio-Dialog ein; Wheelhouse merkt sie sich.'));
+    p.appendChild(sec('Puffer', [], [
+      rowVal('Abtastrate', () => audioInfo.sampleRate ? de(audioInfo.sampleRate / 1000, 1) + ' kHz' : '–'),
+      rowVal('Puffergröße', () => audioInfo.bufferSize ? audioInfo.bufferSize + ' Samples' : '–'),
+      rowVal('Latenz', () => audioInfo.bufferSize ? de(audioInfo.bufferSize / audioInfo.sampleRate * 1000 + (audioInfo.latencyMs || 0), 1) + ' ms Ausgang' : '–'),
+    ]));
+    p.appendChild(sec('Ausgänge · Last', [], [
+      rowVal('Aktiv', () => audioInfo.outputs ? `${audioInfo.outputs} Ausgänge` : '–'),
+      rowVal('Kanäle', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
+      rowVal('Rechenlast', () => cpuText),
+      rowSeg('Endstufe', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); syncAll(); }),
+    ], 'Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
+  });
+
+  // ---------------- Raumvorlagen ----------------
+  function matchRoom() {
+    if (S.room.shape === 'zelt') return ROOMS.findIndex(r => r.tent);
+    const i = ROOMS.findIndex(r => !r.tent && r.Lx === S.room.Lx && r.Ly === S.room.Ly && r.Lz === S.room.Lz && r.absorb === S.room.absorb && r.material === S.room.material && r.reverb === S.room.reverb);
+    return i >= 0 ? i : null;
+  }
+  function loadRoom(i) {
+    const r = ROOMS[i]; if (!r) return;
+    if (r.tent) { setShape('zelt'); return; }
+    if (S.room.shape !== 'quader') { S.room.shape = 'quader'; send({ type: 'room', v: { shape: 'quader', absBands: null } }); }
+    const fx = S.les.x / S.room.Lx, fy = S.les.y / S.room.Ly, gx = S.lis.x / S.room.Lx;
+    Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material });
+    S.les.x = fx * r.Lx; S.les.y = Math.min(r.Ly - 1, fy * r.Ly);
+    S.lis.x = gx * r.Lx; S.lis.y = Math.max(0.6, S.les.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
+    clampPos(); send({ type: 'room', v: S.room }); sendPos(true); syncAll();
+  }
+  const quick = ROOMS.map((r, i) => [r, i]).filter(([r]) => !r.noQuick);
+  const preBtns = quick.map(([r, i]) => { const b = h('button', '', r.s); b.type = 'button'; b.title = r.n; b.onclick = () => loadRoom(i); $('roomPre').appendChild(b); return [i, b]; });
+  reg({ sync() { const m = matchRoom(); preBtns.forEach(([i, b]) => b.classList.toggle('on', i === m)); } });
+
+  // ---------------- Zirkuszelt ----------------
+  let tracer = null, traceTimer = null, traceId = 0;
+  function tentGeo() {
+    const T = S.tent, R = T.W / 2, rK = Math.min(R - 1, T.kup / 2);
+    return { W: T.W, Ls: T.Ls, hw: T.hw, hK: T.hm, hb: T.hb, rK, hTip: T.hm + T.hb + T.tip, sag: 1 + T.sagp * 1.6, cx: S.room.Lx / 2, cy: S.room.Ly / 2,
+      rMan: T.man / 2, rT1: T.man / 2 + 1, rT2: Math.min(R - 0.5, T.man / 2 + 1 + Math.max(3, R - T.man / 2 - 2.5)), hT: 2.8 };
+  }
+  function tentPlanD(x, y) { const g = tentGeo(); const dx = Math.max(Math.abs(x - g.cx) - g.Ls / 2, 0); return Math.hypot(dx, y - g.cy); }
+  function setShape(shape) {
+    if (shape === S.room.shape) { syncAll(); return; }
+    S.room.shape = shape;
+    if (shape === 'zelt') applyTent(true);
+    else { const r = ROOMS[1]; Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); S.les = { x: 4.2, y: 6.3 }; S.lis.x = 2.6; S.lis.y = 2.4; clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); }
+    syncAll();
+  }
+  function applyTent(reposition) {
+    const T = S.tent, R = T.W / 2;
+    S.room.Lx = T.W + T.Ls; S.room.Ly = T.W; S.room.Lz = T.hm; S.room.material = 'zelt'; S.room.absorb = 0.5;
+    const area = Math.PI * R * R + T.W * T.Ls, perim = Math.PI * T.W + 2 * T.Ls, V = area * (T.hw + (T.hm - T.hw) * 0.42);
+    const g = tentGeo();
+    const GROUND = { wiese: [0.75, 0.5, 0.25], schotter: [0.8, 0.6, 0.45], sandplatz: [0.6, 0.45, 0.3], asphalt: [0.93, 0.9, 0.85], beton: [0.95, 0.93, 0.9], pflaster: [0.9, 0.85, 0.75], holzboden: [0.85, 0.8, 0.7], schnee: [0.5, 0.25, 0.1] };
+    const refl = { plane: [0.12, 0.45, 0.68], sand: [0.55, 0.45, 0.3], trib: [0.7, 0.6, 0.5].map((v, i) => v + ([0.3, 0.15, 0.08][i] - v) * T.aud), ground: GROUND[T.ground] || GROUND.wiese };
+    const aMan = Math.PI * g.rMan * g.rMan, aTrib = Math.PI * (g.rT2 * g.rT2 - g.rT1 * g.rT1), aGround = Math.max(0, area - aMan - aTrib), aPlane = area * 1.3 + perim * T.hw;
+    const manRefl = T.manege === 'untergrund' ? refl.ground : refl.sand;
+    const absB = [0, 1, 2].map(i => (aPlane * (1 - refl.plane[i]) + aMan * (1 - manRefl[i]) + aTrib * (1 - refl.trib[i]) + aGround * (1 - refl.ground[i])) / (aPlane + aMan + aTrib + aGround));
+    if (reposition) { S.les.x = S.room.Lx / 2; S.les.y = S.room.Ly / 2 + 2; S.lis.x = S.room.Lx / 2; S.lis.y = S.room.Ly / 2 - T.man / 2 - 2.5; S.lis.yaw = Math.PI / 2; }
+    clampPos();
+    send({ type: 'room', v: { shape: 'zelt', Lx: S.room.Lx, Ly: S.room.Ly, Lz: S.room.Lz, material: 'zelt', absorb: 0.5, tentV: V, tentS: aPlane + aMan + aTrib + aGround, absBands: absB } });
+    sendPos(!!reposition);
+    scheduleTrace();
+  }
+  function scheduleTrace() { if (S.room.shape !== 'zelt') return; clearTimeout(traceTimer); traceTimer = setTimeout(runTrace, 180); }
+  function runTrace() {
+    if (!tracer) {
+      const url = URL.createObjectURL(new Blob([$('tracer-src').textContent], { type: 'application/javascript' }));
+      tracer = new Worker(url);
+      tracer.onmessage = (e) => { const r = e.data; if (r.id !== traceId) return; send({ type: 'taps', taps: r.taps }); tInfoText = `${r.taps.length} Wege · ${r.ms.toFixed(0)} ms`; syncAll(); };
+    }
+    traceId++;
+    const caps = { 1: 10000, 2: 14000, 3: 18000, 4: 22000, 5: 28000 };
+    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.les.x, y: S.les.y, z: 0.8 }, rec: { x: S.lis.x, y: S.lis.y, z: 1.2 },
+      rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.aud, scatter: 0.15, ground: S.tent.ground, manege: S.tent.manege });
+    tInfoText = 'rechnet …';
+  }
+
+  // ---------------- Position und Blickrichtung ----------------
+  function yawDeg() { let d = Math.round((S.lis.yaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+  function setYaw(rad, jump) { S.lis.yaw = rad; sendPos(jump); syncAll(); }
+  function clampPos() {
+    const R = S.room, c = (v, hi) => clamp(v, 0.35, hi - 0.35);
+    S.les.x = c(S.les.x, R.Lx); S.les.y = c(S.les.y, R.Ly); S.lis.x = c(S.lis.x, R.Lx); S.lis.y = c(S.lis.y, R.Ly);
+    if (R.shape === 'zelt') {
+      const g = tentGeo();
+      for (const o of [S.les, S.lis]) {
+        const d = tentPlanD(o.x, o.y), lim = g.W / 2 - 0.6;
+        if (d > lim) { const ax = clamp(o.x - g.cx, -g.Ls / 2, g.Ls / 2) + g.cx, ay = g.cy; o.x = ax + (o.x - ax) * lim / d; o.y = ay + (o.y - ay) * lim / d; }
+      }
+    }
+  }
+  function sendPos(jump) { send({ type: 'pos', les: S.les, lis: S.lis, jump: !!jump }); if (S.room.shape === 'zelt') scheduleTrace(); }
+
+  // ---------------- Grundriss (klein auf der Spielfläche, groß in der Karte Raum) ----------------
+  function RoomView(cv, big) {
+    const g = cv.getContext('2d'); const view = { s: 1, ox: 0, oy: 0 }; let W = 0, H = 0;
+    const self = {
+      resize() { W = cv.clientWidth; H = cv.clientHeight; const k = SCALE * (window.devicePixelRatio || 1); cv.width = Math.max(1, Math.round(W * k)); cv.height = Math.max(1, Math.round(H * k)); g.setTransform(k, 0, 0, k, 0, 0); },
+      draw, view,
+    };
+    const W2C = (x, y) => [view.ox + x * view.s, view.oy + (S.room.Ly - y) * view.s];
+    const C2W = (px, py) => [(px - view.ox) / view.s, S.room.Ly - (py - view.oy) / view.s];
+    const local = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / SCALE, (e.clientY - r.top) / SCALE]; };
+    let drag = null;
+    cv.addEventListener('contextmenu', e => e.preventDefault());
+    cv.addEventListener('pointerdown', (e) => {
+      const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y);
+      const dl = Math.hypot(px - lx, py - ly), dh = Math.hypot(px - hx, py - hy);
+      if (e.button === 2) drag = 'rot'; else if (dh < 24 && dh <= dl) drag = 'lis'; else if (dl < 30) drag = 'les'; else drag = null;
+      if (drag) cv.setPointerCapture(e.pointerId);
+    });
+    cv.addEventListener('pointermove', (e) => {
+      const [px, py] = local(e);
+      if (!drag) { const [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
+      const [wx, wy] = C2W(px, py);
+      if (drag === 'rot') setYaw(Math.atan2(wy - S.lis.y, wx - S.lis.x));
+      else { const o = drag === 'les' ? S.les : S.lis; o.x = wx; o.y = wy; clampPos(); sendPos(); }
+    });
+    const up = () => { if (drag) syncAll(); drag = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
+      if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.lis.yaw - d);
+    }, { passive: false });
+
+    function drawTentSide(gt) {
+      const bw = 240, bh = 130, bx = W - bw - 10, by = (H - bh) / 2;
+      g.fillStyle = 'rgba(14,12,10,.9)'; g.strokeStyle = '#2e2620'; g.lineWidth = 1; g.beginPath(); g.roundRect(bx, by, bw, bh, 6); g.fill(); g.stroke();
+      const R = gt.W / 2, mastTop = gt.hK + gt.hb + 1.5, top = Math.max(gt.hTip, mastTop), sc = Math.min((bw - 24) / gt.W, (bh - 32) / top);
+      const X = (x) => bx + bw / 2 + x * sc, Y = (hh) => by + bh - 12 - hh * sc;
+      const profile = (dir) => { const pts = [[0, gt.hTip], [gt.rK, gt.hK + gt.hb], [gt.rK, gt.hK]]; for (let i = 1; i <= 6; i++) { const d = gt.rK + (R - gt.rK) * i / 6; pts.push([d, gt.hw + (gt.hK - gt.hw) * Math.pow((R - d) / (R - gt.rK), gt.sag)]); } pts.push([R, 0]); return pts.map(([d, hh]) => [X(dir * d), Y(hh)]); };
+      const pts = [...profile(-1).reverse(), ...profile(1)];
+      g.fillStyle = 'rgba(138,90,54,.25)'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+      g.strokeStyle = '#d9a86c'; g.lineWidth = 1.5; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+      g.strokeStyle = '#f2c879'; g.lineWidth = 2.5; for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rK), Y(gt.hK)); g.lineTo(X(dir * gt.rK), Y(gt.hK + gt.hb)); g.stroke(); }
+      g.strokeStyle = '#6b5a40'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(-R), Y(0)); g.lineTo(X(R), Y(0)); g.stroke();
+      g.fillStyle = 'rgba(120,95,70,.6)';
+      for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rT1), Y(0)); g.lineTo(X(dir * gt.rT1), Y(0.5)); g.lineTo(X(dir * gt.rT2), Y(0.5 + gt.hT)); g.lineTo(X(dir * gt.rT2), Y(0)); g.closePath(); g.fill(); }
+      g.fillStyle = '#5a4a2a'; g.fillRect(X(-gt.rMan), Y(0) - 2, 2 * gt.rMan * sc, 2);
+      g.strokeStyle = '#e8dcc4'; g.lineWidth = 2; const md = S.tent.mast / 2 * Math.SQRT2;
+      for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * md), Y(0)); g.lineTo(X(dir * md), Y(mastTop)); g.stroke(); }
+      const dl = Math.hypot(S.les.x - gt.cx, S.les.y - gt.cy), dh = Math.hypot(S.lis.x - gt.cx, S.lis.y - gt.cy);
+      g.fillStyle = '#f2c879'; g.fillRect(X(-dl) - 3, Y(1.1), 6, 1.1 * sc);
+      g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(X(dh), Y(1.5), 3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#8f8370'; g.font = '11px "Barlow Condensed", sans-serif';
+      g.fillText(`Schnitt · Kranz ${de(gt.hK)} m · Spitze ${de(gt.hTip)} m`, bx + 8, by + 14);
+    }
+
+    function draw(hornA, drumA) {
+      if (!W || !H) return;
+      const R = S.room, padT = big ? 30 : 12, padB = big ? 14 : 24, padX = big ? 18 : 14, side = big && R.shape === 'zelt' ? 250 : 0;
+      view.s = Math.min((W - side - 2 * padX) / R.Lx, (H - padT - padB) / R.Ly);
+      view.ox = (W - side - R.Lx * view.s) / 2; view.oy = padT + (H - padT - padB - R.Ly * view.s) / 2;
+      g.clearRect(0, 0, W, H);
+      const [x0, y0] = W2C(0, R.Ly), [x1, y1] = W2C(R.Lx, 0);
+      const step = R.Lx > 15 || R.Ly > 20 ? 5 : 1;
+      const grid = () => { g.strokeStyle = '#17221d'; g.lineWidth = 1; g.beginPath(); for (let x = step; x < R.Lx; x += step) { const [a] = W2C(x, 0); g.moveTo(a, y0); g.lineTo(a, y1); } for (let y = step; y < R.Ly; y += step) { const [, b] = W2C(0, y); g.moveTo(x0, b); g.lineTo(x1, b); } g.stroke(); };
+      if (R.shape === 'zelt') {
+        const gt = tentGeo(), rr = gt.W / 2 * view.s, [cx, cy] = W2C(gt.cx, gt.cy), hl = gt.Ls / 2 * view.s;
+        const stadium = (rad) => { g.beginPath(); g.moveTo(cx - hl, cy - rad); g.lineTo(cx + hl, cy - rad); g.arc(cx + hl, cy, rad, -Math.PI / 2, Math.PI / 2); g.lineTo(cx - hl, cy + rad); g.arc(cx - hl, cy, rad, Math.PI / 2, Math.PI * 1.5); g.closePath(); };
+        g.save(); stadium(rr); g.clip(); grid(); g.restore();
+        g.strokeStyle = '#8a5a36'; g.lineWidth = 2.5; stadium(rr); g.stroke();
+        g.fillStyle = `rgba(120,95,70,${0.18 + 0.3 * S.tent.aud})`; g.beginPath(); g.arc(cx, cy, gt.rT2 * view.s, 0, Math.PI * 2); g.arc(cx, cy, gt.rT1 * view.s, 0, Math.PI * 2, true); g.fill();
+        g.fillStyle = '#5a4a2a'; g.beginPath(); g.arc(cx, cy, gt.rMan * view.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#a0866a'; g.lineWidth = 1.5; g.stroke();
+        const hm2 = S.tent.mast / 2 * view.s;
+        g.setLineDash([3, 4]); g.strokeStyle = '#6a5a44'; g.lineWidth = 1; g.strokeRect(cx - hm2, cy - hm2, 2 * hm2, 2 * hm2); g.setLineDash([]);
+        g.fillStyle = '#e8dcc4'; g.strokeStyle = '#8a5a36'; g.lineWidth = 1.5;
+        for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.arc(cx + sx * hm2, cy + sy * hm2, big ? 5 : 3.5, 0, Math.PI * 2); g.fill(); g.stroke(); }
+        g.strokeStyle = '#8a7a60'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy, gt.rK * view.s, 0, Math.PI * 2); g.stroke();
+        if (big) drawTentSide(gt);
+      } else {
+        grid();
+        g.strokeStyle = '#6b5a40'; g.lineWidth = 2.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
+        // Schallwege: direkt + 1. Ordnung, mit Horn-Abstrahlung gewichtet
+        const L = S.les, Hh = S.lis;
+        const imgs = [[L.x, L.y], [-L.x, L.y], [2 * R.Lx - L.x, L.y], [L.x, -L.y], [L.x, 2 * R.Ly - L.y]];
+        g.lineCap = 'round';
+        imgs.forEach(([ix, iy], i) => {
+          const sx = (i === 1 || i === 2) ? -1 : 1, sy = (i === 3 || i === 4) ? -1 : 1;
+          const dx = sx * Math.cos(hornA), dy = sy * Math.sin(hornA), vx = Hh.x - ix, vy = Hh.y - iy, d = Math.hypot(vx, vy) || 1;
+          const u = 0.5 + 0.5 * (dx * vx + dy * vy) / d, w = 0.08 + 0.92 * u * u;
+          let pts = [[L.x, L.y], [Hh.x, Hh.y]];
+          if (i > 0) { let t; if (i === 1) t = (0 - ix) / (Hh.x - ix); else if (i === 2) t = (R.Lx - ix) / (Hh.x - ix); else if (i === 3) t = (0 - iy) / (Hh.y - iy); else t = (R.Ly - iy) / (Hh.y - iy); pts = [[L.x, L.y], [ix + vx * t, iy + vy * t], [Hh.x, Hh.y]]; }
+          g.strokeStyle = `rgba(242,163,58,${(i === 0 ? 0.25 : 0.08) + w * (i === 0 ? 0.6 : 0.4)})`; g.lineWidth = i === 0 ? 2.2 : 1.3; g.beginPath();
+          pts.forEach(([x, y], j) => { const [a, b] = W2C(x, y); j ? g.lineTo(a, b) : g.moveTo(a, b); }); g.stroke();
+        });
+      }
+      if (R.shape === 'zelt') { const [a1, b1] = W2C(S.les.x, S.les.y), [a2, b2] = W2C(S.lis.x, S.lis.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
+      // Leslie
+      const [lx, ly] = W2C(S.les.x, S.les.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
+      g.save(); g.translate(lx, ly); g.rotate(-S.cabYaw + Math.PI / 2);
+      const cw = cab, cd = cab * 0.72;
+      g.fillStyle = '#4a2e1c'; g.strokeStyle = '#a8743f'; g.lineWidth = 1.5; g.beginPath(); g.roundRect(-cw / 2, -cd / 2, cw, cd, 3); g.fill(); g.stroke();
+      g.strokeStyle = '#d9a86c'; g.lineWidth = 1; g.beginPath(); g.moveTo(-cw / 2 + 2, -cd / 2); g.lineTo(cw / 2 - 2, -cd / 2); g.stroke();
+      g.strokeStyle = '#1a0e06'; g.lineWidth = 3; g.beginPath(); g.moveTo(-cw / 2, cd / 2); g.lineTo(cw / 2, cd / 2); g.stroke();
+      g.restore();
+      const dr = cab * 0.3;
+      g.fillStyle = 'rgba(242,200,121,.35)'; g.beginPath(); g.moveTo(lx, ly); g.arc(lx, ly, dr, -drumA - 0.5, -drumA + 0.5); g.closePath(); g.fill();
+      const hl = cab * 0.62, hx2 = lx + Math.cos(hornA) * hl, hy2 = ly - Math.sin(hornA) * hl;
+      g.strokeStyle = '#f2c879'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(lx, ly); g.lineTo(hx2, hy2); g.stroke();
+      g.fillStyle = '#f2c879'; g.beginPath(); g.arc(hx2, hy2, 3.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(242,200,121,.3)'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - Math.cos(hornA) * hl * 0.7, ly + Math.sin(hornA) * hl * 0.7); g.stroke();
+      g.fillStyle = '#c9b89c'; g.font = '12px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Leslie', lx, ly + cab / 2 + 14); g.textAlign = 'left';
+      // Hörer + Lautsprecher
+      const [hx, hy] = W2C(S.lis.x, S.lis.y), yaw = S.lis.yaw;
+      MODES[S.mode].show.forEach((deg) => { const a = yaw + deg * Math.PI / 180, rr = big ? 30 : 24; g.fillStyle = '#7d715f'; g.beginPath(); g.arc(hx + Math.cos(a) * rr, hy - Math.sin(a) * rr, big ? 3.5 : 2.5, 0, Math.PI * 2); g.fill(); });
+      g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();
+      g.fillStyle = '#f2a33a'; [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 9, hy - Math.sin(yaw + o) * 9, 2.6, 0, Math.PI * 2); g.fill(); });
+      g.fillStyle = '#c9b89c'; g.fillText(`Du · ${de(Math.hypot(S.les.x - S.lis.x, S.les.y - S.lis.y))} m`, hx + 14, hy + 22);
+    }
+    return self;
+  }
+  const rooms = [RoomView($('roomS'), false), RoomView($('roomB'), true)];
+  function roomLine() {
+    const R = S.room;
+    const dims = R.shape === 'zelt' ? `Zirkuszelt Ø ${de(S.tent.W, 0)} m · Kranz ${de(S.tent.hm)} m` : `${de(R.Lx)} × ${de(R.Ly)} × ${de(R.Lz)} m · ${MAT_SHORT[R.material] || R.material}`;
+    return dims + (roomInfo ? ` · RT60 ${de(roomInfo.rt60[1])} s` : '');
+  }
+  reg({ sync() {
+    $('rinfoS').textContent = roomLine();
+    if (roomInfo) { $('stRt').textContent = roomInfo.rt60.map(x => de(x)).join(' / ') + ' s'; $('stRc').textContent = de(roomInfo.rc) + ' m'; $('stPaths').textContent = roomInfo.paths; }
+  } });
+
+  // ---------------- Manuale ----------------
+  const isBlack = (k) => [1, 3, 6, 8, 10].includes(((k % 12) + 12) % 12);
+  const keyEls = [[], [], []];
+  const active = [new Set(), new Set(), new Set()];
+  function buildManual(man) {
+    const kb = $('kbd' + man); let wi = 0;
+    for (let k = 0; k <= 60; k++) {
+      const el = h('div', isBlack(k) ? 'kk' : 'kw');
+      if (isBlack(k)) el.style.left = (wi * 40 - 12) + 'px';
+      else { el.style.left = (wi * 40) + 'px'; if (k % 12 === 0) el.textContent = 'C' + (k / 12 + 2); wi++; }
+      el.dataset.k = k; kb.appendChild(el); keyEls[man][k] = el;
+    }
+    attachGliss(kb, man, (el) => el.closest && el.closest('.kw, .kk'));
+  }
+  function attachGliss(container, man, pick) {
+    const ptr = new Map();
+    container.addEventListener('pointerdown', (e) => { const k = pick(e.target); if (!k) return; container.setPointerCapture(e.pointerId); const n = +k.dataset.k; ptr.set(e.pointerId, n); noteOn(n, man); e.preventDefault(); });
+    container.addEventListener('pointermove', (e) => {
+      if (!ptr.has(e.pointerId)) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY), k = el && pick(el), nk = k && container.contains(k) ? +k.dataset.k : -1, ok = ptr.get(e.pointerId);
+      if (nk !== ok) { if (ok >= 0) noteOff(ok, man); if (nk >= 0) noteOn(nk, man); ptr.set(e.pointerId, nk); }
+    });
+    const up = (e) => { if (ptr.has(e.pointerId)) { const k = ptr.get(e.pointerId); if (k >= 0) noteOff(k, man); ptr.delete(e.pointerId); } };
+    container.addEventListener('pointerup', up); container.addEventListener('pointercancel', up);
+  }
+  buildManual(0); buildManual(1);
+
+  // Pedal: 25 Holzbalken, Halbtöne erhöht und schwarz
+  (() => {
+    const NS = 'http://www.w3.org/2000/svg', gk = $('pedKeys');
+    const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const natX = (i) => 43 + i * 46; let ni = 0; const nat = [], sharp = [];
+    for (let p = 0; p <= 24; p++) {
+      if (isBlack(p)) { const cx = natX(ni) - 8; sharp.push([p, cx]); }
+      else { nat.push([p, natX(ni)]); ni++; }
+    }
+    nat.forEach(([p, x]) => {
+      const g = mk('g', { 'data-k': p, class: 'pk' });
+      g.appendChild(mk('rect', { x, y: 7, width: 30, height: 74, rx: 3, fill: 'url(#pedWood)', stroke: '#4a3820', 'stroke-width': 0.8, class: 'body' }));
+      g.appendChild(mk('rect', { x, y: 7, width: 30, height: 74, rx: 3, fill: 'url(#pedGrain)', 'pointer-events': 'none' }));
+      g.appendChild(mk('rect', { x, y: 81, width: 30, height: 7, rx: 2, fill: '#6e5636', class: 'face' }));
+      gk.appendChild(g); keyEls[2][p] = { g, nat: true, x };
+    });
+    sharp.forEach(([p, cx]) => {
+      const g = mk('g', { 'data-k': p, class: 'pk' });
+      g.appendChild(mk('rect', { x: cx - 9, y: 10, width: 24, height: 44, rx: 3, fill: '#000', opacity: 0.4, 'pointer-events': 'none' }));
+      g.appendChild(mk('rect', { x: cx - 11, y: 6, width: 22, height: 36, rx: 3, fill: 'url(#pedSharp)', stroke: '#000', 'stroke-width': 0.8, class: 'body' }));
+      g.appendChild(mk('rect', { x: cx - 11, y: 40, width: 22, height: 8, rx: 2, fill: '#4a423a', class: 'face' }));
+      gk.appendChild(g); keyEls[2][p] = { g, nat: false };
+    });
+    attachGliss($('pedSvg'), 2, (el) => el.closest && el.closest('.pk'));
+  })();
+  function keyEl(man, k, on) {
+    if (man < 2) { const e = keyEls[man][k]; if (e) e.classList.toggle('act', on); return; }
+    const e = keyEls[2][k]; if (!e) return;
+    const body = e.g.querySelector('.body'), face = e.g.querySelector('.face');
+    if (e.nat) { body.setAttribute('fill', on ? 'url(#pedOn)' : 'url(#pedWood)'); body.setAttribute('y', on ? 9 : 7); face.setAttribute('y', on ? 83 : 81); face.setAttribute('fill', on ? '#8a5a1c' : '#6e5636'); }
+    else { body.setAttribute('fill', on ? 'url(#pedSharpOn)' : 'url(#pedSharp)'); }
+  }
+  function noteOn(k, man) { const max = man === 2 ? 24 : 60; if (k < 0 || k > max || active[man].has(k)) return; active[man].add(k); send({ type: 'noteOn', key: k, man }); keyEl(man, k, true); }
+  function noteOff(k, man) { if (!active[man].has(k)) return; active[man].delete(k); send({ type: 'noteOff', key: k, man }); keyEl(man, k, false); }
+  function panic() { [0, 1, 2].forEach(m => [...active[m]].forEach(k => noteOff(k, m))); send({ type: 'panic' }); }
+  $('panic').onclick = panic;
+
+  // Schweller
+  (() => {
+    const sv = $('swellSvg'); let drag = false;
+    const setFrom = (e) => { const r = sv.getBoundingClientRect(); const v = clamp(1 - ((e.clientY - r.top) / r.height - 0.18) / 0.7, 0, 1); S.volume = +v.toFixed(3); send({ type: 'volume', v: S.volume }); syncAll(); };
+    sv.addEventListener('pointerdown', (e) => { sv.setPointerCapture(e.pointerId); drag = true; setFrom(e); });
+    sv.addEventListener('pointermove', (e) => { if (drag) setFrom(e); });
+    sv.addEventListener('pointerup', () => drag = false); sv.addEventListener('pointercancel', () => drag = false);
+    sv.addEventListener('wheel', (e) => { e.preventDefault(); S.volume = clamp(S.volume + (e.deltaY < 0 ? 0.03 : -0.03), 0, 1); send({ type: 'volume', v: S.volume }); syncAll(); }, { passive: false });
+  })();
+  const pcBtns = [[0, 'Ober'], [1, 'Unter'], [2, 'Pedal']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }; $('pcSeg').appendChild(b); return [v, b]; });
+  reg({ sync() {
+    $('swBar').style.width = (S.volume * 100) + '%';
+    const hh = 62 * S.volume; $('swFill').setAttribute('y', (80 - hh).toFixed(1)); $('swFill').setAttribute('height', hh.toFixed(1));
+    $('swellSvg').setAttribute('aria-valuenow', Math.round(S.volume * 100));
+    const ch = (v, omni) => v === 0 ? (omni ? 'Omni' : 'aus') : 'Kanal ' + v;
+    $('chanInfo').innerHTML = `Ober <span class="hi">${ch(S.midi.upper, true)}</span> · Unter <span class="hi">${ch(S.midi.lower)}</span> · Pedal <span class="hi">${ch(S.midi.pedal)}</span>`;
+    const md = audioInfo.midiDevices || [];
+    $('midiInfo').innerHTML = md.length ? `${md.slice(0, 2).map(n => n.replace(/[<>&]/g, '')).join(' · ')} <span class="hi">●</span>` : 'kein MIDI-Gerät';
+    $('octV').textContent = (S.octave > 0 ? '+' : '') + S.octave;
+    pcBtns.forEach(([v, b]) => b.classList.toggle('on', v === S.pcMan));
+  } });
+
+  // PC-Tastatur
+  const KEYMAP = {
+    KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14,
+    KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23, KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28,
+  };
+  const pcHeld = new Map();
+  function releasePc() { pcHeld.forEach(([k, m]) => noteOff(k, m)); pcHeld.clear(); }
+  window.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.repeat) { if (e.code === 'Space' || KEYMAP[e.code] !== undefined) e.preventDefault(); return; }
+    if (e.code === 'Space') { e.preventDefault(); setLeslie(S.leslie === 'fast' ? 'slow' : 'fast'); return; }
+    if (e.code === 'Escape') { panic(); if (tab !== 'spielen') setTab('spielen'); return; }
+    if (KEYMAP[e.code] !== undefined) {
+      e.preventDefault();
+      const m = S.pcMan, k = (m === 2 ? 0 : 12) + S.octave * 12 + KEYMAP[e.code];
+      pcHeld.set(e.code, [k, m]); noteOn(k, m);
+    }
+  });
+  window.addEventListener('keyup', (e) => { if (pcHeld.has(e.code)) { const [k, m] = pcHeld.get(e.code); noteOff(k, m); pcHeld.delete(e.code); } });
+  window.addEventListener('blur', releasePc);
+  const setOct = (d) => { releasePc(); S.octave = clamp(S.octave + d, -1, 2); syncAll(); if (ready) scheduleSave(); };
+  $('octDn').onclick = () => setOct(-1); $('octUp').onclick = () => setOct(1);
+
+  // ---------------- Alles schicken ----------------
+  function pushAll() {
+    if (S.room.shape === 'zelt') applyTent(false); else send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) });
+    send({ type: 'pos', les: S.les, lis: S.lis, jump: true });
+    [0, 1, 2].forEach(sendDb); sendPerc();
+    send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
+    send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi();
+    applyMode();
+  }
+
+  // ---------------- Ereignisse vom Programm ----------------
+  if (NATIVE) {
+    const B = window.__JUCE__.backend;
+    B.addEventListener('rot', (m) => {
+      Object.assign(S.rot, { horn: m.horn, drum: m.drum, hornHz: m.hornHz, drumHz: m.drumHz, t: performance.now() }); S.meters = m.meters;
+      if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + ' %'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
+      if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${de(m.vk)} V`;
+      if (tab !== 'spielen') { slowSync++; if (slowSync % 10 === 0) syncAll(); }
+    });
+    B.addEventListener('roomInfo', (m) => { roomInfo = m; syncAll(); });
+    B.addEventListener('audio', (m) => { audioInfo = Object.assign(audioInfo, m); updateChanInfo(); syncAll(); });
+    B.addEventListener('resend', () => pushAll());
+    B.addEventListener('midi', (m) => {
+      if (m.type === 'noteOn' || m.type === 'noteOff') {
+        const man = m.man | 0; if (man < 0) return;
+        if (m.type === 'noteOn') { active[man].add(m.key); keyEl(man, m.key, true); } else { active[man].delete(m.key); keyEl(man, m.key, false); }
+      } else if (m.type === 'leslie') { S.leslie = m.v; syncAll(); }
+      else if (m.type === 'volume') { S.volume = m.v; syncAll(); }
+    });
+  }
+
+  // ---------------- Animation ----------------
+  let lastRpm = '';
+  function frame() {
+    const now = performance.now(), dt = (now - S.rot.t) / 1000;
+    const hornA = S.rot.horn + S.rot.hornHz * 2 * Math.PI * dt, drumA = S.rot.drum + S.rot.drumHz * 2 * Math.PI * dt;
+    const rpm = Math.round(S.rot.hornHz * 60) + '|' + Math.round(S.rot.drumHz * 60);
+    if (rpm !== lastRpm) { lastRpm = rpm; $('hornRpm').textContent = Math.round(S.rot.hornHz * 60); $('drumRpm').textContent = Math.round(S.rot.drumHz * 60); }
+    drawCabinet(hornA, drumA);
+    if (tab === 'raum') rooms[1].draw(hornA, drumA); else rooms[0].draw(hornA, drumA);
+    drawMeters();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- Start ----------------
+  window.addEventListener('resize', fit);
+  async function start() {
+    if (NATIVE) {
+      try { const txt = await nativeInvoke('loadUi'); if (txt) deepMerge(S, JSON.parse(txt)); } catch (e) { console.warn('Gespeicherter Zustand nicht lesbar', e); }
+    }
+    if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';
+    fit(); setTab('spielen'); buildMeters();
+    pushAll(); ready = true;
+    nativeInvoke('audioInfo');
+    requestAnimationFrame(frame);
+  }
+  start();
+})();
+</script>
+</body>
+</html>

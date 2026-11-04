@@ -18,8 +18,8 @@ public:
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
             setResizable(true, true);
-            setResizeLimits(900, 600, 10000, 10000);
-            centreWithSize(1440, 1000);
+            setResizeLimits(960, 540, 10000, 10000);
+            centreWithSize(1600, 900);
             setVisible(true);
         }
         void closeButtonPressed() override { JUCEApplication::getInstance()->systemRequestedQuit(); }

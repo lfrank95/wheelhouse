@@ -1,6 +1,7 @@
-build/
-JUCE/
-packages/
-asiosdk*/
 *.f32
+JUCE/
+Resources/fonts/
+asiosdk*/
+build/
+packages/
 test_dsp

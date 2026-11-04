@@ -5,6 +5,8 @@ using namespace juce;
 
 static double numProp(const var& v, const char* name, double def) { auto x = v.getProperty(name, var()); return x.isVoid() ? def : (double) x; }
 static bool hasProp(const var& v, const char* name) { return v.hasProperty(name); }
+// Oberflächen-Zustand (Zugriegel, Raum, Leslie, MIDI-Kanäle …) zwischen zwei Starts
+static File uiStateFile() { return File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile("Wheelhouse").getChildFile("ui-state.json"); }
 
 MainComponent::MainComponent() {
     dsp = std::make_unique<leslie::LeslieRoomDSP>(48000);
@@ -24,6 +26,13 @@ MainComponent::MainComponent() {
         })
         .withNativeFunction("audioInfo", [this](const Array<var>&, WebBrowserComponent::NativeFunctionCompletion complete) {
             sendAudioInfo(); complete(var());
+        })
+        .withNativeFunction("saveUi", [](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
+            if (args.size() > 0) { auto f = uiStateFile(); f.getParentDirectory().createDirectory(); f.replaceWithText(args[0].toString()); }
+            complete(var());
+        })
+        .withNativeFunction("loadUi", [](const Array<var>&, WebBrowserComponent::NativeFunctionCompletion complete) {
+            auto f = uiStateFile(); complete(f.existsAsFile() ? var(f.loadFileAsString()) : var(""));
         })
         .withNativeFunction("chantest", [this](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
             if (args.size() > 0) { testChannel = (int) args[0]; testSamplesLeft = (int) (currentSampleRate * 0.5); testPhase = 0; }
@@ -109,14 +118,26 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
 
 void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) {
     var ev;
+    const int ch = m.getChannel();
+    // Zuordnung: Pedal und Untermanual über ihren Kanal, alles andere (oder Omni) aufs Obermanual
+    int man = 0;
+    if (ch == midiPedal.load()) man = 2;
+    else if (ch == midiLower.load()) man = 1;
+    else if (midiUpper.load() != 0 && ch != midiUpper.load()) man = -1;
+    auto noteEvent = [&](const char* type, int key) {
+        auto* o = new DynamicObject(); o->setProperty("type", type); o->setProperty("key", key); o->setProperty("man", man); ev = var(o);
+    };
     {
         std::lock_guard<std::mutex> lock(dspLock);
-        if (m.isNoteOn()) { dsp->noteOn(m.getNoteNumber() - 36); auto* o = new DynamicObject(); o->setProperty("type", "noteOn"); o->setProperty("key", m.getNoteNumber() - 36); ev = var(o); }
-        else if (m.isNoteOff()) { dsp->noteOff(m.getNoteNumber() - 36); auto* o = new DynamicObject(); o->setProperty("type", "noteOff"); o->setProperty("key", m.getNoteNumber() - 36); ev = var(o); }
+        if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
+            int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
+            if (m.isNoteOn()) { dsp->noteOn(key, man); noteEvent("noteOn", key); }
+            else { dsp->noteOff(key, man); noteEvent("noteOff", key); }
+        }
         else if (m.isController()) {
             int cc = m.getControllerNumber(), v = m.getControllerValue();
-            if (cc == 1 || cc == 64) { dsp->setLeslie(v >= 64 ? "fast" : "slow"); auto* o = new DynamicObject(); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); ev = var(o); }
-            else if (cc == 11) { dsp->setVolume(v / 127.0); auto* o = new DynamicObject(); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); ev = var(o); }
+            if (cc == leslieCC.load()) { dsp->setLeslie(v >= 64 ? "fast" : "slow"); auto* o = new DynamicObject(); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); ev = var(o); }
+            else if (cc == swellCC.load()) { dsp->setVolume(v / 127.0); auto* o = new DynamicObject(); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); ev = var(o); }
             else if (cc == 123) dsp->panic();
         }
     }
@@ -135,6 +156,8 @@ void MainComponent::timerCallback() {
     }
     Array<var> m; for (int c = 0; c < 8; c++) m.add(20.0 * std::log10(meterRms[(size_t) c].load() + 1e-6));
     o->setProperty("meters", m);
+    o->setProperty("cpu", deviceManager.getCpuUsage());
+    { std::lock_guard<std::mutex> lock(dspLock); o->setProperty("vb", dsp->ampPlate()); o->setProperty("vk", dsp->ampCathode()); }
     web->emitEventIfBrowserIsVisible("rot", var(o));
 }
 
@@ -150,6 +173,8 @@ void MainComponent::sendAudioInfo() {
     o->setProperty("latencyMs", dev ? dev->getOutputLatencyInSamples() * 1000.0 / jmax(1.0, dev->getCurrentSampleRate()) : 0.0);
     StringArray names; if (dev) { auto chans = dev->getOutputChannelNames(); auto active = dev->getActiveOutputChannels(); for (int i = 0; i < chans.size(); i++) if (active[i]) names.add(chans[i]); }
     Array<var> n; for (auto& s : names) n.add(s); o->setProperty("channelNames", n);
+    Array<var> md; for (auto& d : MidiInput::getAvailableDevices()) if (deviceManager.isMidiInputDeviceEnabled(d.identifier)) md.add(d.name);
+    o->setProperty("midiDevices", md);
     web->emitEventIfBrowserIsVisible("audio", var(o));
 }
 
@@ -182,11 +207,23 @@ void MainComponent::handleDspMessage(const var& m) {
     {
         std::lock_guard<std::mutex> lock(dspLock);
         auto& d = *dsp;
-        if (type == "noteOn") d.noteOn((int) m.getProperty("key", 0));
-        else if (type == "noteOff") d.noteOff((int) m.getProperty("key", 0));
+        const int man = (int) m.getProperty("man", 0);
+        if (type == "noteOn") d.noteOn((int) m.getProperty("key", 0), man);
+        else if (type == "noteOff") d.noteOff((int) m.getProperty("key", 0), man);
         else if (type == "panic") d.panic();
-        else if (type == "drawbars") { int v[9] = {0}; if (auto* a = m.getProperty("v", var()).getArray()) for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i]; d.setDrawbars(v); }
-        else if (type == "perc") { leslie::Perc p; auto v = m.getProperty("v", var()); p.on = (bool) v.getProperty("on", true); p.third = (bool) v.getProperty("third", true); p.fast = (bool) v.getProperty("fast", true); p.soft = (bool) v.getProperty("soft", false); d.setPerc(p); }
+        else if (type == "drawbars") { int v[9] = {0}; if (auto* a = m.getProperty("v", var()).getArray()) for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i]; d.setDrawbars(v, man); }
+        else if (type == "perc") {
+            leslie::Perc p; auto v = m.getProperty("v", var());
+            p.on = (bool) v.getProperty("on", true); p.third = (bool) v.getProperty("third", true); p.fast = (bool) v.getProperty("fast", true); p.soft = (bool) v.getProperty("soft", false);
+            d.setPerc(p); d.setVibRouting((bool) v.getProperty("vibU", true), (bool) v.getProperty("vibL", false));
+        }
+        else if (type == "amp") d.setAmp((int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5));
+        else if (type == "rotor") d.setRotor((int) numProp(m, "r", 0), numProp(m, "slow", 0.75), numProp(m, "fast", 6.8), numProp(m, "up", 0.8), numProp(m, "down", 1.4));
+        else if (type == "brake") d.setBrake((bool) m.getProperty("v", true));
+        else if (type == "cabDetail") d.setCabinetDetail(numProp(m, "hornfach", 0.45), numProp(m, "wobble", -1));
+        else if (type == "organDetail") d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
+        else if (type == "output") d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
+        else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); leslieCC = (int) numProp(m, "leslieCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
         else if (type == "vib") d.setVib(m.getProperty("v", "c3").toString().toStdString());
         else if (type == "drive") d.setDrive(numProp(m, "v", 0.35));
         else if (type == "click") d.setClick(numProp(m, "v", 0.5));
@@ -243,10 +280,16 @@ void MainComponent::handleDspMessage(const var& m) {
 }
 
 std::optional<WebBrowserComponent::Resource> MainComponent::getResource(const String& url) {
-    if (url == "/" || url == "/index.html") {
-        std::vector<std::byte> data((size_t) BinaryData::index_htmlSize);
-        std::memcpy(data.data(), BinaryData::index_html, (size_t) BinaryData::index_htmlSize);
-        return WebBrowserComponent::Resource { std::move(data), String("text/html") };
+    // Alles aus BinaryData: "/" = index.html, sonst Dateiname (z. B. /fonts/BarlowCondensed-SemiBold.ttf)
+    String file = url.upToFirstOccurrenceOf("?", false, false).fromLastOccurrenceOf("/", false, false);
+    if (file.isEmpty()) file = "index.html";
+    for (int i = 0; i < BinaryData::namedResourceListSize; i++) {
+        if (file != BinaryData::originalFilenames[i]) continue;
+        int size = 0; const char* p = BinaryData::getNamedResource(BinaryData::namedResourceList[i], size);
+        if (p == nullptr) return std::nullopt;
+        std::vector<std::byte> data((size_t) size); std::memcpy(data.data(), p, (size_t) size);
+        String mime = file.endsWith(".html") ? "text/html" : file.endsWith(".ttf") ? "font/ttf" : file.endsWith(".woff2") ? "font/woff2" : file.endsWith(".js") ? "text/javascript" : "application/octet-stream";
+        return WebBrowserComponent::Resource { std::move(data), mime };
     }
     return std::nullopt;
 }

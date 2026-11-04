@@ -31,15 +31,42 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
 
 ## Bedienung
 
-* **Audio-Einstellungen**: Gerätetyp (ASIO / Windows Audio), Gerät, Abtastrate, Puffergröße, aktive Ausgänge, MIDI-Eingänge.
-  Für Quad die ersten 4 Ausgänge aktivieren, für 5.1 die ersten 6 (Reihenfolge L, R, C, LFE, SL, SR).
-* Alle MIDI-Eingänge sind automatisch aktiv. Modwheel oder Sustain schaltet das Leslie, CC11 ist der Schweller.
-* Einstellungen liegen in `%APPDATA%\Wheelhouse\`.
+Das Fenster ist auf 1600 × 900 ausgelegt und skaliert mit. Oben die Registerkarten, darunter das Gehäuse
+mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Pedal mit 25 Tönen.
+
+* **Spielen**: 9 Zugriegel Ober, 2 Pedal (16′/8′), 9 Unter; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
+  Zugriegel und Knöpfe ziehen oder Mausrad, Umschalt = fein, Doppelklick = Standardwert.
+* **Orgel**: Zustand, Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
+* **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
+  Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Balance, Hornfach, Ausrichtung.
+* **Raum**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
+  Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
+* **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.
+* **MIDI**: Kanäle für Ober (oder Omni), Unter und Pedal, Controller für Leslie und Schweller. Alle MIDI-Eingänge sind aktiv.
+* **Audio**: Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
+* PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
+* Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
+
+## Endstufe
+
+`Source/LeslieAmp.h` rechnet die Leslie-Endstufe als Schaltung: 12AU7-Treiber, Gegentakt-Endstufe mit 2 × 6550,
+gemeinsamer Kathodenwiderstand, Ausgangsübertrager mit Kern-Hysterese, Netzteil mit Sag (beim 5U4 deutlich weicher).
+**HQ** löst die Röhren mit Newton-Iteration bei 2-fachem Oversampling, **Ultra** zusätzlich mit dynamischer Last
+(Streuinduktivität, Trommelresonanz), Drossel-Netzteil, Wirbelströmen und 4-fachem Oversampling. **Eco** ist eine
+statische Gegentakt-Kennlinie.
 
 ## Dateien
 
 * `Source/LeslieRoomDSP.h` – Klangkern (Orgel, Leslie, Raum, Hall), ohne JUCE-Abhängigkeit
+* `Source/LeslieAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
-* `Resources/index.html` – Oberfläche
-* `Source/test_dsp.cpp` – Vergleichstest gegen die JavaScript-Version (`g++ -O2 -std=c++17 Source/test_dsp.cpp`)
-* `build_native.js` – erzeugt `Resources/index.html` aus der Browser-Vorlage
+* `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
+* `tests/` – Messungen für Endstufe und Klangkern (`g++ -O2 -std=c++17 -ISource tests/dsp_test.cpp`)
+
+## Lizenz
+
+Wheelhouse steht unter der **GNU Affero General Public License v3.0** (`LICENSE`).
+Die Röhren- und Übertragermodelle der Endstufe beruhen auf `dsp/glow.c` und `dsp/iron.c` aus
+[Amberwave](https://github.com/lfrank95/amberwave) (AGPL-3.0, © The Amberwave contributors).
+JUCE wird unter der AGPL-Option genutzt. Schriften: Barlow Condensed (SIL OFL 1.1), Yellowtail (Apache 2.0) –
+der Build-Workflow lädt sie aus dem Google-Fonts-Repository.

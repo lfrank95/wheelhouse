@@ -9,6 +9,7 @@
 #include <array>
 #include <string>
 #include <algorithm>
+#include "LeslieAmp.h"
 
 namespace leslie {
 
@@ -64,16 +65,34 @@ struct RoomInfo { double rt60[3] = {0, 0, 0}; double rc = 0; int paths = 0; };
 
 class LeslieRoomDSP {
 public:
-    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate) { init(); }
+    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate) { init(); }
 
     // ---------------- Steuerung (entspricht den Worklet-Nachrichten) ----------------
-    void noteOn(int k);
-    void noteOff(int k);
-    void panic() { std::fill(keys.begin(), keys.end(), 0); numKeys = 0; events.clear(); std::fill(target.begin(), target.end(), 0.f); std::fill(percG.begin(), percG.end(), 0.f); }
-    void setDrawbars(const int* v) { for (int i = 0; i < 9; i++) drawbars[i] = v[i]; retarget(); }
+    // Manuale: 0 = Ober, 1 = Unter, 2 = Pedal
+    void noteOn(int k, int man = 0);
+    void noteOff(int k, int man = 0);
+    void panic() {
+        for (int m = 0; m < 3; m++) { std::fill(keys[m].begin(), keys[m].end(), 0); std::fill(target[m].begin(), target[m].end(), 0.f); }
+        numKeysUpper = 0; events.clear(); std::fill(percG.begin(), percG.end(), 0.f);
+    }
+    void setDrawbars(const int* v, int man = 0) { int n = man == 2 ? 2 : 9; for (int i = 0; i < n; i++) drawbars[man][i] = v[i]; retarget(); }
     void setPerc(const Perc& p) { perc = p; retarget(); }
+    void setVibRouting(bool upper, bool lower) { vibUpper = upper; vibLower = lower; }
     void setVib(const std::string& v) { vibMode = v; }
-    void setDrive(double v) { drive = v; }
+    void setDrive(double v) { drive = v; amp.setDrive(v); }
+    void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); }
+    void setRotor(int r, double slowHz, double fastHz, double upTau, double dnTau) {
+        auto& R = rot[r]; R.slow = slowHz; R.fast = fastHz; R.upTau = upTau; R.dnTau = dnTau; setLeslie(leslieMode);
+    }
+    void setBrake(bool on) { brake = on; }
+    void setCabinetDetail(double hornfach, double wobble) { hornfachLevel = hornfach; wobbleOverride = wobble; applyCharacter(); }
+    void setOrganDetail(double percLevel, double percShort, double percLong, bool complexWheels) { percLevelUser = percLevel; percShortS = percShort; percLongS = percLong; complexLow = complexWheels; }
+    void setOutput(double masterDb, double lfeHz) {
+        masterGain = std::pow(10.0, masterDb / 20); lfeLp1.set("lp", lfeHz, 0.70710678, fs); lfeLp2.set("lp", lfeHz, 0.70710678, fs);
+    }
+    double ampPlate() const { return amp.plateSupply(); }
+    double ampCathode() const { return amp.cathodeVoltage(); }
+    int ampQuality() const { return amp.getQuality(); }
     void setClick(double v) { click = v; }
     void setVolume(double v) { volume = v; }
     void setBalance(double v) { hornLevel = std::min(1.0, 2 * (1 - v)); drumLevel = std::min(1.0, 2 * v); }
@@ -107,11 +126,12 @@ private:
     void prepSpeakers();
     void panGains(double az, double hfrac, float* out) const;
     void cabinet(double dx, double dy, double dz, double& g, double& fc) const;
-    void schedule(int w, double d, double baseDelay);
+    void schedule(int m, int w, double d, double baseDelay);
     void retarget();
-    void applyDelta(int w, double d);
+    void applyDelta(int m, int w, double d);
     int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 1) w += 12; while (w > 91) w -= 12; return w; }
-    void drawbarAmps(double* amps) const;
+    int pedalWheel(int key, int i) const { int w = key + 1 + (i == 1 ? 12 : 0); return std::max(1, std::min(91, w)); }
+    void drawbarAmps(int man, double* amps) const;
     double kOf(double f) const { return 1 - std::exp(-TWO_PI * std::min(f, fs * 0.45) / fs); }
 
     static constexpr int DB_OFF[9] = {-12, 7, 0, 12, 19, 24, 28, 31, 36};
@@ -121,13 +141,19 @@ private:
     static constexpr int TAB = 4096;
     std::vector<float> sine, cplx;
     std::array<double, 92> phase{}, inc{}, incNew{}, incGear{};
-    std::array<float, 92> gain{}, target{}, percG{}, wheelLvl{}, wheelVar{}, wheelG{};
-    std::array<uint8_t, 61> keys{};
-    int numKeys = 0;
-    int drawbars[9] = {8, 8, 8, 0, 0, 0, 0, 0, 0};
+    std::array<float, 92> percG{}, wheelLvl{}, wheelVar{}, wheelG{};
+    std::array<float, 92> gain[3]{}, target[3]{};
+    std::array<uint8_t, 61> keys[3]{};
+    int numKeysUpper = 0;
+    int drawbars[3][9] = {{8, 8, 8, 0, 0, 0, 0, 0, 0}, {0, 0, 8, 4, 0, 0, 0, 0, 0}, {6, 3, 0, 0, 0, 0, 0, 0, 0}};
+    bool vibUpper = true, vibLower = false;
+    double percLevelUser = 1.0, percShortS = 0.2, percLongS = 1.0; bool complexLow = true;
+    bool brake = true; double hornfachLevel = 0.45, wobbleOverride = -1, masterGain = 1.0;
+    amp::LeslieAmp amp;
+    std::vector<float> orgBuf;
     Perc perc;
     double percEnv = 0, click = 0.5, clickEnv = 0, organGain = 0.05;
-    struct Event { double t; int w; double d; };
+    struct Event { double t; int m; int w; double d; };
     std::vector<Event> events;
     double sampleClock = 0;
     Lcg rndFast{777};
@@ -230,7 +256,8 @@ inline void LeslieRoomDSP::applyCharacter() {
     staggerS = (0.0008 + 0.0045 * c.contact) * fs; bounceP = 0.15 + 0.7 * c.contact;
     gainStep = 1 / ((0.0003 + 0.0004 * (1 - c.contact)) * fs);
     busK = c.busComp ? 0.035 + 0.05 * c.cond : 0;
-    motorLevel = 0.008 * c.motor; rotorWobble = 0.012 + 0.03 * c.cond; sagAmt = 0.25 + 0.35 * c.cond;
+    motorLevel = 0.008 * c.motor; rotorWobble = wobbleOverride >= 0 ? 0.004 + 0.05 * wobbleOverride : 0.012 + 0.03 * c.cond; sagAmt = 0.25 + 0.35 * c.cond;
+    amp.setAge(0.6 * c.cond);
 }
 
 inline void LeslieRoomDSP::cabinet(double dx, double dy, double dz, double& g, double& fc) const {
@@ -243,61 +270,74 @@ inline void LeslieRoomDSP::cabinet(double dx, double dy, double dz, double& g, d
     fc = (fwd > 0 ? 16000 : 16000 - 14000 * b * b) * (1 - 0.7 * vert * vert);
 }
 
-inline void LeslieRoomDSP::drawbarAmps(double* amps) const {
-    double percAtt = perc.on && !perc.soft ? 0.72 : 1;
+inline void LeslieRoomDSP::drawbarAmps(int man, double* amps) const {
+    // Percussion wirkt nur auf das Obermanual: 1' stumm, „normal“ dämpft die Zugriegel etwas (wie im Original)
+    double percAtt = man == 0 && perc.on && !perc.soft ? 0.72 : 1;
+    int n = man == 2 ? 2 : 9;
     for (int i = 0; i < 9; i++) {
-        if (i == 8 && perc.on) { amps[i] = 0; continue; }
-        amps[i] = drawbars[i] <= 0 ? 0 : std::pow(10.0, -(8 - drawbars[i]) * 3 / 20.0) * percAtt;
+        if (i >= n || (man == 0 && i == 8 && perc.on)) { amps[i] = 0; continue; }
+        double lvl = man == 2 ? 1.15 : 1.0;   // Pedal etwas kräftiger (eigene Pegelkurve im Original)
+        amps[i] = drawbars[man][i] <= 0 ? 0 : std::pow(10.0, -(8 - drawbars[man][i]) * 3 / 20.0) * percAtt * lvl;
     }
 }
 
-inline void LeslieRoomDSP::schedule(int w, double d, double baseDelay) {
-    double t0 = sampleClock + baseDelay + rndFast() * staggerS;
-    events.push_back({t0, w, d});
+inline void LeslieRoomDSP::schedule(int m, int w, double d, double baseDelay) {
+    double t0 = sampleClock + baseDelay + rndFast() * staggerS * (m == 2 ? 1.6 : 1.0);
+    events.push_back({t0, m, w, d});
     if (rndFast() < bounceP) {
         int n = rndFast() < 0.4 ? 2 : 1; double t = t0;
         for (int b = 0; b < n; b++) {
             double dt = (0.00015 + 0.0006 * rndFast()) * fs;
-            events.push_back({t + dt, w, -d});
-            events.push_back({t + dt + (0.0001 + 0.0004 * rndFast()) * fs, w, d});
+            events.push_back({t + dt, m, w, -d});
+            events.push_back({t + dt + (0.0001 + 0.0004 * rndFast()) * fs, m, w, d});
             t += dt * 2;
         }
     }
 }
 
-inline void LeslieRoomDSP::noteOn(int k) {
-    if (k < 0 || k > 60 || keys[k]) return;
-    bool wasEmpty = numKeys == 0; keys[k] = 1; numKeys++;
-    if (perc.on && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0;
-    clickEnv = 1;
-    double amps[9]; drawbarAmps(amps);
-    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(wheelFor(k, i), amps[i], 0);
-    if (perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
+inline void LeslieRoomDSP::noteOn(int k, int man) {
+    int maxK = man == 2 ? 24 : 60;
+    if (man < 0 || man > 2 || k < 0 || k > maxK || keys[man][k]) return;
+    keys[man][k] = 1;
+    if (man == 0) { bool wasEmpty = numKeysUpper == 0; numKeysUpper++; if (perc.on && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0; }
+    clickEnv = std::max(clickEnv, man == 2 ? 0.6 : 1.0);
+    double amps[9]; drawbarAmps(man, amps);
+    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(man, man == 2 ? pedalWheel(k, i) : wheelFor(k, i), amps[i], 0);
+    if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
 }
-inline void LeslieRoomDSP::noteOff(int k) {
-    if (k < 0 || k > 60 || !keys[k]) return;
-    keys[k] = 0; numKeys--;
+inline void LeslieRoomDSP::noteOff(int k, int man) {
+    int maxK = man == 2 ? 24 : 60;
+    if (man < 0 || man > 2 || k < 0 || k > maxK || !keys[man][k]) return;
+    keys[man][k] = 0;
+    if (man == 0) numKeysUpper--;
     clickEnv = std::max(clickEnv, 0.35);
-    double amps[9]; drawbarAmps(amps);
-    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(wheelFor(k, i), -amps[i], 0);
-    if (perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
+    double amps[9]; drawbarAmps(man, amps);
+    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(man, man == 2 ? pedalWheel(k, i) : wheelFor(k, i), -amps[i], 0);
+    if (man == 0 && perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
 }
 inline void LeslieRoomDSP::retarget() {
-    events.clear(); std::fill(target.begin(), target.end(), 0.f); std::fill(percG.begin(), percG.end(), 0.f);
-    double amps[9]; drawbarAmps(amps);
-    for (int k = 0; k <= 60; k++) {
-        if (!keys[k]) continue;
-        for (int i = 0; i < 9; i++) if (amps[i] > 0) applyDelta(wheelFor(k, i), amps[i]);
-        if (perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
+    events.clear(); std::fill(percG.begin(), percG.end(), 0.f);
+    for (int m = 0; m < 3; m++) {
+        std::fill(target[m].begin(), target[m].end(), 0.f);
+        double amps[9]; drawbarAmps(m, amps);
+        int maxK = m == 2 ? 24 : 60;
+        for (int k = 0; k <= maxK; k++) {
+            if (!keys[m][k]) continue;
+            for (int i = 0; i < 9; i++) if (amps[i] > 0) applyDelta(m, m == 2 ? pedalWheel(k, i) : wheelFor(k, i), amps[i]);
+            if (m == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
+        }
     }
 }
-inline void LeslieRoomDSP::applyDelta(int w, double d) {
-    auto& t = target;
+inline void LeslieRoomDSP::applyDelta(int m, int w, double d) {
+    auto& t = target[m];
     t[w] += (float) d;
     float la = (float) (d * leakAdj), lb = (float) (d * leakAdj2), lc = (float) (d * leakBank);
-    if (w > 1) t[w - 1] += la; if (w < 91) t[w + 1] += la;
-    if (w > 2) t[w - 2] += lb; if (w < 90) t[w + 2] += lb;
-    if (w > 48) t[w - 48] += lc; if (w <= 43) t[w + 48] += lc;
+    if (w > 1) t[w - 1] += la;
+    if (w < 91) t[w + 1] += la;
+    if (w > 2) t[w - 2] += lb;
+    if (w < 90) t[w + 2] += lb;
+    if (w > 48) t[w - 48] += lc;
+    if (w <= 43) t[w + 48] += lc;
 }
 
 inline void LeslieRoomDSP::setPos(bool hasLes, double lx, double ly, bool hasLis, double hx, double hy, bool hasYaw, double yaw, bool jump) {
@@ -462,7 +502,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     double dcy = cabTyaw - cabYaw; while (dcy > PI) dcy -= TWO_PI; while (dcy < -PI) dcy += TWO_PI; cabYaw += dcy * a;
 
     double bt = N / fs;
-    for (auto& r : rot) { double tau = r.tgt > r.hz ? r.upTau : r.dnTau; r.hz += (r.tgt - r.hz) * (1 - std::exp(-bt / tau)); if (r.tgt == 0 && r.hz < 0.02) r.hz = 0; }
+    for (auto& r : rot) { double tau = r.tgt > r.hz ? r.upTau : r.dnTau; if (r.tgt == 0) tau *= brake ? 0.45 : 1.6; r.hz += (r.tgt - r.hz) * (1 - std::exp(-bt / tau)); if (r.tgt == 0 && r.hz < 0.02) r.hz = 0; }
 
     float tmp[8];
     double midAng[2] = {rot[0].ang + PI * rot[0].hz * bt, rot[1].ang + PI * rot[1].hz * bt};
@@ -517,56 +557,63 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     for (int c = 0; c < nCh; c++) std::fill(out[c], out[c] + N, 0.f);
 
     const double gs = gainStep;
-    const double percDecay = std::exp(-1 / ((perc.fast ? 0.2 : 1.0) * fs / 6.9));
+    const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
     const double clickDecay = std::exp(-1 / (0.002 * fs));
-    const double percLevel = perc.soft ? 0.6 : 1.0;
+    const double percLevel = (perc.soft ? 0.6 : 1.0) * percLevelUser;
     double vibDepth = 0; if (vibMode == "v1" || vibMode == "c1") vibDepth = 0.00022; else if (vibMode == "v2" || vibMode == "c2") vibDepth = 0.00045; else if (vibMode == "v3" || vibMode == "c3") vibDepth = 0.0008;
     vibDepth *= fs;
     const bool vibChorus = vibMode[0] == 'c';
     const double vibInc = 6.87 / fs;
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
-    const double drv = 1 + drive * 9, drvNorm = 1 / std::tanh(drv * 0.6);
-    const double sagK = sagAmt * drive, sagA = 1 - std::exp(-1 / (0.03 * fs)), sagR = 1 - std::exp(-1 / (0.25 * fs));
     const double fsc = fs / C_SOUND;
     Rotor& rh = rot[0]; Rotor& rd = rot[1];
     const double wob = rotorWobble;
     const double revGain = fdnInGain * room.reverb;
     const int nSpk = (int) fdnOutRows.size();
     const int lfeIdx = spk.lfe;
-    const double master = 6.5;
+    const double master = 6.5 * masterGain;
     const double kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs), kScale = TWO_PI / fs;
     const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
     const size_t np = paths.size();
 
+    // ---------- 1) Orgel: Tonräder, Manuale, Vibrato, Schweller → orgBuf ----------
+    if ((int) orgBuf.size() < N) orgBuf.assign((size_t) N, 0.f);
     for (int n = 0; n < N; n++) {
         if (!events.empty()) {
             double now = sampleClock;
-            for (size_t i = 0; i < events.size();) { if (events[i].t <= now) { applyDelta(events[i].w, events[i].d); events[i] = events.back(); events.pop_back(); } else i++; }
+            for (size_t i = 0; i < events.size();) { if (events[i].t <= now) { applyDelta(events[i].m, events[i].w, events[i].d); events[i] = events.back(); events.pop_back(); } else i++; }
         }
         sampleClock++;
 
-        double s = 0, ps = 0, load = 0;
+        double sU = 0, sL = 0, sP = 0, ps = 0, load = 0, hum = 0;
         for (int w = 1; w <= 91; w++) {
             double ph = phase[w] + inc[w]; if (ph >= 1) ph -= 1; phase[w] = ph;
-            float g = gain[w]; const float t = target[w];
-            if (g != t) { g = g < t ? std::min(t, (float) (g + gs)) : std::max(t, (float) (g - gs)); gain[w] = g; }
+            float g0 = gain[0][w], g1 = gain[1][w], g2 = gain[2][w];
+            const float t0 = target[0][w], t1 = target[1][w], t2 = target[2][w];
+            if (g0 != t0) { g0 = g0 < t0 ? std::min(t0, (float) (g0 + gs)) : std::max(t0, (float) (g0 - gs)); gain[0][w] = g0; }
+            if (g1 != t1) { g1 = g1 < t1 ? std::min(t1, (float) (g1 + gs)) : std::max(t1, (float) (g1 - gs)); gain[1][w] = g1; }
+            if (g2 != t2) { g2 = g2 < t2 ? std::min(t2, (float) (g2 + gs * 0.6)) : std::max(t2, (float) (g2 - gs * 0.6)); gain[2][w] = g2; }
             const float pg = percG[w];
-            const double gg = g + leakHum;
-            if (gg > 1e-6 || pg > 0) {
+            const double gsum = (double) g0 + g1 + g2;
+            if (gsum + leakHum > 1e-6 || pg > 0) {
                 double x = ph * TAB; int i = (int) x; double f = x - i;
-                const float* tab = w <= 12 ? cplx.data() : sine.data();
+                const float* tab = (w <= 12 && complexLow) ? cplx.data() : sine.data();
                 double v = (tab[i] + (tab[i + 1] - tab[i]) * f) * wheelG[w];
-                s += v * gg; ps += v * pg; load += g;
+                sU += v * g0; sL += v * g1; sP += v * g2; ps += v * pg; hum += v; load += gsum;
             }
         }
-        s /= 1 + busK * load;
-        s += ps * percEnv * percLevel * 0.9;
+        double comp = 1 / (1 + busK * load);
+        double sVib = ((vibUpper ? sU : 0) + (vibLower ? sL : 0)) * comp;
+        double sDry = ((vibUpper ? 0 : sU) + (vibLower ? 0 : sL) + sP) * comp + hum * leakHum;
+        // Percussion läuft am Vibrato vorbei
+        sDry += ps * percEnv * percLevel * 0.9;
         percEnv *= percDecay;
-        if (clickEnv > 1e-4) { s += (rndFast() * 2 - 1) * clickEnv * click * 0.35; clickEnv *= clickDecay; }
-        s *= organGain;
+        if (clickEnv > 1e-4) { sDry += (rndFast() * 2 - 1) * clickEnv * click * 0.35; clickEnv *= clickDecay; }
+        sVib *= organGain; sDry *= organGain;
 
+        double s = sDry;
         if (vibDepth > 0) {
-            vibBuf[vibW] = (float) s;
+            vibBuf[vibW] = (float) sVib;
             vibPh += vibInc; if (vibPh >= 1) vibPh -= 1;
             double tri = 1 - std::fabs(2 * vibPh - 1), stepped = std::round(tri * 16) / 16;
             double d = 20 + vibDepth * 2 * (0.75 * tri + 0.25 * stepped);
@@ -574,15 +621,18 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             int ri = (int) rp; double rf = rp - ri;
             double wet = vibBuf[ri] + (vibBuf[(ri + 1) & 2047] - vibBuf[ri]) * rf;
             vibW = (vibW + 1) & 2047;
-            s = vibChorus ? 0.6 * s + 0.6 * wet : wet;
-        }
+            s += vibChorus ? 0.6 * sVib + 0.6 * wet : wet;
+        } else s += sVib;
         s = (s + expLp.run(s) * expBass) * expGain;
-        double lvl = std::fabs(s) * drv;
-        sagEnv += (lvl > sagEnv ? sagA : sagR) * (lvl - sagEnv);
-        double sag = 1 / (1 + sagK * sagEnv);
-        double xd = s * drv * sag;
-        s = (std::tanh(xd * 0.6 + 0.05) - std::tanh(0.05)) * drvNorm * 0.8;
+        orgBuf[(size_t) n] = (float) s;
+    }
 
+    // ---------- 2) Leslie-Endstufe (Schaltung, eigenes Oversampling) ----------
+    amp.process(orgBuf.data(), N);
+
+    // ---------- 3) Weiche, Rotoren, Raum ----------
+    for (int n = 0; n < N; n++) {
+        double s = orgBuf[(size_t) n];
         double lo = drumRes.run(lp2.run(lp1.run(s))) * drumLevel;
         double hi = hornHi.run(hornRes2.run(hornRes.run(hp2.run(hp1.run(s))))) * hornLevel;
         if (motorLevel > 0) {
@@ -646,7 +696,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                 k = 1 - std::exp(-fc * kScale);
                 if (p.order == 0 || p.order == 1) {
                     double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
-                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * 0.45 / std::max(0.05, dirG); }
+                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornfachLevel / std::max(0.05, dirG); }
                 }
             } else {
                 p.zd += kDrumLo * (v - p.zd);

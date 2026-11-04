@@ -16,7 +16,9 @@ endif()
 # ASIO-SDK (nur Windows): Pfad zum Ordner "common" des Steinberg ASIO SDK, z.B. -DASIO_SDK_DIR=C:/asiosdk/common
 set(ASIO_SDK_DIR "" CACHE PATH "Ordner 'common' des Steinberg ASIO SDK")
 
-juce_add_binary_data(WheelhouseResources SOURCES Resources/index.html)
+# Schriften (Barlow Condensed, Yellowtail) lädt der Build-Workflow nach Resources/fonts; ohne sie greifen Ersatzschriften
+file(GLOB WHEELHOUSE_FONTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/fonts/*.ttf")
+juce_add_binary_data(WheelhouseResources SOURCES Resources/index.html ${WHEELHOUSE_FONTS})
 
 juce_add_gui_app(Wheelhouse
     PRODUCT_NAME "Wheelhouse"
