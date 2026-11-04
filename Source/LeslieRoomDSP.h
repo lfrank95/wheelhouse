@@ -57,9 +57,9 @@ struct Path {
 struct Rotor { double ang, hz, tgt, slow, fast, r, h, upTau, dnTau; };
 
 struct Room {
-    double Lx = 6, Ly = 8, Lz = 2.8, absorb = 0.25, reverb = 1, tentV = 0, tentS = 0;
+    double Lx = 6, Ly = 8, Lz = 2.8, absorb = 0.25, reverb = 1, tentVolume = 0, tentSurface = 0;
     int order = 2;
-    std::string material = "holz", shape = "quader";
+    std::string material = "wood", shape = "box";
     bool hasAbsBands = false; double absBands[3] = {0, 0, 0};
 };
 
@@ -99,7 +99,7 @@ public:
         auto& R = rot[r]; R.slow = slowHz; R.fast = fastHz; R.upTau = upTau; R.dnTau = dnTau; setLeslie(leslieMode);
     }
     void setBrake(bool on) { brake = on; }
-    void setCabinetDetail(double hornfach, double wobble) { hornfachLevel = hornfach; wobbleOverride = wobble; applyCharacter(); }
+    void setCabinetDetail(double hornBox, double wobble) { hornBoxLevel = hornBox; wobbleOverride = wobble; applyCharacter(); }
     void setOrganDetail(double percLevel, double percShort, double percLong, bool complexWheels) { percLevelUser = percLevel; percShortS = percShort; percLongS = percLong; complexLow = complexWheels; }
     void setOutput(double masterDb, double lfeHz) {
         masterGain = std::pow(10.0, masterDb / 20); lfeLp1.set("lp", lfeHz, 0.70710678, fs); lfeLp2.set("lp", lfeHz, 0.70710678, fs);
@@ -119,7 +119,7 @@ public:
     void setSpeakers(const Speakers& s);
     void setLfe(double v) { lfeLevel = v; }
     void setCabYaw(double v, bool jump) { cabTyaw = v; if (jump) cabYaw = v; }
-    void setTaps(std::vector<Tap> taps) { tapsData = std::move(taps); if (room.shape == "zelt") rebuildRoom(); }
+    void setTaps(std::vector<Tap> taps) { tapsData = std::move(taps); if (room.shape == "tent") rebuildRoom(); }
 
     RoomInfo info() const { return roomInfo; }
     // Mikrofonierung
@@ -168,7 +168,7 @@ private:
 
     // Tonräder
     static constexpr int TAB = 4096;
-    std::vector<float> sine, cplx;
+    std::vector<float> sine, complexWave;
     std::array<double, 92> phase{}, inc{}, incNew{}, incGear{};
     std::array<float, 92> percG{}, wheelLvl{}, wheelVar{}, wheelG{};
     std::array<float, 92> gain[3]{}, target[3]{};
@@ -177,7 +177,7 @@ private:
     int drawbars[3][9] = {{8, 8, 8, 0, 0, 0, 0, 0, 0}, {0, 0, 8, 4, 0, 0, 0, 0, 0}, {6, 3, 0, 0, 0, 0, 0, 0, 0}};
     bool vibUpper = true, vibLower = false;
     double percLevelUser = 1.0, percShortS = 0.2, percLongS = 1.0; bool complexLow = true;
-    bool brake = true; double hornfachLevel = 0.45, wobbleOverride = -1, masterGain = 1.0;
+    bool brake = true; double hornBoxLevel = 0.45, wobbleOverride = -1, masterGain = 1.0;
     amp::LeslieAmp amp;
     amp::OrganPreamp pre;
     SpringReverb spring;
@@ -187,7 +187,7 @@ private:
     struct Event { double t; int m; int w; double d; };
     std::vector<Event> events;
     double sampleClock = 0;
-    Lcg rndFast{777};
+    Lcg fastRand{777};
 
     Character chr;
     double leakAdj = 0, leakAdj2 = 0, leakBank = 0, leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
@@ -209,8 +209,8 @@ private:
 
     Room room;
     std::vector<Tap> tapsData;
-    struct Pos { double x, y, tx, ty; } les{3, 6, 3, 6};
-    struct Lis { double x, y, tx, ty, yaw, tyaw, z; } lis{3, 2.5, 3, 2.5, 1.5707963, 1.5707963, 1.2};
+    struct Pos { double x, y, tx, ty; } lesliePos{3, 6, 3, 6};
+    struct ListenerPos { double x, y, tx, ty, yaw, tyaw, z; } listener{3, 2.5, 3, 2.5, 1.5707963, 1.5707963, 1.2};
     std::vector<Path> paths;
     int nRefl = 0;
     RoomInfo roomInfo;
@@ -263,8 +263,8 @@ private:
 // =====================================================================================
 inline void LeslieRoomDSP::init() {
     Lcg rnd(20261104u);
-    sine.resize(TAB + 1); cplx.resize(TAB + 1);
-    for (int i = 0; i <= TAB; i++) { double x = TWO_PI * i / TAB; sine[i] = (float) std::sin(x); cplx[i] = (float) ((std::sin(x) + 0.28 * std::sin(2 * x) + 0.14 * std::sin(3 * x) + 0.06 * std::sin(5 * x)) / 1.2); }
+    sine.resize(TAB + 1); complexWave.resize(TAB + 1);
+    for (int i = 0; i <= TAB; i++) { double x = TWO_PI * i / TAB; sine[i] = (float) std::sin(x); complexWave[i] = (float) ((std::sin(x) + 0.28 * std::sin(2 * x) + 0.14 * std::sin(3 * x) + 0.06 * std::sin(5 * x)) / 1.2); }
     for (int w = 1; w <= 91; w++) {
         int n = (w - 1) % 12, oct = (w - 1) / 12;
         int teeth = 2 << oct; const int* g = GEARS[n];
@@ -332,14 +332,14 @@ inline void LeslieRoomDSP::drawbarAmps(int man, double* amps) const {
 }
 
 inline void LeslieRoomDSP::schedule(int m, int w, double d, double baseDelay) {
-    double t0 = sampleClock + baseDelay + rndFast() * staggerS * (m == 2 ? 1.6 : 1.0);
+    double t0 = sampleClock + baseDelay + fastRand() * staggerS * (m == 2 ? 1.6 : 1.0);
     events.push_back({t0, m, w, d});
-    if (rndFast() < bounceP) {
-        int n = rndFast() < 0.4 ? 2 : 1; double t = t0;
+    if (fastRand() < bounceP) {
+        int n = fastRand() < 0.4 ? 2 : 1; double t = t0;
         for (int b = 0; b < n; b++) {
-            double dt = (0.00015 + 0.0006 * rndFast()) * fs;
+            double dt = (0.00015 + 0.0006 * fastRand()) * fs;
             events.push_back({t + dt, m, w, -d});
-            events.push_back({t + dt + (0.0001 + 0.0004 * rndFast()) * fs, m, w, d});
+            events.push_back({t + dt + (0.0001 + 0.0004 * fastRand()) * fs, m, w, d});
             t += dt * 2;
         }
     }
@@ -391,9 +391,9 @@ inline void LeslieRoomDSP::applyDelta(int m, int w, double d) {
 }
 
 inline void LeslieRoomDSP::setPos(bool hasLes, double lx, double ly, bool hasLis, double hx, double hy, bool hasYaw, double yaw, bool jump) {
-    if (hasLes) { les.tx = lx; les.ty = ly; }
-    if (hasLis) { lis.tx = hx; lis.ty = hy; if (hasYaw) lis.tyaw = yaw; }
-    if (jump) { les.x = les.tx; les.y = les.ty; lis.x = lis.tx; lis.y = lis.ty; lis.yaw = lis.tyaw; }
+    if (hasLes) { lesliePos.tx = lx; lesliePos.ty = ly; }
+    if (hasLis) { listener.tx = hx; listener.ty = hy; if (hasYaw) listener.tyaw = yaw; }
+    if (jump) { lesliePos.x = lesliePos.tx; lesliePos.y = lesliePos.ty; listener.x = listener.tx; listener.y = listener.ty; listener.yaw = listener.tyaw; }
 }
 inline void LeslieRoomDSP::setSpeakers(const Speakers& s) {
     spk = s; for (auto& a : spk.az) a *= 3.14159265358979 / 180;
@@ -405,18 +405,18 @@ inline void LeslieRoomDSP::setSpeakers(const Speakers& s) {
 inline void LeslieRoomDSP::rebuildRoom() {
     auto clampd = [](double v, double lo, double hi) { return std::max(lo, std::min(hi, v)); };
     auto& R = room;
-    les.tx = clampd(les.tx, 0.3, R.Lx - 0.3); les.ty = clampd(les.ty, 0.3, R.Ly - 0.3); les.x = clampd(les.x, 0.3, R.Lx - 0.3); les.y = clampd(les.y, 0.3, R.Ly - 0.3);
-    lis.tx = clampd(lis.tx, 0.3, R.Lx - 0.3); lis.ty = clampd(lis.ty, 0.3, R.Ly - 0.3); lis.x = clampd(lis.x, 0.3, R.Lx - 0.3); lis.y = clampd(lis.y, 0.3, R.Ly - 0.3);
+    lesliePos.tx = clampd(lesliePos.tx, 0.3, R.Lx - 0.3); lesliePos.ty = clampd(lesliePos.ty, 0.3, R.Ly - 0.3); lesliePos.x = clampd(lesliePos.x, 0.3, R.Lx - 0.3); lesliePos.y = clampd(lesliePos.y, 0.3, R.Ly - 0.3);
+    listener.tx = clampd(listener.tx, 0.3, R.Lx - 0.3); listener.ty = clampd(listener.ty, 0.3, R.Ly - 0.3); listener.x = clampd(listener.x, 0.3, R.Lx - 0.3); listener.y = clampd(listener.y, 0.3, R.Ly - 0.3);
     double mat[3] = {1.35, 1.0, 0.8};
-    if (R.material == "zelt") { mat[0] = 1.9; mat[2] = 0.75; } else if (R.material == "beton") { mat[0] = 0.55; mat[2] = 1.1; }
-    else if (R.material == "stein") { mat[0] = 0.6; mat[2] = 1.35; } else if (R.material == "glas") { mat[0] = 0.9; mat[2] = 1.6; }
+    if (R.material == "tent") { mat[0] = 1.9; mat[2] = 0.75; } else if (R.material == "concrete") { mat[0] = 0.55; mat[2] = 1.1; }
+    else if (R.material == "stone") { mat[0] = 0.6; mat[2] = 1.35; } else if (R.material == "glass") { mat[0] = 0.9; mat[2] = 1.6; }
     double ab[3];
     for (int i = 0; i < 3; i++) ab[i] = R.hasAbsBands ? clampd(R.absBands[i], 0.03, 0.97) : clampd(R.absorb * mat[i], 0.03, 0.95);
     double reflG = std::sqrt(1 - ab[1]), hfRefl = std::sqrt((1 - ab[2]) / (1 - ab[1]));
     roomReflG = reflG; roomHfRefl = hfRefl;
     std::vector<Path> old = std::move(paths);
     std::vector<Path> np;
-    bool tent = R.shape == "zelt";
+    bool tent = R.shape == "tent";
     if (tent) {
         for (int r = 0; r < 2; r++) {
             Path d; d.rotor = r; d.order = 0; d.kOn = kOf(14000); d.kOff = kOf(1500); d.kDrum = kOf(18000); np.push_back(d);
@@ -460,8 +460,8 @@ inline void LeslieRoomDSP::rebuildRoom() {
     paths = std::move(np);
     nRefl = 0; for (auto& p : paths) if (p.order > 0) nRefl++; nRefl /= 2;
 
-    double V = tent && R.tentV > 0 ? R.tentV : R.Lx * R.Ly * R.Lz;
-    double S = tent && R.tentS > 0 ? R.tentS : 2 * (R.Lx * R.Ly + R.Lx * R.Lz + R.Ly * R.Lz);
+    double V = tent && R.tentVolume > 0 ? R.tentVolume : R.Lx * R.Ly * R.Lz;
+    double S = tent && R.tentSurface > 0 ? R.tentSurface : 2 * (R.Lx * R.Ly + R.Lx * R.Lz + R.Ly * R.Lz);
     double rt[3];
     for (int i = 0; i < 3; i++) rt[i] = clampd(0.161 * V / (-S * std::log(1 - ab[i]) + (i == 2 ? 4 * 0.004 * V : 0)), 0.12, 12);
     rt[0] = std::min(rt[0], rt[1] * 1.25); rt[2] = std::min(rt[2], rt[1]);
@@ -650,7 +650,7 @@ inline void LeslieRoomDSP::micPlaceClose(double a) {
         MicRt& m = mic[i];
         m.phi += (m.phiT - m.phi) * a; m.R += (m.RT - m.R) * a;        // Mono ↔ Stereo: Mikros wandern, statt zu springen
         double th = cabYaw + m.phi, c = std::cos(th), s = std::sin(th);
-        m.x = les.x + m.R * c; m.y = les.y + m.R * s;
+        m.x = lesliePos.x + m.R * c; m.y = lesliePos.y + m.R * s;
         m.z = m.rotor == 0 ? rot[0].h + micSetup.hornHeight : rot[1].h;
         m.ax = -c; m.ay = -s; m.az = 0;
         m.windC = c; m.windS = s;
@@ -670,7 +670,7 @@ inline void LeslieRoomDSP::micRebuildPaths() {
             }
             continue;
         }
-        int maxO = std::max(0, std::min(R.shape == "zelt" ? 1 : R.order, micSetup.roomOrder));
+        int maxO = std::max(0, std::min(R.shape == "tent" ? 1 : R.order, micSetup.roomOrder));
         for (int r = 0; r < 2; r++)
             for (int nx = -3; nx <= 3; nx++) for (int px = 0; px <= 1; px++) {
                 int ox = std::abs(2 * nx - px);
@@ -711,7 +711,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
         MicRt& m = mic[i]; if (!micNeed(i)) continue;
         for (auto& p : m.paths) {
             const Rotor& r = rot[p.rotor];
-            double icx = p.sx * les.x + p.ox, icy = p.sy * les.y + p.oy, iz = p.sz * r.h + p.oz;
+            double icx = p.sx * lesliePos.x + p.ox, icy = p.sy * lesliePos.y + p.oy, iz = p.sz * r.h + p.oz;
             double vx = m.x - icx, vy = m.y - icy, vz = m.z - iz, dist = std::sqrt(vx * vx + vy * vy + vz * vz);
             double cg, cfc; cabinet(-p.sx * vx, -p.sy * vy, -p.sz * vz, cg, cfc);
             p.cab = cg; p.kc = std::min(kOf(cfc), kOf(std::max(2500.0, 260000 / std::max(dist, 1.0))));
@@ -743,7 +743,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
 inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     const double PI = 3.14159265358979;
     double a = 1 - std::exp(-N / (0.12 * fs));
-    auto& L = les; auto& H = lis;
+    auto& L = lesliePos; auto& H = listener;
     L.x += (L.tx - L.x) * a; L.y += (L.ty - L.y) * a; H.x += (H.tx - H.x) * a; H.y += (H.ty - H.y) * a;
     double dy = H.tyaw - H.yaw; while (dy > PI) dy -= TWO_PI; while (dy < -PI) dy += TWO_PI; H.yaw += dy * a;
     double dcy = cabTyaw - cabYaw; while (dcy > PI) dcy -= TWO_PI; while (dcy < -PI) dcy += TWO_PI; cabYaw += dcy * a;
@@ -851,7 +851,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             const double gsum = (double) g0 + g1 + g2;
             if (gsum + leakHum > 1e-6 || pg > 0) {
                 double x = ph * TAB; int i = (int) x; double f = x - i;
-                const float* tab = (w <= 12 && complexLow) ? cplx.data() : sine.data();
+                const float* tab = (w <= 12 && complexLow) ? complexWave.data() : sine.data();
                 double v = (tab[i] + (tab[i + 1] - tab[i]) * f) * wheelG[w];
                 sU += v * g0; sL += v * g1; sP += v * g2; ps += v * pg; hum += v; load += gsum;
             }
@@ -862,7 +862,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         // Percussion läuft am Vibrato vorbei
         sDry += ps * percEnv * percLevel * 0.9;
         percEnv *= percDecay;
-        if (clickEnv > 1e-4) { sDry += (rndFast() * 2 - 1) * clickEnv * click * 0.35; clickEnv *= clickDecay; }
+        if (clickEnv > 1e-4) { sDry += (fastRand() * 2 - 1) * clickEnv * click * 0.35; clickEnv *= clickDecay; }
         sVib *= organGain; sDry *= organGain;
 
         double s = sDry;
@@ -890,7 +890,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         double lo = drumRes.run(lp2.run(lp1.run(s))) * drumLevel;
         double hi = hornHi.run(hornRes2.run(hornRes.run(hp2.run(hp1.run(s))))) * hornLevel;
         if (motorLevel > 0) {
-            double nz = rndFast() * 2 - 1;
+            double nz = fastRand() * 2 - 1;
             lo += motorLp.run(nz) * motorLevel * (0.3 + rd.hz / rd.fast) * 3;
             hi += windBp2.run(windBp1.run(nz)) * motorLevel * (rh.hz / rh.fast) * 0.25;
         }
@@ -950,7 +950,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                 k = 1 - std::exp(-fc * kScale);
                 if (p.order == 0 || p.order == 1) {
                     double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
-                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornfachLevel / std::max(0.05, dirG); }
+                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornBoxLevel / std::max(0.05, dirG); }
                 }
             } else {
                 p.zd += kDrumLo * (v - p.zd);
@@ -995,7 +995,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                             k = 1 - std::exp(-std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))) * kScale);
                             // zeigt das Horn weg, kommt Schall über das Hornfach (Reflexion im Gehäuse) zum Mikro
                             double back = std::max(0.0, -cosE);
-                            if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornfachLevel * 0.6 / std::max(0.05, dirG); }
+                            if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
                         } else {
                             p.zd += kDrumLo * (v - p.zd);
                             v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
@@ -1025,7 +1025,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                     double c = chc * m.windC + chs * m.windS;
                     if (c > 0.3) {
                         double e = (c - 0.3) / 0.7; e *= e; e *= e;
-                        double nz = rndFast() * 2 - 1;
+                        double nz = fastRand() * 2 - 1;
                         m.windLp += kWind * (nz - m.windLp); m.windLp2 += kWind * (m.windLp - m.windLp2);
                         double sp = rh.hz / 6.8;
                         sum += m.windLp2 * e * sp * sp * m.windAmt * 0.9;

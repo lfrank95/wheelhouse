@@ -386,16 +386,16 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   // ---------------- Zustand ----------------
   const DEF = {
-    room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'holz', shape: 'quader' },
+    room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'wood', shape: 'box' },
     chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
-    tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, man: 13, aud: 0.8, tip: 3.5, mast: 10, kup: 14.1, sagp: 0.45, ground: 'wiese', manege: 'sand' },
-    les: { x: 4.2, y: 6.3 }, lis: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
+    tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, ring: 13, audience: 0.8, tip: 3.5, mast: 10, dome: 14.1, sagPct: 0.45, ground: 'grass', ringFloor: 'sand' },
+    lesliePos: { x: 4.2, y: 6.3 }, listener: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
     db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] },
     perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
     vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
     organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
-    brake: true, cab: { hornfach: 0.45, wobble: -1 },
+    brake: true, cab: { hornBox: 0.45, wobble: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
     pre: { on: true, gain: 0.5 },
     spring: { mix: 0.2, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 },
@@ -433,16 +433,16 @@ select option { background: #1a1511; color: #e8dcc4; }
     s51: { ch: 6, names: ['L', 'R', 'C', 'LFE', 'SL', 'SR'], long: ['Vorne links', 'Vorne rechts', 'Center', 'LFE', 'Surround links', 'Surround rechts'], spk: { az: [30, -30, 0, 110, -110], ch: [0, 1, 2, 4, 5], lfe: 3 }, show: [30, -30, 0, 110, -110] },
   };
   const ROOMS = [
-    { n: 'Wohnzimmer', s: 'Wohnz.', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'holz' },
-    { n: 'Proberaum', s: 'Probe', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'holz' },
-    { n: 'Club', s: 'Club', Lx: 12, Ly: 18, Lz: 4.5, absorb: 0.27, reverb: 1, material: 'beton' },
-    { n: 'Festzelt', s: 'Festzelt', Lx: 20, Ly: 30, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'zelt', noQuick: true },
-    { n: 'Halle', s: 'Halle', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'beton' },
-    { n: 'Kirche', s: 'Kirche', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stein' },
+    { n: 'Wohnzimmer', s: 'Wohnz.', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'wood' },
+    { n: 'Proberaum', s: 'Probe', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'wood' },
+    { n: 'Club', s: 'Club', Lx: 12, Ly: 18, Lz: 4.5, absorb: 0.27, reverb: 1, material: 'concrete' },
+    { n: 'Festzelt', s: 'Festzelt', Lx: 20, Ly: 30, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'tent', noQuick: true },
+    { n: 'Halle', s: 'Halle', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'concrete' },
+    { n: 'Kirche', s: 'Kirche', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stone' },
     { n: 'Zirkuszelt', s: 'Zirkus', tent: true },
   ];
-  const MATERIALS = [['holz', 'Holz / Trockenbau'], ['beton', 'Beton'], ['stein', 'Stein'], ['glas', 'Glas / Fliesen'], ['zelt', 'Zeltplane']];
-  const MAT_SHORT = { holz: 'Holz', beton: 'Beton', stein: 'Stein', glas: 'Glas', zelt: 'Plane' };
+  const MATERIALS = [['wood', 'Holz / Trockenbau'], ['concrete', 'Beton'], ['stone', 'Stein'], ['glass', 'Glas / Fliesen'], ['tent', 'Zeltplane']];
+  const MAT_SHORT = { holz: 'Holz', concrete: 'Beton', stein: 'Stein', glas: 'Glas', zelt: 'Plane' };
   const UPPER_PRESETS = [
     ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Gospel', [8, 8, 8, 8, 8, 8, 8, 8, 8]], ['Rock', [8, 8, 8, 8, 0, 0, 0, 0, 0]], ['Ballade', [8, 3, 8, 0, 0, 0, 0, 0, 0]],
     ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]], ['Theater', [8, 7, 6, 5, 4, 3, 2, 1, 1]], ['Perc 2nd', [8, 4, 8, 0, 0, 0, 0, 0, 0]], ['Smith', [8, 8, 8, 8, 0, 0, 0, 0, 8]],
@@ -469,25 +469,25 @@ select option { background: #1a1511; color: #e8dcc4; }
       click: 0.5, db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.35, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'B3 + Leslie 147 (Rock)', note: '147 mit Gegenkopplung, Vorstufe heiß, Vibrato aus',
       chr: { cond: 0.55, leak: 0.55, contact: 0.55, motor: 0.54, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.6, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 8, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 4] }, perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'A-100 + Federhall', note: 'gleiches Werk wie die B3, mit eingebautem Hammond-Federhall',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornfach: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
     { n: 'Tour-B3 (abgerockt)', note: '40 Jahre Tour: Kontakte prellen, Riemen locker, Röhren müde',
       chr: { cond: 0.85, leak: 0.85, contact: 0.9, motor: 0.8, gearTune: true, busComp: true }, organ: { percLevel: 0.85, percShort: 0.17, percLong: 0.9, complex: true },
       click: 0.75, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 4, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 5] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.7 }, amp: { model: 1, quality: 1, sag: 0.8 }, drive: 0.6, balance: 0.5,
       rotor: [{ slow: rpmHz(44), fast: rpmHz(380), up: 0.75, down: 1.1 }, { slow: rpmHz(36), fast: rpmHz(325), up: 2.3, down: 3.2 }],
-      brake: true, cab: { hornfach: 0.5, wobble: 0.65 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.5, wobble: 0.65 }, halfMoon: 'two', spring: { mix: 0 } },
   ];
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
   const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
@@ -842,12 +842,12 @@ select option { background: #1a1511; color: #e8dcc4; }
     ], 'Eco: Kennlinie. HQ und Ultra rechnen Röhren und Ausgangsübertrager als Schaltung (Glow/Iron aus Amberwave).'));
     p.appendChild(sec('Gehäuse · Aufstellung', [
       knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
-      knob({ label: 'Hornfach', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornfach, set: v => { S.cab.hornfach = v; sendCab(); } }),
+      knob({ label: 'Hornfach', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornBox, set: v => { S.cab.hornBox = v; sendCab(); } }),
       knob({ label: 'Unrund', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
       knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° Front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
-      rowBtn('Schnell drehen', 'Front zum Hörer', () => setCabYaw(Math.atan2(S.lis.y - S.les.y, S.lis.x - S.les.x))),
-      rowBtn('', 'Rücken zur Wand', () => { const R = S.room, d = [[S.les.x, Math.PI], [R.Lx - S.les.x, 0], [S.les.y, -Math.PI / 2], [R.Ly - S.les.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
+      rowBtn('Schnell drehen', 'Front zum Hörer', () => setCabYaw(Math.atan2(S.listener.y - S.lesliePos.y, S.listener.x - S.lesliePos.x))),
+      rowBtn('', 'Rücken zur Wand', () => { const R = S.room, d = [[S.lesliePos.x, Math.PI], [R.Lx - S.lesliePos.x, 0], [S.lesliePos.y, -Math.PI / 2], [R.Ly - S.lesliePos.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
     ]));
     p.appendChild(sec('Steuerung', [], [
       rowSel('Umschalten mit', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
@@ -860,25 +860,25 @@ select option { background: #1a1511; color: #e8dcc4; }
     const m = (v) => de(v, 1) + ' m';
     const rk = (id, label, min, max, def, fmt) => knob({ label, min, max, def, step: id === 'absorb' || id === 'reverb' ? 0.01 : 0.1, fmt, get: () => S.room[id], set: v => { S.room[id] = v; clampPos(); send({ type: 'room', v: { [id]: v } }); sendPos(); } });
     p.appendChild(sec('Maße', [rk('Lx', 'Breite', 3, 30, 6, m), rk('Ly', 'Länge', 3, 40, 8, m), rk('Lz', 'Höhe', 2.2, 15, 2.8, m), rk('reverb', 'Nachhall', 0, 2, 1, pct)],
-      [rowSeg('Form', [['quader', 'Quader'], ['zelt', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'quader')], '', { id: 'secBox' }));
+      [rowSeg('Form', [['box', 'Quader'], ['tent', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'box')], '', { id: 'secBox' }));
     p.appendChild(sec('Oberflächen · Hörer', [
       rk('absorb', 'Dämpfung', 0.05, 0.8, 0.3, pct),
       knob({ label: 'Blickricht.', min: -180, max: 180, step: 1, def: 0, fmt: v => v + '°', get: () => yawDeg(), set: v => setYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
-      rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'holz'),
-      rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.les.y - S.lis.y, S.les.x - S.lis.x))),
+      rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'wood'),
+      rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
     ], '', { id: 'secSurf' }));
     // Zelt
     const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; applyTent(false); } });
     p.appendChild(sec('Zirkuszelt', [
-      tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('kup', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
+      tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('dome', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
       tk('hm', 'Kranzhöhe', 5, 16, 8.5, m, 0.1), tk('hb', 'Kranzband', 0.3, 3, 1.3, m, 0.1), tk('tip', 'Spitze', 0.5, 8, 3.5, m, 0.1), tk('hw', 'Wandhöhe', 2.2, 5, 4, m, 0.1),
-      tk('sagp', 'Durchhang', 0, 1, 0.45, pct, 0.01), tk('man', 'Manege-Ø', 8, 18, 13, m, 0.5), tk('aud', 'Publikum', 0, 1, 0.8, pct, 0.01),
+      tk('sagPct', 'Durchhang', 0, 1, 0.45, pct, 0.01), tk('ring', 'Manege-Ø', 8, 18, 13, m, 0.5), tk('audience', 'Publikum', 0, 1, 0.8, pct, 0.01),
     ], [
-      rowSel('Untergrund', [['wiese', 'Wiese'], ['schotter', 'Schotter / Kies'], ['sandplatz', 'Sandplatz'], ['asphalt', 'Asphalt'], ['beton', 'Betonplatz'], ['pflaster', 'Pflaster'], ['holzboden', 'Holzboden'], ['schnee', 'Schnee']],
-        () => S.tent.ground, v => { S.tent.ground = v; applyTent(false); }, 'wiese'),
-      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['untergrund', 'wie Untergrund']], () => S.tent.manege, v => { S.tent.manege = v; applyTent(false); }, 'sand'),
-      rowSeg('Form', [['quader', 'Quader'], ['zelt', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'quader'),
+      rowSel('Untergrund', [['grass', 'Wiese'], ['gravel', 'Schotter / Kies'], ['sandlot', 'Sandplatz'], ['asphalt', 'Asphalt'], ['concrete', 'Betonplatz'], ['paving', 'Pflaster'], ['woodfloor', 'Holzboden'], ['snow', 'Schnee']],
+        () => S.tent.ground, v => { S.tent.ground = v; applyTent(false); }, 'grass'),
+      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['ground', 'wie Untergrund']], () => S.tent.ringFloor, v => { S.tent.ringFloor = v; applyTent(false); }, 'sand'),
+      rowSeg('Form', [['box', 'Quader'], ['tent', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'box'),
       rowVal('Strahlen', () => tInfoText),
     ], '', { id: 'secTent', span: 2, kcols: 6, rcols: 2 }));
     p.appendChild(sec('Berechnung · Vorlagen', [], [
@@ -887,7 +887,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       rowVal('Rechenlast', () => cpuText),
     ], 'Höhere Ordnung = dichtere frühe Reflexionen, kostet Rechenzeit.'));
   });
-  reg({ sync() { const z = S.room.shape === 'zelt'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
+  reg({ sync() { const z = S.room.shape === 'tent'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
 
 
   // ---------------- Karte Mikros ----------------
@@ -898,8 +898,8 @@ select option { background: #1a1511; color: #e8dcc4; }
   const degFmt = (v) => (v === 0 ? '0° Front' : Math.round(v) + '°');
   function placeRoomPair() {
     const f = S.cabYaw, d = Math.min(3, Math.max(1.5, Math.min(S.room.Lx, S.room.Ly) * 0.35));
-    S.mics.roomX = clamp(S.les.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.les.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
-    S.mics.roomYaw = Math.atan2(S.les.y - S.mics.roomY, S.les.x - S.mics.roomX); S.mics.placed = true;
+    S.mics.roomX = clamp(S.lesliePos.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.lesliePos.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
+    S.mics.roomYaw = Math.atan2(S.lesliePos.y - S.mics.roomY, S.lesliePos.x - S.mics.roomX); S.mics.placed = true;
   }
   function setMicsOn(v) { S.mics.on = v; if (v && !S.mics.placed) placeRoomPair(); sendMics(); syncAll(); }
   page('mikros', (p) => {
@@ -1067,18 +1067,18 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   // ---------------- Raumvorlagen ----------------
   function matchRoom() {
-    if (S.room.shape === 'zelt') return ROOMS.findIndex(r => r.tent);
+    if (S.room.shape === 'tent') return ROOMS.findIndex(r => r.tent);
     const i = ROOMS.findIndex(r => !r.tent && r.Lx === S.room.Lx && r.Ly === S.room.Ly && r.Lz === S.room.Lz && r.absorb === S.room.absorb && r.material === S.room.material && r.reverb === S.room.reverb);
     return i >= 0 ? i : null;
   }
   function loadRoom(i) {
     const r = ROOMS[i]; if (!r) return;
-    if (r.tent) { setShape('zelt'); return; }
-    if (S.room.shape !== 'quader') { S.room.shape = 'quader'; send({ type: 'room', v: { shape: 'quader', absBands: null } }); }
-    const fx = S.les.x / S.room.Lx, fy = S.les.y / S.room.Ly, gx = S.lis.x / S.room.Lx;
+    if (r.tent) { setShape('tent'); return; }
+    if (S.room.shape !== 'box') { S.room.shape = 'box'; send({ type: 'room', v: { shape: 'box', absBands: null } }); }
+    const fx = S.lesliePos.x / S.room.Lx, fy = S.lesliePos.y / S.room.Ly, gx = S.listener.x / S.room.Lx;
     Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material });
-    S.les.x = fx * r.Lx; S.les.y = Math.min(r.Ly - 1, fy * r.Ly);
-    S.lis.x = gx * r.Lx; S.lis.y = Math.max(0.6, S.les.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
+    S.lesliePos.x = fx * r.Lx; S.lesliePos.y = Math.min(r.Ly - 1, fy * r.Ly);
+    S.listener.x = gx * r.Lx; S.listener.y = Math.max(0.6, S.lesliePos.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
     clampPos(); send({ type: 'room', v: S.room }); sendPos(true); syncAll();
   }
   const quick = ROOMS.map((r, i) => [r, i]).filter(([r]) => !r.noQuick);
@@ -1088,35 +1088,35 @@ select option { background: #1a1511; color: #e8dcc4; }
   // ---------------- Zirkuszelt ----------------
   let tracer = null, traceTimer = null, traceId = 0;
   function tentGeo() {
-    const T = S.tent, R = T.W / 2, rK = Math.min(R - 1, T.kup / 2);
-    return { W: T.W, Ls: T.Ls, hw: T.hw, hK: T.hm, hb: T.hb, rK, hTip: T.hm + T.hb + T.tip, sag: 1 + T.sagp * 1.6, cx: S.room.Lx / 2, cy: S.room.Ly / 2,
-      rMan: T.man / 2, rT1: T.man / 2 + 1, rT2: Math.min(R - 0.5, T.man / 2 + 1 + Math.max(3, R - T.man / 2 - 2.5)), hT: 2.8 };
+    const T = S.tent, R = T.W / 2, rK = Math.min(R - 1, T.dome / 2);
+    return { W: T.W, Ls: T.Ls, hw: T.hw, hCrown: T.hm, hb: T.hb, rK, hTip: T.hm + T.hb + T.tip, sag: 1 + T.sagPct * 1.6, cx: S.room.Lx / 2, cy: S.room.Ly / 2,
+      rRing: T.ring / 2, rT1: T.ring / 2 + 1, rT2: Math.min(R - 0.5, T.ring / 2 + 1 + Math.max(3, R - T.ring / 2 - 2.5)), hT: 2.8 };
   }
   function tentPlanD(x, y) { const g = tentGeo(); const dx = Math.max(Math.abs(x - g.cx) - g.Ls / 2, 0); return Math.hypot(dx, y - g.cy); }
   function setShape(shape) {
     if (shape === S.room.shape) { syncAll(); return; }
     S.room.shape = shape;
-    if (shape === 'zelt') applyTent(true);
-    else { const r = ROOMS[1]; Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); S.les = { x: 4.2, y: 6.3 }; S.lis.x = 2.6; S.lis.y = 2.4; clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); }
+    if (shape === 'tent') applyTent(true);
+    else { const r = ROOMS[1]; Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); S.lesliePos = { x: 4.2, y: 6.3 }; S.listener.x = 2.6; S.listener.y = 2.4; clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); }
     syncAll();
   }
   function applyTent(reposition) {
     const T = S.tent, R = T.W / 2;
-    S.room.Lx = T.W + T.Ls; S.room.Ly = T.W; S.room.Lz = T.hm; S.room.material = 'zelt'; S.room.absorb = 0.5;
+    S.room.Lx = T.W + T.Ls; S.room.Ly = T.W; S.room.Lz = T.hm; S.room.material = 'tent'; S.room.absorb = 0.5;
     const area = Math.PI * R * R + T.W * T.Ls, perim = Math.PI * T.W + 2 * T.Ls, V = area * (T.hw + (T.hm - T.hw) * 0.42);
     const g = tentGeo();
-    const GROUND = { wiese: [0.75, 0.5, 0.25], schotter: [0.8, 0.6, 0.45], sandplatz: [0.6, 0.45, 0.3], asphalt: [0.93, 0.9, 0.85], beton: [0.95, 0.93, 0.9], pflaster: [0.9, 0.85, 0.75], holzboden: [0.85, 0.8, 0.7], schnee: [0.5, 0.25, 0.1] };
-    const refl = { plane: [0.12, 0.45, 0.68], sand: [0.55, 0.45, 0.3], trib: [0.7, 0.6, 0.5].map((v, i) => v + ([0.3, 0.15, 0.08][i] - v) * T.aud), ground: GROUND[T.ground] || GROUND.wiese };
-    const aMan = Math.PI * g.rMan * g.rMan, aTrib = Math.PI * (g.rT2 * g.rT2 - g.rT1 * g.rT1), aGround = Math.max(0, area - aMan - aTrib), aPlane = area * 1.3 + perim * T.hw;
-    const manRefl = T.manege === 'untergrund' ? refl.ground : refl.sand;
-    const absB = [0, 1, 2].map(i => (aPlane * (1 - refl.plane[i]) + aMan * (1 - manRefl[i]) + aTrib * (1 - refl.trib[i]) + aGround * (1 - refl.ground[i])) / (aPlane + aMan + aTrib + aGround));
-    if (reposition) { S.les.x = S.room.Lx / 2; S.les.y = S.room.Ly / 2 + 2; S.lis.x = S.room.Lx / 2; S.lis.y = S.room.Ly / 2 - T.man / 2 - 2.5; S.lis.yaw = Math.PI / 2; }
+    const GROUND = { grass: [0.75, 0.5, 0.25], gravel: [0.8, 0.6, 0.45], sandlot: [0.6, 0.45, 0.3], asphalt: [0.93, 0.9, 0.85], concrete: [0.95, 0.93, 0.9], paving: [0.9, 0.85, 0.75], woodfloor: [0.85, 0.8, 0.7], snow: [0.5, 0.25, 0.1] };
+    const refl = { canvas: [0.12, 0.45, 0.68], sand: [0.55, 0.45, 0.3], trib: [0.7, 0.6, 0.5].map((v, i) => v + ([0.3, 0.15, 0.08][i] - v) * T.audience), ground: GROUND[T.ground] || GROUND.grass };
+    const aMan = Math.PI * g.rRing * g.rRing, aTrib = Math.PI * (g.rT2 * g.rT2 - g.rT1 * g.rT1), aGround = Math.max(0, area - aMan - aTrib), aPlane = area * 1.3 + perim * T.hw;
+    const manRefl = T.ringFloor === 'ground' ? refl.ground : refl.sand;
+    const absB = [0, 1, 2].map(i => (aPlane * (1 - refl.canvas[i]) + aMan * (1 - manRefl[i]) + aTrib * (1 - refl.trib[i]) + aGround * (1 - refl.ground[i])) / (aPlane + aMan + aTrib + aGround));
+    if (reposition) { S.lesliePos.x = S.room.Lx / 2; S.lesliePos.y = S.room.Ly / 2 + 2; S.listener.x = S.room.Lx / 2; S.listener.y = S.room.Ly / 2 - T.ring / 2 - 2.5; S.listener.yaw = Math.PI / 2; }
     clampPos();
-    send({ type: 'room', v: { shape: 'zelt', Lx: S.room.Lx, Ly: S.room.Ly, Lz: S.room.Lz, material: 'zelt', absorb: 0.5, tentV: V, tentS: aPlane + aMan + aTrib + aGround, absBands: absB } });
+    send({ type: 'room', v: { shape: 'tent', Lx: S.room.Lx, Ly: S.room.Ly, Lz: S.room.Lz, material: 'tent', absorb: 0.5, tentVolume: V, tentSurface: aPlane + aMan + aTrib + aGround, absBands: absB } });
     sendPos(!!reposition);
     scheduleTrace();
   }
-  function scheduleTrace() { if (S.room.shape !== 'zelt') return; clearTimeout(traceTimer); traceTimer = setTimeout(runTrace, 180); }
+  function scheduleTrace() { if (S.room.shape !== 'tent') return; clearTimeout(traceTimer); traceTimer = setTimeout(runTrace, 180); }
   function runTrace() {
     if (!tracer) {
       const url = URL.createObjectURL(new Blob([$('tracer-src').textContent], { type: 'application/javascript' }));
@@ -1125,26 +1125,26 @@ select option { background: #1a1511; color: #e8dcc4; }
     }
     traceId++;
     const caps = { 1: 10000, 2: 14000, 3: 18000, 4: 22000, 5: 28000 };
-    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.les.x, y: S.les.y, z: 0.8 }, rec: { x: S.lis.x, y: S.lis.y, z: 1.2 },
-      rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.aud, scatter: 0.15, ground: S.tent.ground, manege: S.tent.manege });
+    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.lesliePos.x, y: S.lesliePos.y, z: 0.8 }, rec: { x: S.listener.x, y: S.listener.y, z: 1.2 },
+      rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.audience, scatter: 0.15, ground: S.tent.ground, ringFloor: S.tent.ringFloor });
     tInfoText = 'rechnet …';
   }
 
   // ---------------- Position und Blickrichtung ----------------
-  function yawDeg() { let d = Math.round((S.lis.yaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
-  function setYaw(rad, jump) { S.lis.yaw = rad; sendPos(jump); syncAll(); }
+  function yawDeg() { let d = Math.round((S.listener.yaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+  function setYaw(rad, jump) { S.listener.yaw = rad; sendPos(jump); syncAll(); }
   function clampPos() {
     const R = S.room, c = (v, hi) => clamp(v, 0.35, hi - 0.35);
-    S.les.x = c(S.les.x, R.Lx); S.les.y = c(S.les.y, R.Ly); S.lis.x = c(S.lis.x, R.Lx); S.lis.y = c(S.lis.y, R.Ly);
-    if (R.shape === 'zelt') {
+    S.lesliePos.x = c(S.lesliePos.x, R.Lx); S.lesliePos.y = c(S.lesliePos.y, R.Ly); S.listener.x = c(S.listener.x, R.Lx); S.listener.y = c(S.listener.y, R.Ly);
+    if (R.shape === 'tent') {
       const g = tentGeo();
-      for (const o of [S.les, S.lis]) {
+      for (const o of [S.lesliePos, S.listener]) {
         const d = tentPlanD(o.x, o.y), lim = g.W / 2 - 0.6;
         if (d > lim) { const ax = clamp(o.x - g.cx, -g.Ls / 2, g.Ls / 2) + g.cx, ay = g.cy; o.x = ax + (o.x - ax) * lim / d; o.y = ay + (o.y - ay) * lim / d; }
       }
     }
   }
-  function sendPos(jump) { send({ type: 'pos', les: S.les, lis: S.lis, jump: !!jump }); if (S.room.shape === 'zelt') scheduleTrace(); }
+  function sendPos(jump) { send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: !!jump }); if (S.room.shape === 'tent') scheduleTrace(); }
 
   // ---------------- Grundriss (klein auf der Spielfläche, groß in der Karte Raum) ----------------
   function RoomView(cv, big) {
@@ -1159,69 +1159,69 @@ select option { background: #1a1511; color: #e8dcc4; }
     let drag = null;
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', (e) => {
-      const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y);
+      const [px, py] = local(e), [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), [hx, hy] = W2C(S.listener.x, S.listener.y);
       const dl = Math.hypot(px - lx, py - ly), dh = Math.hypot(px - hx, py - hy);
       const [mx, my] = W2C(S.mics.roomX, S.mics.roomY), dm = S.mics.on ? Math.hypot(px - mx, py - my) : 1e9;
-      if (e.button === 2) drag = dm < 18 ? 'pairRot' : 'rot'; else if (dm < 16 && dm <= dh && dm <= dl) drag = 'pair'; else if (dh < 24 && dh <= dl) drag = 'lis'; else if (dl < 30) drag = 'les'; else drag = null;
+      if (e.button === 2) drag = dm < 18 ? 'pairRot' : 'rot'; else if (dm < 16 && dm <= dh && dm <= dl) drag = 'pair'; else if (dh < 24 && dh <= dl) drag = 'listener'; else if (dl < 30) drag = 'lesliePos'; else drag = null;
       if (drag) cv.setPointerCapture(e.pointerId);
     });
     cv.addEventListener('pointermove', (e) => {
       const [px, py] = local(e);
-      if (!drag) { const [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
+      if (!drag) { const [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), [hx, hy] = W2C(S.listener.x, S.listener.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
       const [wx, wy] = C2W(px, py);
-      if (drag === 'rot') setYaw(Math.atan2(wy - S.lis.y, wx - S.lis.x));
+      if (drag === 'rot') setYaw(Math.atan2(wy - S.listener.y, wx - S.listener.x));
       else if (drag === 'pair') { S.mics.roomX = clamp(wx, 0.3, S.room.Lx - 0.3); S.mics.roomY = clamp(wy, 0.3, S.room.Ly - 0.3); S.mics.placed = true; sendMics(); }
       else if (drag === 'pairRot') { S.mics.roomYaw = Math.atan2(wy - S.mics.roomY, wx - S.mics.roomX); sendMics(); }
-      else { const o = drag === 'les' ? S.les : S.lis; o.x = wx; o.y = wy; clampPos(); sendPos(); }
+      else { const o = drag === 'lesliePos' ? S.lesliePos : S.listener; o.x = wx; o.y = wy; clampPos(); sendPos(); }
     });
     const up = () => { if (drag) syncAll(); drag = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
+      const [px, py] = local(e), [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
       const [mx, my] = W2C(S.mics.roomX, S.mics.roomY);
       if (S.mics.on && Math.hypot(px - mx, py - my) < 22) { S.mics.roomYaw -= d; sendMics(); syncAll(); }
-      else if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.lis.yaw - d);
+      else if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.listener.yaw - d);
     }, { passive: false });
 
     function drawTentSide(gt) {
       const bw = 240, bh = 130, bx = W - bw - 10, by = (H - bh) / 2;
       g.fillStyle = 'rgba(14,12,10,.9)'; g.strokeStyle = '#2e2620'; g.lineWidth = 1; g.beginPath(); g.roundRect(bx, by, bw, bh, 6); g.fill(); g.stroke();
-      const R = gt.W / 2, mastTop = gt.hK + gt.hb + 1.5, top = Math.max(gt.hTip, mastTop), sc = Math.min((bw - 24) / gt.W, (bh - 32) / top);
+      const R = gt.W / 2, mastTop = gt.hCrown + gt.hb + 1.5, top = Math.max(gt.hTip, mastTop), sc = Math.min((bw - 24) / gt.W, (bh - 32) / top);
       const X = (x) => bx + bw / 2 + x * sc, Y = (hh) => by + bh - 12 - hh * sc;
-      const profile = (dir) => { const pts = [[0, gt.hTip], [gt.rK, gt.hK + gt.hb], [gt.rK, gt.hK]]; for (let i = 1; i <= 6; i++) { const d = gt.rK + (R - gt.rK) * i / 6; pts.push([d, gt.hw + (gt.hK - gt.hw) * Math.pow((R - d) / (R - gt.rK), gt.sag)]); } pts.push([R, 0]); return pts.map(([d, hh]) => [X(dir * d), Y(hh)]); };
+      const profile = (dir) => { const pts = [[0, gt.hTip], [gt.rK, gt.hCrown + gt.hb], [gt.rK, gt.hCrown]]; for (let i = 1; i <= 6; i++) { const d = gt.rK + (R - gt.rK) * i / 6; pts.push([d, gt.hw + (gt.hCrown - gt.hw) * Math.pow((R - d) / (R - gt.rK), gt.sag)]); } pts.push([R, 0]); return pts.map(([d, hh]) => [X(dir * d), Y(hh)]); };
       const pts = [...profile(-1).reverse(), ...profile(1)];
       g.fillStyle = 'rgba(138,90,54,.25)'; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
       g.strokeStyle = '#d9a86c'; g.lineWidth = 1.5; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
-      g.strokeStyle = '#f2c879'; g.lineWidth = 2.5; for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rK), Y(gt.hK)); g.lineTo(X(dir * gt.rK), Y(gt.hK + gt.hb)); g.stroke(); }
+      g.strokeStyle = '#f2c879'; g.lineWidth = 2.5; for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rK), Y(gt.hCrown)); g.lineTo(X(dir * gt.rK), Y(gt.hCrown + gt.hb)); g.stroke(); }
       g.strokeStyle = '#6b5a40'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(-R), Y(0)); g.lineTo(X(R), Y(0)); g.stroke();
       g.fillStyle = 'rgba(120,95,70,.6)';
       for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * gt.rT1), Y(0)); g.lineTo(X(dir * gt.rT1), Y(0.5)); g.lineTo(X(dir * gt.rT2), Y(0.5 + gt.hT)); g.lineTo(X(dir * gt.rT2), Y(0)); g.closePath(); g.fill(); }
-      g.fillStyle = '#5a4a2a'; g.fillRect(X(-gt.rMan), Y(0) - 2, 2 * gt.rMan * sc, 2);
+      g.fillStyle = '#5a4a2a'; g.fillRect(X(-gt.rRing), Y(0) - 2, 2 * gt.rRing * sc, 2);
       g.strokeStyle = '#e8dcc4'; g.lineWidth = 2; const md = S.tent.mast / 2 * Math.SQRT2;
       for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * md), Y(0)); g.lineTo(X(dir * md), Y(mastTop)); g.stroke(); }
-      const dl = Math.hypot(S.les.x - gt.cx, S.les.y - gt.cy), dh = Math.hypot(S.lis.x - gt.cx, S.lis.y - gt.cy);
+      const dl = Math.hypot(S.lesliePos.x - gt.cx, S.lesliePos.y - gt.cy), dh = Math.hypot(S.listener.x - gt.cx, S.listener.y - gt.cy);
       g.fillStyle = '#f2c879'; g.fillRect(X(-dl) - 3, Y(1.1), 6, 1.1 * sc);
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(X(dh), Y(1.5), 3, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#8f8370'; g.font = '11px "Barlow Condensed", sans-serif';
-      g.fillText(`Schnitt · Kranz ${de(gt.hK)} m · Spitze ${de(gt.hTip)} m`, bx + 8, by + 14);
+      g.fillText(`Schnitt · Kranz ${de(gt.hCrown)} m · Spitze ${de(gt.hTip)} m`, bx + 8, by + 14);
     }
 
     function draw(hornA, drumA) {
       if (!W || !H) return;
-      const R = S.room, padT = big ? 30 : 12, padB = big ? 14 : 24, padX = big ? 18 : 14, side = big && R.shape === 'zelt' ? 250 : 0;
+      const R = S.room, padT = big ? 30 : 12, padB = big ? 14 : 24, padX = big ? 18 : 14, side = big && R.shape === 'tent' ? 250 : 0;
       view.s = Math.min((W - side - 2 * padX) / R.Lx, (H - padT - padB) / R.Ly);
       view.ox = (W - side - R.Lx * view.s) / 2; view.oy = padT + (H - padT - padB - R.Ly * view.s) / 2;
       g.clearRect(0, 0, W, H);
       const [x0, y0] = W2C(0, R.Ly), [x1, y1] = W2C(R.Lx, 0);
       const step = R.Lx > 15 || R.Ly > 20 ? 5 : 1;
       const grid = () => { g.strokeStyle = '#17221d'; g.lineWidth = 1; g.beginPath(); for (let x = step; x < R.Lx; x += step) { const [a] = W2C(x, 0); g.moveTo(a, y0); g.lineTo(a, y1); } for (let y = step; y < R.Ly; y += step) { const [, b] = W2C(0, y); g.moveTo(x0, b); g.lineTo(x1, b); } g.stroke(); };
-      if (R.shape === 'zelt') {
+      if (R.shape === 'tent') {
         const gt = tentGeo(), rr = gt.W / 2 * view.s, [cx, cy] = W2C(gt.cx, gt.cy), hl = gt.Ls / 2 * view.s;
         const stadium = (rad) => { g.beginPath(); g.moveTo(cx - hl, cy - rad); g.lineTo(cx + hl, cy - rad); g.arc(cx + hl, cy, rad, -Math.PI / 2, Math.PI / 2); g.lineTo(cx - hl, cy + rad); g.arc(cx - hl, cy, rad, Math.PI / 2, Math.PI * 1.5); g.closePath(); };
         g.save(); stadium(rr); g.clip(); grid(); g.restore();
         g.strokeStyle = '#8a5a36'; g.lineWidth = 2.5; stadium(rr); g.stroke();
-        g.fillStyle = `rgba(120,95,70,${0.18 + 0.3 * S.tent.aud})`; g.beginPath(); g.arc(cx, cy, gt.rT2 * view.s, 0, Math.PI * 2); g.arc(cx, cy, gt.rT1 * view.s, 0, Math.PI * 2, true); g.fill();
-        g.fillStyle = '#5a4a2a'; g.beginPath(); g.arc(cx, cy, gt.rMan * view.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#a0866a'; g.lineWidth = 1.5; g.stroke();
+        g.fillStyle = `rgba(120,95,70,${0.18 + 0.3 * S.tent.audience})`; g.beginPath(); g.arc(cx, cy, gt.rT2 * view.s, 0, Math.PI * 2); g.arc(cx, cy, gt.rT1 * view.s, 0, Math.PI * 2, true); g.fill();
+        g.fillStyle = '#5a4a2a'; g.beginPath(); g.arc(cx, cy, gt.rRing * view.s, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#a0866a'; g.lineWidth = 1.5; g.stroke();
         const hm2 = S.tent.mast / 2 * view.s;
         g.setLineDash([3, 4]); g.strokeStyle = '#6a5a44'; g.lineWidth = 1; g.strokeRect(cx - hm2, cy - hm2, 2 * hm2, 2 * hm2); g.setLineDash([]);
         g.fillStyle = '#e8dcc4'; g.strokeStyle = '#8a5a36'; g.lineWidth = 1.5;
@@ -1232,7 +1232,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         grid();
         g.strokeStyle = '#6b5a40'; g.lineWidth = 2.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
         // Schallwege: direkt + 1. Ordnung, mit Horn-Abstrahlung gewichtet
-        const L = S.les, Hh = S.lis;
+        const L = S.lesliePos, Hh = S.listener;
         const imgs = [[L.x, L.y], [-L.x, L.y], [2 * R.Lx - L.x, L.y], [L.x, -L.y], [L.x, 2 * R.Ly - L.y]];
         g.lineCap = 'round';
         imgs.forEach(([ix, iy], i) => {
@@ -1245,9 +1245,9 @@ select option { background: #1a1511; color: #e8dcc4; }
           pts.forEach(([x, y], j) => { const [a, b] = W2C(x, y); j ? g.lineTo(a, b) : g.moveTo(a, b); }); g.stroke();
         });
       }
-      if (R.shape === 'zelt') { const [a1, b1] = W2C(S.les.x, S.les.y), [a2, b2] = W2C(S.lis.x, S.lis.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
+      if (R.shape === 'tent') { const [a1, b1] = W2C(S.lesliePos.x, S.lesliePos.y), [a2, b2] = W2C(S.listener.x, S.listener.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
       // Leslie
-      const [lx, ly] = W2C(S.les.x, S.les.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
+      const [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
       g.save(); g.translate(lx, ly); g.rotate(-S.cabYaw + Math.PI / 2);
       const cw = cab, cd = cab * 0.72;
       g.fillStyle = '#4a2e1c'; g.strokeStyle = '#a8743f'; g.lineWidth = 1.5; g.beginPath(); g.roundRect(-cw / 2, -cd / 2, cw, cd, 3); g.fill(); g.stroke();
@@ -1266,7 +1266,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         const M = S.mics, D2R = Math.PI / 180;
         const mic = (x, y, ax, ay, r) => { const [a, b] = W2C(x, y); g.strokeStyle = '#f2c879'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, b); g.lineTo(a + ax * (r + 7), b - ay * (r + 7)); g.stroke(); g.fillStyle = '#f2c879'; g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill(); g.fillStyle = '#17130f'; g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill(); };
         const close = (st, ang, center, dist) => {
-          const [a, b] = W2C(S.les.x, S.les.y);
+          const [a, b] = W2C(S.lesliePos.x, S.lesliePos.y);
           (st ? [center - ang / 2, center + ang / 2] : [center]).forEach((ph) => {
             const t = S.cabYaw + ph * D2R, c = Math.cos(t), sn = Math.sin(t), cf = Math.abs(Math.cos(ph * D2R)), sf = Math.abs(Math.sin(ph * D2R));
             const R = Math.min(cf > 1e-6 ? 0.275 / cf : 1e9, sf > 1e-6 ? 0.37 / sf : 1e9) + Math.max(0.02, dist);
@@ -1288,13 +1288,13 @@ select option { background: #1a1511; color: #e8dcc4; }
         g.fillStyle = '#c9b89c'; g.font = '11px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Raumpaar', ca, cb + 20); g.textAlign = 'left';
       }
       // Hörer + Lautsprecher
-      const [hx, hy] = W2C(S.lis.x, S.lis.y), yaw = S.lis.yaw;
+      const [hx, hy] = W2C(S.listener.x, S.listener.y), yaw = S.listener.yaw;
       g.globalAlpha = S.mics.on ? 0.35 : 1;
       MODES[S.mode].show.forEach((deg) => { const a = yaw + deg * Math.PI / 180, rr = big ? 30 : 24; g.fillStyle = '#7d715f'; g.beginPath(); g.arc(hx + Math.cos(a) * rr, hy - Math.sin(a) * rr, big ? 3.5 : 2.5, 0, Math.PI * 2); g.fill(); });
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
       g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();
       g.fillStyle = '#f2a33a'; [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 9, hy - Math.sin(yaw + o) * 9, 2.6, 0, Math.PI * 2); g.fill(); });
-      g.fillStyle = '#c9b89c'; g.fillText(`Du · ${de(Math.hypot(S.les.x - S.lis.x, S.les.y - S.lis.y))} m`, hx + 14, hy + 22);
+      g.fillStyle = '#c9b89c'; g.fillText(`Du · ${de(Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y))} m`, hx + 14, hy + 22);
       g.globalAlpha = 1;
     }
     return self;
@@ -1302,7 +1302,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const rooms = [RoomView($('roomS'), false), RoomView($('roomB'), true)];
   function roomLine() {
     const R = S.room;
-    const dims = R.shape === 'zelt' ? `Zirkuszelt Ø ${de(S.tent.W, 0)} m · Kranz ${de(S.tent.hm)} m` : `${de(R.Lx)} × ${de(R.Ly)} × ${de(R.Lz)} m · ${MAT_SHORT[R.material] || R.material}`;
+    const dims = R.shape === 'tent' ? `Zirkuszelt Ø ${de(S.tent.W, 0)} m · Kranz ${de(S.tent.hm)} m` : `${de(R.Lx)} × ${de(R.Ly)} × ${de(R.Lz)} m · ${MAT_SHORT[R.material] || R.material}`;
     return dims + (roomInfo ? ` · RT60 ${de(roomInfo.rt60[1])} s` : '');
   }
   reg({ sync() {
@@ -1422,8 +1422,8 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   // ---------------- Alles schicken ----------------
   function pushAll() {
-    if (S.room.shape === 'zelt') applyTent(false); else send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) });
-    send({ type: 'pos', les: S.les, lis: S.lis, jump: true });
+    if (S.room.shape === 'tent') applyTent(false); else send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) });
+    send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: true });
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
@@ -1469,10 +1469,21 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   // ---------------- Start ----------------
   window.addEventListener('resize', fit);
+  // Older saved states used German value names; map them to the current ones
+  function migrate(o) {
+    const V = { holz: 'wood', beton: 'concrete', stein: 'stone', glas: 'glass', zelt: 'tent', quader: 'box', wiese: 'grass', schotter: 'gravel', sandplatz: 'sandlot', pflaster: 'paving', holzboden: 'woodfloor', schnee: 'snow', untergrund: 'ground' };
+    const fix = (obj, k) => { if (obj && typeof obj[k] === 'string' && V[obj[k]]) obj[k] = V[obj[k]]; };
+    fix(o.room, 'material'); fix(o.room, 'shape'); fix(o.tent, 'ground');
+    if (o.tent) { const T = o.tent, R = { man: 'ring', kup: 'dome', aud: 'audience', sagp: 'sagPct', manege: 'ringFloor' }; for (const k in R) if (k in T && !(R[k] in T)) T[R[k]] = T[k]; fix(T, 'ringFloor'); }
+    if (o.cab && 'hornfach' in o.cab && !('hornBox' in o.cab)) o.cab.hornBox = o.cab.hornfach;
+    if (o.lesliePos === undefined && o.les) o.lesliePos = o.les;
+    if (o.listener === undefined && o.lis) o.listener = o.lis;
+    return o;
+  }
   let loadedState = false;
   async function start() {
     if (NATIVE) {
-      try { const txt = await nativeInvoke('loadUi'); if (txt) { deepMerge(S, JSON.parse(txt)); loadedState = true; } } catch (e) { console.warn('Gespeicherter Zustand nicht lesbar', e); }
+      try { const txt = await nativeInvoke('loadUi'); if (txt) { deepMerge(S, migrate(JSON.parse(txt))); loadedState = true; } } catch (e) { console.warn('Saved state unreadable', e); }
     }
     if (!loadedState) applyInstrument(0);   // erster Start: B3 + 122 wie im Original
     if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';

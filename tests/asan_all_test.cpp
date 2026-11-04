@@ -24,7 +24,7 @@ int main() {
         m.hornStereo = false; m.drumStereo = true; m.roomArr = 2; m.roomType = 6; dsp.setMics(m); run(20);
         m.grp[0].out = 15; m.grp[2].out = 14; m.grp[1].delayMs = 50; dsp.setMics(m); dsp.kickSpring(1); run(20);
         // Zelt mit Taps
-        r.shape = "zelt"; r.Lx = 30; r.Ly = 30; r.Lz = 8.5; dsp.setRoom(r);
+        r.shape = "tent"; r.Lx = 30; r.Ly = 30; r.Lz = 8.5; dsp.setRoom(r);
         std::vector<Tap> taps; for (int i = 0; i < 300; i++) { Tap t{0.01 + i * 0.001, i * 0.1, 0.1, {1, 0, 0}, 2, {0.01, 0.01, 0.01}}; taps.push_back(t); } dsp.setTaps(taps);
         m.on = false; dsp.setMics(m); run(20);
         m.on = true; dsp.setMics(m); run(20);

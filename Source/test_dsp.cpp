@@ -5,7 +5,7 @@ int main() {
     using namespace leslie;
     LeslieRoomDSP dsp(48000);
     Speakers s; s.az = {30, -30, 0, 110, -110}; s.ch = {0, 1, 2, 4, 5}; s.lfe = 3; dsp.setSpeakers(s);
-    Room r; r.Lx = 6; r.Ly = 8; r.Lz = 2.8; r.absorb = 0.3; r.material = "holz"; r.order = 2; r.reverb = 1; dsp.setRoom(r);
+    Room r; r.Lx = 6; r.Ly = 8; r.Lz = 2.8; r.absorb = 0.3; r.material = "wood"; r.order = 2; r.reverb = 1; dsp.setRoom(r);
     dsp.setPos(true, 4.2, 6.3, true, 2.6, 2.4, true, 3.14159265358979 / 2, true);
     dsp.setCabYaw(std::atan2(2.4 - 6.3, 2.6 - 4.2), true);
     const int N = 128, blocks = 4 * 48000 / N;

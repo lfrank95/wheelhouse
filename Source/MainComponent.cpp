@@ -246,7 +246,7 @@ void MainComponent::handleDspMessage(const var& m) {
             d.setMics(ms);
         }
         else if (type == "brake") d.setBrake((bool) m.getProperty("v", true));
-        else if (type == "cabDetail") d.setCabinetDetail(numProp(m, "hornfach", 0.45), numProp(m, "wobble", -1));
+        else if (type == "cabDetail") d.setCabinetDetail(numProp(m, "hornBox", 0.45), numProp(m, "wobble", -1));
         else if (type == "organDetail") d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
         else if (type == "output") d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
         else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); leslieCC = (int) numProp(m, "leslieCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
@@ -267,10 +267,10 @@ void MainComponent::handleDspMessage(const var& m) {
             if (hasProp(v, "absorb")) r.absorb = numProp(v, "absorb", r.absorb);
             if (hasProp(v, "reverb")) r.reverb = numProp(v, "reverb", r.reverb);
             if (hasProp(v, "order")) r.order = (int) numProp(v, "order", r.order);
-            if (hasProp(v, "material")) r.material = v.getProperty("material", "holz").toString().toStdString();
-            if (hasProp(v, "shape")) r.shape = v.getProperty("shape", "quader").toString().toStdString();
-            if (hasProp(v, "tentV")) r.tentV = numProp(v, "tentV", 0);
-            if (hasProp(v, "tentS")) r.tentS = numProp(v, "tentS", 0);
+            if (hasProp(v, "material")) r.material = v.getProperty("material", "wood").toString().toStdString();
+            if (hasProp(v, "shape")) r.shape = v.getProperty("shape", "box").toString().toStdString();
+            if (hasProp(v, "tentVolume")) r.tentVolume = numProp(v, "tentVolume", 0);
+            if (hasProp(v, "tentSurface")) r.tentSurface = numProp(v, "tentSurface", 0);
             if (hasProp(v, "absBands")) { auto ab = v.getProperty("absBands", var()); if (auto* a = ab.getArray(); a && a->size() >= 3) { r.hasAbsBands = true; for (int i = 0; i < 3; i++) r.absBands[i] = (double) (*a)[i]; } else r.hasAbsBands = false; }
             d.roomChanged(); roomInfoChanged = true;
         }
@@ -281,8 +281,8 @@ void MainComponent::handleDspMessage(const var& m) {
             d.setCharacter(c);
         }
         else if (type == "pos") {
-            auto les = m.getProperty("les", var()), lis = m.getProperty("lis", var());
-            d.setPos(!les.isVoid(), numProp(les, "x", 0), numProp(les, "y", 0), !lis.isVoid(), numProp(lis, "x", 0), numProp(lis, "y", 0), hasProp(lis, "yaw"), numProp(lis, "yaw", 0), (bool) m.getProperty("jump", false));
+            auto lesliePos = m.getProperty("lesliePos", var()), listener = m.getProperty("listener", var());
+            d.setPos(!lesliePos.isVoid(), numProp(lesliePos, "x", 0), numProp(lesliePos, "y", 0), !listener.isVoid(), numProp(listener, "x", 0), numProp(listener, "y", 0), hasProp(listener, "yaw"), numProp(listener, "yaw", 0), (bool) m.getProperty("jump", false));
         }
         else if (type == "speakers") {
             leslie::Speakers s;

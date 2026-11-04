@@ -8,42 +8,42 @@ function makeTent(g) {
   const cx = g.cx, cy = g.cy; // Zeltmitte in Raumkoordinaten
   // Abstand in der Ebene zur Mastlinie (Segment von -Ls/2..Ls/2 entlang x)
   const planD = (x, y) => { const dx = Math.max(Math.abs(x - cx) - Ls / 2, 0); return Math.hypot(dx, y - cy); };
-  // Kuppelkranz: vertikales Band mit Radius rK zwischen hK und hK+hb; darüber die Kegelkappe bis hTip,
-  // darunter/außen das Hauptdach als Kegel von der Rundwand (hw) bis zur Kranzunterkante (hK), leicht durchhängend.
-  const rK = g.rK, hK = g.hK, hb = g.hb, hTip = g.hTip, sag = g.sag === undefined ? 1.2 : g.sag;
+  // Kuppelkranz: vertikales Band mit Radius rK zwischen hCrown und hCrown+hb; darüber die Kegelkappe bis hTip,
+  // darunter/außen das Hauptdach als Kegel von der Rundwand (hw) bis zur Kranzunterkante (hCrown), leicht durchhängend.
+  const rK = g.rK, hCrown = g.hCrown, hb = g.hb, hTip = g.hTip, sag = g.sag === undefined ? 1.2 : g.sag;
   const roofH = (x, y) => {
     const d = planD(x, y);
-    if (d < rK) return hK + hb + (hTip - hK - hb) * (1 - d / rK);
+    if (d < rK) return hCrown + hb + (hTip - hCrown - hb) * (1 - d / rK);
     if (d >= R) return hw;
-    return hw + (hK - hw) * Math.pow((R - d) / (R - rK), sag);
+    return hw + (hCrown - hw) * Math.pow((R - d) / (R - rK), sag);
   };
   const ringD = (x, y) => Math.hypot(x - cx, y - cy); // Manege/Tribüne um die Zeltmitte
   const floorH = (x, y) => {
     const d = ringD(x, y);
-    if (d < g.rMan) return 0;
+    if (d < g.rRing) return 0;
     if (d < g.rT1) return 0.35;
     if (d < g.rT2) return 0.5 + (d - g.rT1) / (g.rT2 - g.rT1) * g.hT;
     return g.hT + 0.5;
   };
-  const floorMat = (x, y) => { const d = ringD(x, y); return d < g.rMan ? 'sand' : d < g.rT1 ? 'piste' : d < g.rT2 ? 'tribuene' : 'boden'; };
+  const floorMat = (x, y) => { const d = ringD(x, y); return d < g.rRing ? 'sand' : d < g.rT1 ? 'piste' : d < g.rT2 ? 'tiers' : 'floor'; };
   return { planD, roofH, floorH, floorMat, R, cx, cy };
 }
 
 const MATS = {
   // Energiereflexion tief / mittel / hoch (Rest geht durch die Plane nach draußen bzw. wird absorbiert)
-  plane: [0.12, 0.45, 0.68],
+  canvas: [0.12, 0.45, 0.68],
   sand: [0.55, 0.45, 0.3],
   piste: [0.8, 0.8, 0.7],
-  boden: [0.85, 0.85, 0.8],
+  floor: [0.85, 0.85, 0.8],
   // Untergründe, auf denen das Zelt steht
-  wiese: [0.75, 0.5, 0.25],
-  schotter: [0.8, 0.6, 0.45],
-  sandplatz: [0.6, 0.45, 0.3],
+  grass: [0.75, 0.5, 0.25],
+  gravel: [0.8, 0.6, 0.45],
+  sandlot: [0.6, 0.45, 0.3],
   asphalt: [0.93, 0.9, 0.85],
-  beton: [0.95, 0.93, 0.9],
-  pflaster: [0.9, 0.85, 0.75],
-  holzboden: [0.85, 0.8, 0.7],
-  schnee: [0.5, 0.25, 0.1],
+  concrete: [0.95, 0.93, 0.9],
+  paving: [0.9, 0.85, 0.75],
+  woodfloor: [0.85, 0.8, 0.7],
+  snow: [0.5, 0.25, 0.1],
   tribuene_leer: [0.7, 0.6, 0.5],
   tribuene_voll: [0.3, 0.15, 0.08],
 };
@@ -54,10 +54,10 @@ function trace(cfg) {
   const src = cfg.src, rec = cfg.rec, rr = cfg.recRadius || 1.0, rr2 = rr * rr;
   const N = cfg.rays || 30000, maxB = cfg.maxBounces || 6, maxLen = cfg.maxLen || 180, step = 0.25;
   const scat = cfg.scatter || 0.15;
-  const aud = cfg.audience; // 0..1
-  const trib = MATS.tribuene_leer.map((v, i) => v + (MATS.tribuene_voll[i] - v) * aud);
-  const ground = MATS[cfg.ground] || MATS.wiese;
-  const matOf = m => m === 'tribuene' ? trib : m === 'boden' ? ground : m === 'sand' ? (cfg.manege === 'untergrund' ? ground : MATS.sand) : MATS[m] || MATS.boden;
+  const audience = cfg.audience; // 0..1
+  const trib = MATS.tribuene_leer.map((v, i) => v + (MATS.tribuene_voll[i] - v) * audience);
+  const ground = MATS[cfg.ground] || MATS.grass;
+  const matOf = m => m === 'tiers' ? trib : m === 'floor' ? ground : m === 'sand' ? (cfg.ringFloor === 'ground' ? ground : MATS.sand) : MATS[m] || MATS.floor;
   let seed = 12345; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   const hits = []; let directE = 0, directN = 0;
   const C = 343;
@@ -119,11 +119,11 @@ function trace(cfg) {
       if (kind === 'wall') {
         // Normale der Stadionform: vom nächsten Punkt der Mastlinie nach außen
         const ddx = Math.max(Math.abs(hx - T.cx) - g.Ls / 2, 0) * Math.sign(hx - T.cx), ddy = hy - T.cy;
-        const l = Math.hypot(ddx, ddy) || 1; nx = -ddx / l; ny = -ddy / l; nz = 0; mat = MATS.plane;
+        const l = Math.hypot(ddx, ddy) || 1; nx = -ddx / l; ny = -ddy / l; nz = 0; mat = MATS.canvas;
       } else if (kind === 'roof') {
         const e = 0.05;
         const gx = (T.roofH(hx + e, hy) - T.roofH(hx - e, hy)) / (2 * e), gy = (T.roofH(hx, hy + e) - T.roofH(hx, hy - e)) / (2 * e);
-        const l = Math.hypot(gx, gy, 1); nx = gx / l; ny = gy / l; nz = -1 / l; mat = MATS.plane;
+        const l = Math.hypot(gx, gy, 1); nx = gx / l; ny = gy / l; nz = -1 / l; mat = MATS.canvas;
       } else {
         const e = 0.05;
         const gx = (T.floorH(hx + e, hy) - T.floorH(hx - e, hy)) / (2 * e), gy = (T.floorH(hx, hy + e) - T.floorH(hx, hy - e)) / (2 * e);
