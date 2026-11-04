@@ -18,7 +18,7 @@ Schlägt der ASIO-Download fehl, wird ohne ASIO gebaut (nur WASAPI/DirectSound),
 
 ```
 nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
-cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIO_SDK_DIR=C:/asiosdk/common -DJUCE_WEBVIEW2_PACKAGE_LOCATION=%cd%/packages
+cmake -B build -A x64 -DASIO_SDK_DIR=C:/asiosdk/common -DJUCE_WEBVIEW2_PACKAGE_LOCATION=%cd%/packages
 cmake --build build --config Release
 ```
 

@@ -30,7 +30,7 @@ jobs:
         run: |
           $asio = $env:ASIO_SDK_DIR
           if ($asio) { Write-Host "Build mit ASIO" } else { Write-Host "Build OHNE ASIO (SDK-Download fehlgeschlagen)" }
-          cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIO_SDK_DIR="$asio" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
+          cmake -B build -A x64 -DASIO_SDK_DIR="$asio" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
 
       - name: Bauen
         run: cmake --build build --config Release --parallel
