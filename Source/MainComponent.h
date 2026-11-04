@@ -47,11 +47,11 @@ private:
     double testPhase = 0;
 
     // Pegel
-    std::array<std::atomic<float>, 8> meterRms {};
-    std::array<float, 8> meterAcc {};
+    std::array<std::atomic<float>, 16> meterRms {};
+    std::array<float, 16> meterAcc {};
     int meterCount = 0;
 
-    std::vector<float> scratch[8];
+    std::vector<float> scratch[16];
     std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, leslieCC { 1 }, swellCC { 11 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

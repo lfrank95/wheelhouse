@@ -10,6 +10,7 @@
 #include <string>
 #include <algorithm>
 #include "LeslieAmp.h"
+#include "OrganPreamp.h"
 
 namespace leslie {
 
@@ -23,6 +24,11 @@ struct Biquad {
         double B0, B1, B2, A0 = 1 + al, A1 = -2 * cw, A2 = 1 - al;
         if (type[0] == 'l') { B0 = (1 - cw) / 2; B1 = 1 - cw; B2 = (1 - cw) / 2; }
         else if (type[0] == 'h') { B0 = (1 + cw) / 2; B1 = -(1 + cw); B2 = (1 + cw) / 2; }
+        else if (type[0] == 's') {   // Tiefenregal (RBJ)
+            double A = std::pow(10.0, gainDb / 40), sA = 2 * std::sqrt(A) * al;
+            B0 = A * ((A + 1) - (A - 1) * cw + sA); B1 = 2 * A * ((A - 1) - (A + 1) * cw); B2 = A * ((A + 1) - (A - 1) * cw - sA);
+            A0 = (A + 1) + (A - 1) * cw + sA; A1 = -2 * ((A - 1) + (A + 1) * cw); A2 = (A + 1) + (A - 1) * cw - sA;
+        }
         else { double A = std::pow(10.0, gainDb / 40); B0 = 1 + al * A; B1 = -2 * cw; B2 = 1 - al * A; A0 = 1 + al / A; A2 = 1 - al / A; }
         b0 = B0 / A0; b1 = B1 / A0; b2 = B2 / A0; a1 = A1 / A0; a2 = A2 / A0;
         return *this;
@@ -63,9 +69,13 @@ struct Speakers { std::vector<double> az; std::vector<int> ch; int lfe = -1; boo
 
 struct RoomInfo { double rt60[3] = {0, 0, 0}; double rc = 0; int paths = 0; };
 
+} // namespace leslie
+#include "MicRig.h"
+namespace leslie {
+
 class LeslieRoomDSP {
 public:
-    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate) { init(); }
+    explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate), pre(sampleRate) { init(); }
 
     // ---------------- Steuerung (entspricht den Worklet-Nachrichten) ----------------
     // Manuale: 0 = Ober, 1 = Unter, 2 = Pedal
@@ -80,7 +90,8 @@ public:
     void setVibRouting(bool upper, bool lower) { vibUpper = upper; vibLower = lower; }
     void setVib(const std::string& v) { vibMode = v; }
     void setDrive(double v) { drive = v; amp.setDrive(v); }
-    void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); }
+    void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); pre.setQuality(quality); }
+    void setPreamp(bool on, double gain) { pre.setEnabled(on); pre.setGain(gain); }
     void setRotor(int r, double slowHz, double fastHz, double upTau, double dnTau) {
         auto& R = rot[r]; R.slow = slowHz; R.fast = fastHz; R.upTau = upTau; R.dnTau = dnTau; setLeslie(leslieMode);
     }
@@ -108,6 +119,11 @@ public:
     void setTaps(std::vector<Tap> taps) { tapsData = std::move(taps); if (room.shape == "zelt") rebuildRoom(); }
 
     RoomInfo info() const { return roomInfo; }
+    // Mikrofonierung
+    void setMics(const MicSetup& m) { micSetup = m; micConfigure(); }
+    const MicSetup& mics() const { return micSetup; }
+    /** Pegel je Pultkanal (RMS, linear) für die Anzeige */
+    float micMeter(int c) const { return c >= 0 && c < MIC_CH ? micMeterVal[c] : 0.f; }
     double hornAngle() const { return rot[0].ang; }
     double drumAngle() const { return rot[1].ang; }
     double hornHz() const { return rot[0].hz; }
@@ -130,7 +146,17 @@ private:
     void retarget();
     void applyDelta(int m, int w, double d);
     int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 1) w += 12; while (w > 91) w -= 12; return w; }
-    int pedalWheel(int key, int i) const { int w = key + 1 + (i == 1 ? 12 : 0); return std::max(1, std::min(91, w)); }
+    // Pedal: die Zugriegel 16' und 8' sind im Original Mischungen aus Grundton und zwei Obertönen
+    // (16' ≈ 16' + 8' + 5⅓', 8' ≈ 8' + 4' + 2⅔'); Anteile angenähert
+    template <class F> void forParts(int m, int k, const double* amps, F f) const {
+        static const int OFF[2][3] = {{0, 12, 19}, {12, 24, 31}};
+        static const double MIX[2][3] = {{1.0, 0.38, 0.22}, {1.0, 0.32, 0.18}};
+        for (int i = 0; i < 9; i++) {
+            if (amps[i] <= 0) continue;
+            if (m == 2) { if (i < 2) for (int j = 0; j < 3; j++) f(std::max(1, std::min(91, k + 1 + OFF[i][j])), amps[i] * MIX[i][j]); }
+            else f(wheelFor(k, i), amps[i]);
+        }
+    }
     void drawbarAmps(int man, double* amps) const;
     double kOf(double f) const { return 1 - std::exp(-TWO_PI * std::min(f, fs * 0.45) / fs); }
 
@@ -150,6 +176,7 @@ private:
     double percLevelUser = 1.0, percShortS = 0.2, percLongS = 1.0; bool complexLow = true;
     bool brake = true; double hornfachLevel = 0.45, wobbleOverride = -1, masterGain = 1.0;
     amp::LeslieAmp amp;
+    amp::OrganPreamp pre;
     std::vector<float> orgBuf;
     Perc perc;
     double percEnv = 0, click = 0.5, clickEnv = 0, organGain = 0.05;
@@ -208,6 +235,22 @@ private:
     std::vector<int> fdnOutChs;
     std::array<double, 16> rv{};
     std::array<double, 8> acc{};
+
+    // ---------------- Mikrofonierung ----------------
+    MicSetup micSetup;
+    MicRt mic[6];
+    std::vector<float> chDelay[MIC_CH]; int chDelayIdx = 0; static constexpr int CHD = 8192;
+    double chGain[MIC_CH] = {0}, chGainT[MIC_CH] = {0}; int chDelayS[MIC_CH] = {0};
+    double micMeterAcc[MIC_CH] = {0}; float micMeterVal[MIC_CH] = {0}; int micMeterN = 0;
+    std::array<double, 16> micOut{};
+    double kBandLo = 0.05, kBandHi = 0.3, kWind = 0.02, micRevScale = 1, roomReflG = 0.8, roomHfRefl = 0.9;
+    double micSig[6] = {0};
+
+    void micConfigure();
+    void micRebuildPaths();
+    void micPlaceClose();
+    void micBlock(double bt);
+    void micFdnRows();
 };
 
 // =====================================================================================
@@ -302,7 +345,7 @@ inline void LeslieRoomDSP::noteOn(int k, int man) {
     if (man == 0) { bool wasEmpty = numKeysUpper == 0; numKeysUpper++; if (perc.on && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0; }
     clickEnv = std::max(clickEnv, man == 2 ? 0.6 : 1.0);
     double amps[9]; drawbarAmps(man, amps);
-    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(man, man == 2 ? pedalWheel(k, i) : wheelFor(k, i), amps[i], 0);
+    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0); });
     if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
 }
 inline void LeslieRoomDSP::noteOff(int k, int man) {
@@ -312,7 +355,7 @@ inline void LeslieRoomDSP::noteOff(int k, int man) {
     if (man == 0) numKeysUpper--;
     clickEnv = std::max(clickEnv, 0.35);
     double amps[9]; drawbarAmps(man, amps);
-    for (int i = 0; i < 9; i++) if (amps[i] > 0) schedule(man, man == 2 ? pedalWheel(k, i) : wheelFor(k, i), -amps[i], 0);
+    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0); });
     if (man == 0 && perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
 }
 inline void LeslieRoomDSP::retarget() {
@@ -323,7 +366,7 @@ inline void LeslieRoomDSP::retarget() {
         int maxK = m == 2 ? 24 : 60;
         for (int k = 0; k <= maxK; k++) {
             if (!keys[m][k]) continue;
-            for (int i = 0; i < 9; i++) if (amps[i] > 0) applyDelta(m, m == 2 ? pedalWheel(k, i) : wheelFor(k, i), amps[i]);
+            forParts(m, k, amps, [&](int w, double a) { applyDelta(m, w, a); });
             if (m == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
         }
     }
@@ -362,6 +405,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
     double ab[3];
     for (int i = 0; i < 3; i++) ab[i] = R.hasAbsBands ? clampd(R.absBands[i], 0.03, 0.97) : clampd(R.absorb * mat[i], 0.03, 0.95);
     double reflG = std::sqrt(1 - ab[1]), hfRefl = std::sqrt((1 - ab[2]) / (1 - ab[1]));
+    roomReflG = reflG; roomHfRefl = hfRefl;
     std::vector<Path> old = std::move(paths);
     std::vector<Path> np;
     bool tent = R.shape == "zelt";
@@ -443,6 +487,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
     const double lapMs[16] = {2.1, 2.9, 3.7, 4.6, 5.3, 6.1, 7.0, 7.9, 8.7, 9.6, 10.4, 11.3, 12.1, 13.0, 13.8, 14.7};
     for (int i = 0; i < 16; i++) { lapLen[i] = toPrime(std::min(2040, (int) std::lround(lapMs[(i * 5) % 16] * 0.6 * clampd(apScale, 0.6, 2) * fs / 1000))); if (lapIdx[i] >= lapLen[i]) lapIdx[i] = 0; }
     rebuildFdnOut();
+    micRebuildPaths(); micFdnRows();
     roomInfo.rt60[0] = rt[0]; roomInfo.rt60[1] = rt[1]; roomInfo.rt60[2] = rt[2]; roomInfo.rc = std::sqrt(rc2); roomInfo.paths = (int) paths.size();
 }
 
@@ -491,6 +536,177 @@ inline void LeslieRoomDSP::panGains(double az, double hfrac, float* out) const {
     double d = az - A.a; while (d < 0) d += TWO_PI;
     double t = d / span * 3.14159265358979 / 2;
     out[A.ch] += (float) (hfrac * std::cos(t)); out[B.ch] += (float) (hfrac * std::sin(t));
+}
+
+
+// ---------------- Mikrofonierung ----------------
+inline void LeslieRoomDSP::micConfigure() {
+    const MicSetup& M = micSetup;
+    kBandLo = kOf(400); kBandHi = kOf(3500); kWind = kOf(160);
+    for (int c = 0; c < MIC_CH; c++) if ((int) chDelay[c].size() != CHD) chDelay[c].assign(CHD, 0.f);
+    struct Def { bool act, close; int rotor, type, pattern; };
+    const Def d[6] = {
+        {M.on, true, 0, M.hornType, M.hornPattern}, {M.on && M.hornStereo, true, 0, M.hornType, M.hornPattern},
+        {M.on, true, 1, M.drumType, M.drumPattern}, {M.on && M.drumStereo, true, 1, M.drumType, M.drumPattern},
+        {M.on, false, -1, M.roomType, M.roomPattern}, {M.on, false, -1, M.roomType, M.roomPattern}};
+    const double PI = 3.14159265358979, D2R = PI / 180;
+    for (int i = 0; i < 6; i++) {
+        MicRt& m = mic[i];
+        bool was = m.active;
+        m.active = d[i].act; m.close = d[i].close; m.rotor = d[i].rotor; m.chan = i;
+        int t = std::max(0, std::min(NUM_MIC_TYPES - 1, d[i].type)); m.type = t;
+        const MicType& T = MIC_TYPES[t];
+        for (int b = 0; b < 3; b++) m.a[b] = T.a[b];
+        if (t == 4) { if (d[i].pattern == 1) { m.a[0] = 1; m.a[1] = 0.95; m.a[2] = 0.72; } else if (d[i].pattern == 2) { m.a[0] = m.a[1] = 0; m.a[2] = 0.05; } }
+        double aAvg = (m.a[0] + m.a[1] + m.a[2]) / 3;
+        m.diffuse = std::sqrt(aAvg * aAvg + (1 - aAvg) * (1 - aAvg) / 3);      // Empfindlichkeit im diffusen Feld
+        m.nEq = 0;
+        for (int k = 0; k < T.nEq; k++) {
+            const MicEq& e = T.eq[k];
+            const char* ty = e.type == 'h' ? "hp" : e.type == 'l' ? "lp" : e.type == 's' ? "shelf" : "peak";
+            Biquad nb; nb.set(ty, std::min(e.f, fs * 0.45), e.q, fs, e.db);
+            if (!was) m.eq[m.nEq] = nb; else { m.eq[m.nEq].b0 = nb.b0; m.eq[m.nEq].b1 = nb.b1; m.eq[m.nEq].b2 = nb.b2; m.eq[m.nEq].a1 = nb.a1; m.eq[m.nEq].a2 = nb.a2; }
+            m.nEq++;
+        }
+        // Geometrie
+        if (m.close) {
+            bool horn = m.rotor == 0, st = horn ? M.hornStereo : M.drumStereo;
+            double center = (horn ? M.hornCenter : M.drumCenter) * D2R, ang = (horn ? M.hornAngle : M.drumAngle) * D2R;
+            double phi = st ? center + (i % 2 == 0 ? -0.5 : 0.5) * ang : center;   // L = aus Sicht des Technikers links
+            m.phi = phi;
+            const double Dh = 0.275, Wh = 0.37;                                        // halbe Tiefe / Breite des 122
+            double cf = std::fabs(std::cos(phi)), sf = std::fabs(std::sin(phi));
+            double edge = std::min(cf > 1e-6 ? Dh / cf : 1e9, sf > 1e-6 ? Wh / sf : 1e9);
+            m.R = edge + std::max(0.02, horn ? M.hornDist : M.drumDist);
+            double r = rot[m.rotor].r;
+            m.dMean = std::sqrt(m.R * m.R + r * r);
+            m.trim = m.dMean / 2.5;                                                   // Vorverstärkung: 0 dB am Pult ≈ Hörer in 2,5 m
+            m.windAmt = horn ? T.wind * (M.windscreen ? 0.2 : 1) * std::pow(0.2 / std::max(0.05, m.R - 0.2), 2) : 0;
+        } else {
+            m.trim = 1; m.windAmt = 0; m.dMean = 2;
+        }
+        // Nahbesprechung: Druckgradient-Anteil (1 − a) hebt unterhalb von c/(2π·d) an
+        double grad = 1 - m.a[0];
+        double fP = C_SOUND / (TWO_PI * std::max(0.05, m.dMean));
+        double boost = std::min(15.0, 20 * std::log10(1 + grad * T.prox * std::max(0.0, fP / 60 - 1) * 0.5));
+        m.hasProx = boost > 0.3;
+        if (m.hasProx) { Biquad nb; nb.set("shelf", std::min(450.0, fP), 0.6, fs, boost); if (!was) m.prox = nb; else { m.prox.b0 = nb.b0; m.prox.b1 = nb.b1; m.prox.b2 = nb.b2; m.prox.a1 = nb.a1; m.prox.a2 = nb.a2; } }
+    }
+    // Raumpaar
+    {
+        double yaw = M.roomYaw, px = -std::sin(yaw), py = std::cos(yaw);   // links von der Blickrichtung
+        double sp = M.roomArr == 0 ? std::max(0.05, M.roomSpacing) : M.roomArr == 2 ? 0.17 : 0.02;
+        double aimOff = M.roomArr == 0 ? 0 : M.roomArr == 2 ? 55 * D2R : 45 * D2R;
+        for (int j = 0; j < 2; j++) {
+            MicRt& m = mic[4 + j]; double sgn = j == 0 ? 1 : -1;        // 4 = links, 5 = rechts
+            m.x = M.roomX + px * sp * 0.5 * sgn; m.y = M.roomY + py * sp * 0.5 * sgn; m.z = M.roomZ;
+            double a = yaw + sgn * aimOff; m.ax = std::cos(a); m.ay = std::sin(a); m.az = 0;
+        }
+    }
+    // Pult
+    bool anySolo = false; for (int c = 0; c < MIC_CH; c++) if (M.ch[c].solo) anySolo = true;
+    for (int c = 0; c < MIC_CH; c++) {
+        const auto& C = M.ch[c];
+        bool audible = !C.mute && (!anySolo || C.solo);
+        chGainT[c] = audible ? std::pow(10.0, C.gainDb / 20) * (C.pol ? -1 : 1) : 0;
+        chDelayS[c] = std::max(0, std::min(CHD - 2, (int) std::lround(C.delayMs * 1e-3 * fs)));
+    }
+    micPlaceClose(); micRebuildPaths(); micFdnRows();
+}
+
+inline void LeslieRoomDSP::micPlaceClose() {
+    for (int i = 0; i < 4; i++) {
+        MicRt& m = mic[i]; if (!m.active) continue;
+        double th = cabYaw + m.phi, c = std::cos(th), s = std::sin(th);
+        m.x = les.x + m.R * c; m.y = les.y + m.R * s;
+        m.z = m.rotor == 0 ? rot[0].h + micSetup.hornHeight : rot[1].h;
+        m.ax = -c; m.ay = -s; m.az = 0;
+        m.windC = c; m.windS = s;
+    }
+}
+
+inline void LeslieRoomDSP::micRebuildPaths() {
+    const Room& R = room;
+    for (int i = 0; i < 6; i++) {
+        MicRt& m = mic[i];
+        m.paths.clear();
+        if (!m.active) continue;
+        if (m.close) {
+            // eigener Rotor: direkt und über den Boden, pro Sample exakt; der andere Rotor als Übersprechen
+            for (int r = 0; r < 2; r++) {
+                MicPath p; p.rotor = r; p.exact = r == m.rotor; p.kDrum = kOf(18000); m.paths.push_back(p);
+                if (r == m.rotor) { MicPath f = p; f.sz = -1; f.order = 1; f.g = 0.75 * roomReflG; f.kDrum = kOf(9000); m.paths.push_back(f); }
+            }
+            continue;
+        }
+        int maxO = std::max(0, std::min(R.shape == "zelt" ? 1 : R.order, micSetup.roomOrder));
+        for (int r = 0; r < 2; r++)
+            for (int nx = -3; nx <= 3; nx++) for (int px = 0; px <= 1; px++) {
+                int ox = std::abs(2 * nx - px);
+                for (int ny = -3; ny <= 3; ny++) for (int py = 0; py <= 1; py++) {
+                    int oy = std::abs(2 * ny - py);
+                    for (int nz = -3; nz <= 3; nz++) for (int pz = 0; pz <= 1; pz++) {
+                        int oz = std::abs(2 * nz - pz), order = ox + oy + oz;
+                        if (order > maxO) continue;
+                        double hf = std::pow(0.62, order) * std::pow(roomHfRefl, order);
+                        MicPath p; p.rotor = r; p.order = order;
+                        p.sx = 1 - 2 * px; p.sy = 1 - 2 * py; p.sz = 1 - 2 * pz;
+                        p.ox = 2 * nx * R.Lx; p.oy = 2 * ny * R.Ly; p.oz = 2 * nz * R.Lz;
+                        p.g = std::pow(roomReflG, order) * (order > 0 ? 0.9 : 1);
+                        p.kDrum = kOf(std::min(20000.0, 18000 * hf));
+                        p.jit = order > 0 ? (((r * 577 + (int) m.paths.size() * 97 + i * 31) % 89) / 89.0) * 0.9 * order : 0;
+                        m.paths.push_back(p);
+                    }
+                }
+            }
+    }
+}
+
+inline void LeslieRoomDSP::micFdnRows() {
+    static const int primes[] = {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331};
+    const int NP = sizeof(primes) / sizeof(int);
+    double sc = fs / 48000;
+    for (int i = 0; i < 6; i++) {
+        int r = 8 + i;
+        for (int j = 0; j < 16; j++) { int bits = r & j, par = 0; while (bits) { par ^= bits & 1; bits >>= 1; } mic[i].fdnRow[j] = par ? -0.25f : 0.25f; mic[i].fdnOff[j] = (int) std::lround(primes[(i * 23 + j * 13 + 3) % NP] * sc); }
+    }
+}
+
+/** Blockwerte: Orte der Nahmikros (folgen dem Leslie), Laufzeiten / Pegel / Richtwirkung der Raumwege */
+inline void LeslieRoomDSP::micBlock(double bt) {
+    const double PI = 3.14159265358979;
+    micPlaceClose();
+    for (int i = 0; i < 6; i++) {
+        MicRt& m = mic[i]; if (!m.active) continue;
+        for (auto& p : m.paths) {
+            const Rotor& r = rot[p.rotor];
+            double icx = p.sx * les.x + p.ox, icy = p.sy * les.y + p.oy, iz = p.sz * r.h + p.oz;
+            double vx = m.x - icx, vy = m.y - icy, vz = m.z - iz, dist = std::sqrt(vx * vx + vy * vy + vz * vz);
+            double cg, cfc; cabinet(-p.sx * vx, -p.sy * vy, -p.sz * vz, cg, cfc);
+            p.cab = cg; p.kc = std::min(kOf(cfc), kOf(std::max(2500.0, 260000 / std::max(dist, 1.0))));
+            double cth = -(vx * m.ax + vy * m.ay + vz * m.az) / std::max(dist, 1e-6);
+            for (int b = 0; b < 3; b++) p.band[b] = m.a[b] + (1 - m.a[b]) * cth;
+            if (p.exact) continue;
+            bool horn = p.rotor == 0;
+            double a0 = r.ang, a1 = r.ang + TWO_PI * r.hz * bt;
+            for (int e = 0; e < 2; e++) {
+                double an = e ? a1 : a0, c = std::cos(an), sn = std::sin(an);
+                double dxp = p.sx * c, dyp = p.sy * sn;
+                double wx = m.x - (icx + dxp * r.r), wy = m.y - (icy + dyp * r.r), wz = m.z - iz;
+                double d = std::sqrt(wx * wx + wy * wy + wz * wz) + p.jit;
+                double cosE = (dxp * wx + dyp * wy) / d, u = 0.5 + 0.5 * cosE;
+                double g = (horn ? 0.3 + 0.7 * u : 0.75 + 0.25 * u) * p.g * p.cab / std::max(d, 0.1);
+                if (e) { p.d1 = d; p.g1 = g; } else { p.d0 = d; p.g0 = g; }
+                if (e) {
+                    double k;
+                    if (horn) { double th = std::acos(std::max(-1.0, std::min(1.0, cosE))); double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2); k = kOf(std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06)))); }
+                    else k = p.kDrum;
+                    p.kb = std::min(k, p.kc);
+                }
+            }
+            if (!p.init) { p.init = true; }
+        }
+    }
 }
 
 inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
@@ -555,6 +771,12 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         else { panGains(az, hfr, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; } }
     }
     for (int c = 0; c < nCh; c++) std::fill(out[c], out[c] + N, 0.f);
+    const bool micsOn = micSetup.on;
+    if (micsOn) micBlock(bt);
+    // Ohne hörbaren „Hörer“-Kanal muss der Raum für den Hörer nicht gerechnet werden (Hall läuft weiter für die Mikros)
+    const bool lisOn = !micsOn || chGainT[6] != 0 || chGain[6] != 0;
+    const double chK = 1 - std::exp(-1 / (0.01 * fs));
+    const int nOut = std::min(nCh, 16);
 
     const double gs = gainStep;
     const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
@@ -628,7 +850,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     }
 
     // ---------- 2) Leslie-Endstufe (Schaltung, eigenes Oversampling) ----------
-    amp.process(orgBuf.data(), N);
+    pre.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);
 
     // ---------- 3) Weiche, Rotoren, Raum ----------
     for (int n = 0; n < N; n++) {
@@ -651,7 +873,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         acc.fill(0); bucket.fill(0);
         double revIn = 0, lfeIn = 0;
 
-        for (size_t q = 0; q < np; q++) {
+        for (size_t q = 0; q < (lisOn ? np : 0); q++) {
             Path& p = paths[q];
             if (p.fast) {
                 double d = p.d0 + (p.d1 - p.d0) * tt, g = (p.g0 + (p.g1 - p.g0) * tt) * (p.cab0 + (p.cab1 - p.cab0) * tt);
@@ -711,7 +933,75 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             if (!horn) lfeIn += v;
             for (int c = 0; c < nCh; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) acc[c] += v * gg; }
         }
-        for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nCh; c++) acc[c] += bv * bg[c]; }
+        if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nCh; c++) acc[c] += bv * bg[c]; }
+
+        // ---------- Mikros ----------
+        if (micsOn) {
+            for (int i = 0; i < 6; i++) {
+                MicRt& m = mic[i]; if (!m.active) { micSig[i] = 0; continue; }
+                double sum = 0;
+                for (auto& p : m.paths) {
+                    const bool horn = p.rotor == 0;
+                    const float* buf = horn ? bufH.data() : bufD.data();
+                    double v, b0, b1, b2;
+                    if (p.exact) {
+                        double ca = horn ? chc : cdc, sa = horn ? chs : cds, rr = horn ? rh.r : rd.r, hh = horn ? rh.h : rd.h;
+                        double dxp = p.sx * ca, dyp = p.sy * sa;
+                        double wx = m.x - (p.sx * L.x + p.ox + dxp * rr), wy = m.y - (p.sy * L.y + p.oy + dyp * rr), wz = m.z - (p.sz * hh + p.oz);
+                        double d = std::sqrt(wx * wx + wy * wy + wz * wz); if (d < 0.06) d = 0.06;
+                        double cosE = (dxp * wx + dyp * wy) / d, u = 0.5 + 0.5 * cosE;
+                        double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
+                        int i1 = (int) rp; double fr = rp - i1;
+                        double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
+                        double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+                        v = ((c3 * fr + c2) * fr + c1) * fr + y1;
+                        double dirG, k;
+                        if (horn) {
+                            dirG = 0.3 + 0.7 * u;
+                            double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
+                            double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
+                            k = 1 - std::exp(-std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))) * kScale);
+                            // zeigt das Horn weg, kommt Schall über das Hornfach (Reflexion im Gehäuse) zum Mikro
+                            double back = std::max(0.0, -cosE);
+                            if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornfachLevel * 0.6 / std::max(0.05, dirG); }
+                        } else {
+                            p.zd += kDrumLo * (v - p.zd);
+                            v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
+                            dirG = 1; k = p.kDrum;
+                        }
+                        if (p.kc < k) k = p.kc;
+                        p.lp += k * (v - p.lp);
+                        v = p.lp * dirG * p.g * p.cab / d;
+                        double cth = -(wx * m.ax + wy * m.ay + wz * m.az) / d;
+                        b0 = m.a[0] + (1 - m.a[0]) * cth; b1 = m.a[1] + (1 - m.a[1]) * cth; b2 = m.a[2] + (1 - m.a[2]) * cth;
+                    } else {
+                        double d = p.d0 + (p.d1 - p.d0) * tt, g = p.g0 + (p.g1 - p.g0) * tt;
+                        double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
+                        int i1 = (int) rp; double fr = rp - i1;
+                        double y1 = buf[i1 & DM];
+                        v = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
+                        p.lp += p.kb * (v - p.lp);
+                        v = p.lp * g;
+                        b0 = p.band[0]; b1 = p.band[1]; b2 = p.band[2];
+                    }
+                    // Richtcharakteristik je Band (tief < 400 Hz, mittel, hoch > 3,5 kHz)
+                    p.zlo += kBandLo * (v - p.zlo); p.zhi += kBandHi * (v - p.zhi);
+                    sum += p.zlo * b0 + (p.zhi - p.zlo) * b1 + (v - p.zhi) * b2;
+                }
+                // Wind: das Horn bläst am Mikro vorbei (∝ Drehzahl², nur wenn die Hornöffnung zum Mikro zeigt)
+                if (m.windAmt > 0 && rh.hz > 0.5) {
+                    double c = chc * m.windC + chs * m.windS;
+                    if (c > 0.3) {
+                        double e = (c - 0.3) / 0.7; e *= e; e *= e;
+                        double nz = rndFast() * 2 - 1;
+                        m.windLp += kWind * (nz - m.windLp); m.windLp2 += kWind * (m.windLp - m.windLp2);
+                        double sp = rh.hz / 6.8;
+                        sum += m.windLp2 * e * sp * sp * m.windAmt * 0.9;
+                    }
+                }
+                micSig[i] = sum;
+            }
+        }
 
         revInZ += revInK * ((hi + lo) - revInZ);
         revHpZ += revHpK * (revInZ - revHpZ);
@@ -738,15 +1028,58 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             for (int i = 0; i < 16; i++) o += fdnBuf[i][(fdnIdx[i] - fdnLen[i] + 2 + offs[i]) & FM] * row[i];
             int ch = fdnOutChs[c]; if (ch < 8) acc[ch] += o;
         }
+        if (micsOn) for (int i = 0; i < 6; i++) {
+            MicRt& m = mic[i]; if (!m.active) continue;
+            double o = 0;
+            for (int j = 0; j < 16; j++) o += fdnBuf[j][(fdnIdx[j] - fdnLen[j] + 2 + m.fdnOff[j]) & FM] * m.fdnRow[j];
+            // Mikro-Klang: Diffusfeld (je nach Richtcharakteristik), Nahbesprechung, Frequenzgang, Vorverstärkung
+            double x = (micSig[i] + o * m.diffuse * micRevScale);
+            if (m.hasProx) x = m.prox.run(x);
+            for (int k = 0; k < m.nEq; k++) x = m.eq[k].run(x);
+            micSig[i] = x * m.trim;
+        }
         for (int i = 0; i < 16; i++) { fdnBuf[i][fdnIdx[i]] = (float) (rv[i] * 0.25 + inj * (0.8 + 0.2 * ((i * 7) % 5) / 4.0)); fdnIdx[i] = (fdnIdx[i] + 1) & FM; }
 
         if (lfeIdx >= 0 && lfeIdx < 8) acc[lfeIdx] = lfeLp2.run(lfeLp1.run(lfeIn)) * lfeLevel * 2;
 
-        for (int c = 0; c < nCh; c++) {
-            double x = acc[c] * master;
+        double lisG = 1;
+        if (micsOn) {
+            micOut.fill(0);
+            const size_t nsp = spk.ch.size();
+            const int fl = nsp > 0 ? spk.ch[0] : 0, fr = nsp > 1 ? spk.ch[1] : 1;
+            const int rl = nsp >= 5 ? spk.ch[3] : nsp >= 4 ? spk.ch[2] : fl, rr = nsp >= 5 ? spk.ch[4] : nsp >= 4 ? spk.ch[3] : fr;
+            const int di = chDelayIdx;
+            for (int c = 0; c < 6; c++) {
+                chGain[c] += chK * (chGainT[c] - chGain[c]);
+                double x = mic[c].active ? micSig[c] : 0;
+                auto& dl = chDelay[c]; dl[(size_t) di] = (float) x;
+                if (chDelayS[c] > 0) x = dl[(size_t) ((di - chDelayS[c]) & (CHD - 1))];
+                x *= chGain[c];
+                micMeterAcc[c] += x * x;
+                const auto& C = micSetup.ch[c];
+                if (C.out >= 0) { if (C.out < 16) micOut[(size_t) C.out] += x; }
+                else {
+                    double th = (std::max(-1.0, std::min(1.0, C.pan)) + 1) * 0.25 * PI, gl = std::cos(th), gr = std::sin(th);
+                    int a = C.out == -2 ? rl : fl, b = C.out == -2 ? rr : fr;
+                    if (a >= 0 && a < 16) micOut[(size_t) a] += x * gl;
+                    if (b >= 0 && b < 16) micOut[(size_t) b] += x * gr;
+                }
+            }
+            chDelayIdx = (di + 1) & (CHD - 1);
+            chGain[6] += chK * (chGainT[6] - chGain[6]);
+            lisG = chGain[6];
+            double ls = 0; for (int c = 0; c < std::min(nCh, 8); c++) ls += acc[c] * acc[c];
+            micMeterAcc[6] += ls * lisG * lisG;
+        }
+        for (int c = 0; c < nOut; c++) {
+            double x = ((c < 8 ? acc[c] * lisG : 0) + (micsOn ? micOut[(size_t) c] : 0)) * master;
             out[c][n] = (float) (x > 0.9 ? 0.9 + 0.1 * std::tanh((x - 0.9) * 10) : x < -0.9 ? -0.9 + 0.1 * std::tanh((x + 0.9) * 10) : x);
         }
         wIdx = (wi + 1) & DM;
+    }
+    if (micsOn) {
+        micMeterN += N;
+        if (micMeterN >= 2048) { for (int c = 0; c < MIC_CH; c++) { micMeterVal[c] = (float) std::sqrt(micMeterAcc[c] / micMeterN) * (float) master; micMeterAcc[c] = 0; } micMeterN = 0; }
     }
 }
 

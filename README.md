@@ -39,6 +39,10 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Orgel**: Zustand, Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
 * **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Balance, Hornfach, Ausrichtung.
+* **Mikros**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel, ein Raumpaar (AB, XY, ORTF),
+  das im Grundriss gezogen und gedreht wird, dazu ein Pult mit Fader, Panorama, Polarität, Stumm/Solo, Laufzeit und
+  Ziel (Mischung vorne/hinten oder ein eigener Ausgang, bis Ausgang 16). Mikrotypen: 57, 421, D112, RE20, 87 (Niere/Kugel/Acht),
+  KM 84, 121 (Bändchen) – je mit Frequenzgang, Richtcharakteristik je Band, Nahbesprechungseffekt und Windempfindlichkeit.
 * **Raum**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.
@@ -55,10 +59,18 @@ gemeinsamer Kathodenwiderstand, Ausgangsübertrager mit Kern-Hysterese, Netzteil
 (Streuinduktivität, Trommelresonanz), Drossel-Netzteil, Wirbelströmen und 4-fachem Oversampling. **Eco** ist eine
 statische Gegentakt-Kennlinie.
 
+## Vorverstärker
+
+`Source/OrganPreamp.h` rechnet den Ausgangsteil des Hammond AO-28 hinter dem Schweller: 12AX7-Spannungsverstärker mit
+Gitterstrom, Koppelkondensatoren mit Blocking, 12BH7-Gegentakt auf einen Übertrager mit Kernsättigung. Qualität wie bei
+der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende Versorgung, atmender Kathoden-Bias).
+
 ## Dateien
 
 * `Source/LeslieRoomDSP.h` – Klangkern (Orgel, Leslie, Raum, Hall), ohne JUCE-Abhängigkeit
 * `Source/LeslieAmp.h` – Röhrenendstufe und Ausgangsübertrager
+* `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
+* `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
 * `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
 * `tests/` – Messungen für Endstufe und Klangkern (`g++ -O2 -std=c++17 -ISource tests/dsp_test.cpp`)
@@ -66,7 +78,7 @@ statische Gegentakt-Kennlinie.
 ## Lizenz
 
 Wheelhouse steht unter der **GNU Affero General Public License v3.0** (`LICENSE`).
-Die Röhren- und Übertragermodelle der Endstufe beruhen auf `dsp/glow.c` und `dsp/iron.c` aus
+Die Röhren- und Übertragermodelle von Endstufe und Vorverstärker beruhen auf `dsp/glow.c` und `dsp/iron.c` aus
 [Amberwave](https://github.com/lfrank95/amberwave) (AGPL-3.0, © The Amberwave contributors).
 JUCE wird unter der AGPL-Option genutzt. Schriften: Barlow Condensed (SIL OFL 1.1), Yellowtail (Apache 2.0) –
 der Build-Workflow lädt sie aus dem Google-Fonts-Repository.

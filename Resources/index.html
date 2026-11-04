@@ -93,6 +93,32 @@ select option { background: #1a1511; color: #e8dcc4; }
 .knob .kp { position: absolute; left: 50%; top: 4px; width: 3px; height: 11px; margin-left: -1.5px; border-radius: 2px; background: #f2c879; display: block; }
 .knob .kl { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #a8977c; white-space: nowrap; }
 .knob .kv { font-size: 12.5px; color: #e8dcc4; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.knob.sm { min-width: 0; gap: 2px; }
+.knob.sm .kb { width: 34px; height: 34px; }
+.knob.sm .kc { width: 26px; height: 26px; }
+.knob.sm .kp { top: 3px; height: 8px; }
+.knob.sm .kl { font-size: 10px; }
+.knob.sm .kv { font-size: 11.5px; }
+.sec > .sth { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sec > .sth .st { font-size: 12.5px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #e8dcc4; }
+.sec > .sth .rseg { flex: none; }
+.desk { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.strip { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #0c0a08; border: 1px solid #241e18; border-radius: 5px; padding: 6px 4px 6px; min-width: 0; }
+.strip.off { opacity: .38; }
+.strip .sn { font-size: 11.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
+.strip .tg { display: flex; gap: 3px; }
+.strip .tg button { width: 22px; height: 20px; padding: 0; font-size: 11px; font-weight: 700; border-radius: 3px; border: 1px solid #3a2f25; background: #1a1511; color: #a8977c; }
+.strip .tg button.on { background: #f2a33a; border-color: #f2a33a; color: #1a1206; }
+.strip .tg button.solo.on { background: #f2c879; border-color: #f2c879; }
+.fadw { display: flex; gap: 5px; height: 64px; }
+.fad { width: 16px; height: 100%; position: relative; border-radius: 3px; background: #070605; box-shadow: inset 0 2px 4px rgba(0,0,0,.9); cursor: ns-resize; touch-action: none; }
+.fad i { position: absolute; left: -5px; right: -5px; height: 12px; margin-top: -6px; border-radius: 2px; background: linear-gradient(180deg, #faf6ee, #bdb29c); box-shadow: 0 2px 3px rgba(0,0,0,.6); display: block; }
+.fad i::after { content: ''; position: absolute; left: 3px; right: 3px; top: 5px; height: 2px; background: #2a2016; }
+.smeter { width: 6px; height: 100%; background: #120f0c; border: 1px solid #2e2620; border-radius: 2px; position: relative; overflow: hidden; }
+.smeter b { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: #f2a33a; display: block; }
+.strip .fv { font-size: 11.5px; color: #f2c879; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.strip select { width: 100%; font-size: 11.5px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 4px; padding: 2px 2px; }
+.dnum { font-size: 11.5px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 4px; padding: 2px 4px; width: 100%; text-align: center; cursor: ns-resize; touch-action: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .knob .kb:focus-visible, .dbt:focus-visible { outline: 2px solid #f2a33a; outline-offset: 2px; }
 
 .roomP { width: 400px; flex: none; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -533,6 +559,12 @@ self.onmessage = (e) => {
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
     brake: true, cab: { hornfach: 0.45, wobble: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
+    pre: { on: true, gain: 0.5 },
+    mics: { on: false, hornStereo: true, hornAngle: 180, hornCenter: 0, hornDist: 0.15, hornHeight: 0, hornType: 0, hornPattern: 0, windscreen: false,
+      drumStereo: false, drumAngle: 180, drumCenter: 0, drumDist: 0.15, drumType: 2, drumPattern: 0,
+      roomArr: 0, roomX: 3, roomY: 3.5, roomZ: 2, roomYaw: Math.PI / 2, roomSpacing: 0.6, roomType: 4, roomPattern: 1, roomOrder: 2, placed: false,
+      ch: [{ gain: 0, pan: -1 }, { gain: 0, pan: 1 }, { gain: 0, pan: 0 }, { gain: 0, pan: 0 }, { gain: -6, pan: -1 }, { gain: -6, pan: 1 }, { gain: 0, pan: 0, mute: true }]
+        .map(c => Object.assign({ delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
     out: { masterDb: 0, lfeHz: 100 }, chmap: { stereo: null, quad: null, s51: null },
     midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
     leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
@@ -542,6 +574,7 @@ self.onmessage = (e) => {
   S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
   S.meters = null;
   let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, latencyMs: 0, channelNames: [], midiDevices: [] };
+  const micMeterEls = []; const micHold = new Array(7).fill(-120);
   let ampText = '–', tInfoText = '–', cpuText = '–', warnText = '', slowSync = 0, roomInfo = null;
   const SAVE_KEYS = Object.keys(DEF);
   let saveTimer = null;
@@ -601,7 +634,7 @@ self.onmessage = (e) => {
 
   // Drehknopf: o = { label, get, set, min, max, def, fmt, step, log, opts (diskret), auto }
   function knob(o) {
-    const el = h('div', 'knob', `<button type="button" class="kb"><span class="kc"><span class="kp"></span></span></button><span class="kl"></span><span class="kv"></span>`);
+    const el = h('div', o.small ? 'knob sm' : 'knob', `<button type="button" class="kb"><span class="kc"><span class="kp"></span></span></button><span class="kl"></span><span class="kv"></span>`);
     const kb = el.querySelector('.kb'), kc = el.querySelector('.kc'), kv = el.querySelector('.kv');
     el.querySelector('.kl').textContent = o.label; kb.setAttribute('aria-label', o.label);
     const disc = !!o.opts, n = disc ? o.opts.length : 0;
@@ -645,10 +678,13 @@ self.onmessage = (e) => {
   function rowVal(label, getText) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const v = h('span', 'rv'); r.appendChild(v); const c = { el: r, sync() { v.textContent = getText(); } }; c.sync(); return reg(c); }
   function rowBtn(label, text, onclick) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const b = h('button', 'btn', text); b.type = 'button'; b.onclick = onclick; r.appendChild(b); return { el: r, btn: b }; }
   function sec(title, knobs, rows, note, opts = {}) {
-    const s = h('div', 'sec'); s.appendChild(h('span', 'st', title));
+    const s = h('div', 'sec');
+    if (opts.head) { const hd = h('div', 'sth'); hd.appendChild(h('span', 'st', title)); hd.appendChild(opts.head.el.querySelector('.rseg') || opts.head.el); s.appendChild(hd); }
+    else s.appendChild(h('span', 'st', title));
     if (knobs && knobs.length) { const g = h('div', 'kgrid'); if (opts.kcols) g.style.gridTemplateColumns = `repeat(${opts.kcols}, minmax(0, 1fr))`; knobs.forEach(k => g.appendChild(k.el)); s.appendChild(g); }
     if (rows && rows.length) { const g = h('div', 'rows'); if (opts.rcols) { g.style.display = 'grid'; g.style.gridTemplateColumns = `repeat(${opts.rcols}, minmax(0, 1fr))`; g.style.columnGap = '18px'; } rows.forEach(r => g.appendChild(r.el)); s.appendChild(g); }
     if (note) { const n = h('span', 'note'); n.textContent = note; s.appendChild(n); }
+    if (opts.extra) s.appendChild(opts.extra);
     if (opts.span) s.style.gridColumn = `span ${opts.span}`;
     if (opts.id) s.id = opts.id;
     return s;
@@ -664,13 +700,16 @@ self.onmessage = (e) => {
   const sendCab = () => send(Object.assign({ type: 'cabDetail' }, S.cab));
   const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
+  const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
+  const sendMics = () => send({ type: 'mics', v: S.mics });
 
   // ---------------- Registerkarten ----------------
-  const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
+  const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['mikros', 'Mikros'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
   const CARD_INFO = {
-    orgel: ['Orgel', 'Tonradgenerator, Kontakte und Alterung', 3],
+    orgel: ['Orgel', 'Tonradgenerator, Kontakte, Vorverstärker', 4],
     leslie: ['Leslie', 'Rotoren, Endstufe und Aufstellung', 5],
     raum: ['Raum', 'Form, Material und Reflexionen', 3],
+    mikros: ['Mikros', 'Nahmikros, Raumpaar und Pult', 5],
     ausgabe: ['Ausgabe', 'Format, Kanäle und Pegel', 3],
     midi: ['MIDI', 'Kanäle, Controller und PC-Tastatur', 3],
     audio: ['Audio', 'Gerät, Treiber und Latenz', 3],
@@ -863,7 +902,7 @@ self.onmessage = (e) => {
       rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
       rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
       rowSeg('Tiefe Räder', [[true, 'komplex'], [false, 'Sinus']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
-      rowVal('Tonräder', () => '91 · Zahnradübersetzungen wie im Original'),
+      rowVal('Tonräder', () => '91, Zahnradstimmung'),
     ], 'Die Sammelschiene lässt viele gleichzeitige Töne etwas einsacken – wie bei der echten Matching-Transformer-Last.'));
     p.appendChild(sec('Percussion · Vibrato · Click', [
       knob({ label: 'Key-Click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
@@ -871,6 +910,12 @@ self.onmessage = (e) => {
       knob({ label: 'Abkl. kurz', min: 0.1, max: 0.6, def: 0.2, step: 0.01, fmt: v => de(v, 2) + ' s', get: () => S.organ.percShort, set: v => { S.organ.percShort = v; sendOrgan(); } }),
       knob({ label: 'Abkl. lang', min: 0.5, max: 2.5, def: 1.0, step: 0.05, fmt: v => de(v, 1) + ' s', get: () => S.organ.percLong, set: v => { S.organ.percLong = v; sendOrgan(); } }),
     ], [rowSeg('Vibrato', VIB, () => S.vib, v => { S.vib = v; send({ type: 'vib', v }); syncAll(); }, 'c3')]));
+    p.appendChild(sec('Vorverstärker AO-28', [
+      knob({ label: 'Vorstufe', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.pre.gain, set: v => { S.pre.gain = v; sendPre(); } }),
+    ], [
+      rowSeg('Röhren', [[true, 'an'], [false, 'umgangen']], () => S.pre.on, v => { S.pre.on = v; sendPre(); }, true),
+      rowVal('Qualität', () => ['Eco', 'HQ', 'Ultra'][S.amp.quality] + ' (wie Endstufe)'),
+    ], 'Hinter dem Schweller: 12AX7 und 12BH7-Gegentakt mit Übertrager. Schweller ganz auf und volle Zugriegel – dann zerrt schon die Orgel, bevor das Leslie dazukommt.'));
   });
 
   // ---------------- Karte Leslie ----------------
@@ -940,6 +985,112 @@ self.onmessage = (e) => {
     ], 'Höhere Ordnung = dichtere frühe Reflexionen, kostet Rechenzeit.'));
   });
   reg({ sync() { const z = S.room.shape === 'zelt'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
+
+
+  // ---------------- Karte Mikros ----------------
+  const MIC_TYPES = [[0, '57 · dynamisch'], [1, '421 · dynamisch'], [2, 'D112 · Bass'], [3, 'RE20 · Superniere'], [4, '87 · Kondensator'], [5, 'KM 84 · Kleinmembr.'], [6, '121 · Bändchen']];
+  const PATTERNS = [[0, 'Niere'], [1, 'Kugel'], [2, 'Acht']];
+  const CH_NAMES = ['Horn L', 'Horn R', 'Trom. 1', 'Trom. 2', 'Raum L', 'Raum R', 'Hörer'];
+  const micActive = (c) => { const M = S.mics; return c === 1 ? M.hornStereo : c === 3 ? M.drumStereo : true; };
+  const degFmt = (v) => (v === 0 ? '0° Front' : Math.round(v) + '°');
+  function placeRoomPair() {
+    const f = S.cabYaw, d = Math.min(3, Math.max(1.5, Math.min(S.room.Lx, S.room.Ly) * 0.35));
+    S.mics.roomX = clamp(S.les.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.les.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
+    S.mics.roomYaw = Math.atan2(S.les.y - S.mics.roomY, S.les.x - S.mics.roomX); S.mics.placed = true;
+  }
+  function setMicsOn(v) { S.mics.on = v; if (v && !S.mics.placed) placeRoomPair(); sendMics(); syncAll(); }
+  page('mikros', (p) => {
+    const M = () => S.mics;
+    const mk = (k) => (v) => { S.mics[k] = v; sendMics(); syncAll(); };
+    const arrSeg = (label, kSt, kAng, opts) => rowSeg(label, opts, () => S.mics[kSt] ? S.mics[kAng] : 0, v => { if (v === 0) S.mics[kSt] = false; else { S.mics[kSt] = true; S.mics[kAng] = v; } sendMics(); syncAll(); }, 180);
+    const patRow = (kType, kPat) => { const r = rowSel('Charakt.', PATTERNS, () => S.mics[kPat], v => { S.mics[kPat] = +v; sendMics(); }, 0); reg({ sync() { r.el.style.display = S.mics[kType] === 4 ? '' : 'none'; } }); return r; };
+    p.appendChild(sec('Horn', [
+      knob({ label: 'Mitte', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().hornCenter, set: mk('hornCenter') }),
+      knob({ label: 'Abstand', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().hornDist, set: mk('hornDist') }),
+      knob({ label: 'Höhe', min: -0.3, max: 0.3, step: 0.01, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.round(Math.abs(v) * 100) + ' cm', get: () => M().hornHeight, set: mk('hornHeight') }),
+    ], [
+      arrSeg('Aufbau', 'hornStereo', 'hornAngle', [[0, 'Mono'], [90, '90°'], [120, '120°'], [180, '180°']]),
+      rowSel('Mikro', MIC_TYPES, () => M().hornType, v => { S.mics.hornType = +v; sendMics(); syncAll(); }, 0),
+      patRow('hornType', 'hornPattern'),
+      rowSeg('Windschutz', [[false, 'aus'], [true, 'an']], () => M().windscreen, mk('windscreen'), false),
+    ]));
+    p.appendChild(sec('Trommel', [
+      knob({ label: 'Mitte', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().drumCenter, set: mk('drumCenter') }),
+      knob({ label: 'Abstand', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().drumDist, set: mk('drumDist') }),
+    ], [
+      arrSeg('Aufbau', 'drumStereo', 'drumAngle', [[0, 'Mono'], [90, '90°'], [180, '180°']]),
+      rowSel('Mikro', MIC_TYPES, () => M().drumType, v => { S.mics.drumType = +v; sendMics(); syncAll(); }, 2),
+      patRow('drumType', 'drumPattern'),
+    ], 'Hinten (180°) hört man den Motor mehr, vorne mehr Gehäuse.'));
+    p.appendChild(sec('Raumpaar', [
+      knob({ label: 'Abstand', min: 0.2, max: 3, step: 0.05, def: 0.6, fmt: v => de(v, 2) + ' m', get: () => M().roomSpacing, set: mk('roomSpacing') }),
+      knob({ label: 'Höhe', min: 0.5, max: 4, step: 0.05, def: 2, fmt: v => de(v, 1) + ' m', get: () => M().roomZ, set: mk('roomZ') }),
+      knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => Math.round(v) + '°', get: () => { let d = Math.round((M().roomYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }, set: v => { S.mics.roomYaw = Math.PI / 2 + v * Math.PI / 180; sendMics(); syncAll(); } }),
+      knob({ label: 'Reflex.', opts: [[1, '1. Ord.'], [2, '2. Ord.'], [3, '3. Ord.']], def: 2, get: () => M().roomOrder, set: mk('roomOrder') }),
+    ], [
+      rowSeg('Anordnung', [[0, 'AB'], [1, 'XY'], [2, 'ORTF']], () => M().roomArr, v => { S.mics.roomArr = v; if (v > 0 && S.mics.roomType === 4 && S.mics.roomPattern === 1) S.mics.roomPattern = 0; sendMics(); syncAll(); }, 0),
+      rowSel('Mikro', MIC_TYPES, () => M().roomType, v => { S.mics.roomType = +v; sendMics(); syncAll(); }, 4),
+      patRow('roomType', 'roomPattern'),
+      rowBtn('', 'Vor das Leslie', () => { placeRoomPair(); sendMics(); syncAll(); }),
+    ]));
+    // Pult
+    const desk = h('div', 'desk');
+    CH_NAMES.forEach((nm, c) => {
+      const st = h('div', 'strip'); st.appendChild(h('span', 'sn', nm));
+      const C = () => S.mics.ch[c];
+      const tg = h('div', 'tg'); const tb = (txt, key, cls, title) => { const b = h('button', cls || '', txt); b.type = 'button'; b.title = title; b.onclick = () => { C()[key] = !C()[key]; sendMics(); syncAll(); }; tg.appendChild(b); return [key, b]; };
+      const tbs = [c < 6 ? tb('Ø', 'pol', '', 'Polarität drehen') : null, tb('M', 'mute', '', 'Stumm'), tb('S', 'solo', 'solo', 'Solo')].filter(Boolean);
+      st.appendChild(tg);
+      const fw = h('div', 'fadw'); const fd = h('div', 'fad', '<i></i>'); const mt = h('div', 'smeter', '<b></b>'); fw.appendChild(fd); fw.appendChild(mt); st.appendChild(fw);
+      const fv = h('span', 'fv'); st.appendChild(fv);
+      const toP = (db) => db <= -60 ? 0 : clamp((db + 48) / 60, 0.02, 1), fromP = (p) => p < 0.02 ? -100 : Math.round((-48 + 60 * p) * 2) / 2;
+      const setDb = (db) => { C().gain = clamp(db, -100, 12); sendMics(); syncAll(); };
+      let drag = null;
+      fd.addEventListener('pointerdown', (e) => { fd.setPointerCapture(e.pointerId); drag = { y: e.clientY, p: toP(C().gain) }; e.preventDefault(); });
+      fd.addEventListener('pointermove', (e) => { if (!drag) return; const r = fd.getBoundingClientRect(); setDb(fromP(clamp(drag.p + (drag.y - e.clientY) / r.height * (e.shiftKey ? 0.25 : 1), 0, 1))); });
+      fd.addEventListener('pointerup', () => drag = null); fd.addEventListener('pointercancel', () => drag = null);
+      fd.addEventListener('wheel', (e) => { e.preventDefault(); const db = C().gain <= -60 ? -48 : C().gain; setDb(db + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.5 : 1)); }, { passive: false });
+      fd.addEventListener('dblclick', () => setDb(0));
+      fd.title = 'Ziehen oder Mausrad · Doppelklick = 0 dB';
+      let panK = null, dn = null, osel = null;
+      if (c < 6) {
+        panK = knob({ small: true, label: 'Pan', min: -1, max: 1, step: 0.05, def: [-1, 1, 0, 0, -1, 1][c], fmt: v => Math.abs(v) < 0.025 ? 'Mitte' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100), get: () => C().pan, set: v => { C().pan = v; sendMics(); } });
+        st.appendChild(panK.el);
+        dn = h('div', 'dnum'); dn.title = 'Verzögerung · ziehen oder Mausrad · Doppelklick = 0';
+        let dd = null; const setD = (v) => { C().delay = clamp(Math.round(v * 10) / 10, 0, 50); sendMics(); syncAll(); };
+        dn.addEventListener('pointerdown', (e) => { dn.setPointerCapture(e.pointerId); dd = { y: e.clientY, v: C().delay }; });
+        dn.addEventListener('pointermove', (e) => { if (dd) setD(dd.v + (dd.y - e.clientY) / SCALE * (e.shiftKey ? 0.02 : 0.1)); });
+        dn.addEventListener('pointerup', () => dd = null); dn.addEventListener('pointercancel', () => dd = null);
+        dn.addEventListener('wheel', (e) => { e.preventDefault(); setD(C().delay + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.5)); }, { passive: false });
+        dn.addEventListener('dblclick', () => setD(0));
+        st.appendChild(dn);
+        osel = h('select'); osel.setAttribute('aria-label', nm + ' Ausgang'); osel.title = 'Ziel: Mischung vorne/hinten oder ein eigener Ausgang';
+        osel.onchange = () => { C().out = +osel.value; sendMics(); syncAll(); };
+        st.appendChild(osel);
+      } else {
+        st.appendChild(h('span', 'note', 'Raumklang am Hörerplatz'));
+      }
+      desk.appendChild(st);
+      let oSig = '';
+      reg({ el: st, sync() {
+        const v = C(), act = S.mics.on && micActive(c);
+        st.classList.toggle('off', !act);
+        tbs.forEach(([k, b]) => b.classList.toggle('on', !!v[k]));
+        const pp = toP(v.gain); fd.firstChild.style.top = ((1 - pp) * 100) + '%';
+        fv.textContent = v.gain <= -60 ? '−∞' : (v.gain > 0 ? '+' : v.gain < 0 ? '−' : '') + de(Math.abs(v.gain), 1) + ' dB';
+        if (dn) dn.textContent = de(v.delay, 1) + ' ms';
+        if (osel) {
+          const n = Math.max(audioInfo.outputs || 0, 2);
+          const list = [[-1, 'vorne'], [-2, 'hinten'], ...Array.from({ length: Math.min(16, n) }, (_, k) => [k, 'Ausg. ' + (k + 1)])];
+          const sig = JSON.stringify(list); if (sig !== oSig) { oSig = sig; osel.innerHTML = ''; list.forEach(([val, t]) => { const o = h('option', '', t); o.value = val; osel.appendChild(o); }); }
+          osel.value = String(v.out);
+        }
+      }, reset() { const d = clone(DEF.mics.ch[c]); S.mics.ch[c] = d; sendMics(); }, meter: mt.firstChild });
+      micMeterEls[c] = mt.firstChild;
+    });
+    const onSeg = rowSeg('', [[false, 'aus'], [true, 'an']], () => S.mics.on, v => setMicsOn(v), false);
+    p.appendChild(sec('Pult', [], [], '', { span: 2, head: onSeg, extra: desk }));
+  });
 
   // ---------------- Karte Ausgabe ----------------
   page('ausgabe', (p) => {
@@ -1104,7 +1255,8 @@ self.onmessage = (e) => {
     cv.addEventListener('pointerdown', (e) => {
       const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y);
       const dl = Math.hypot(px - lx, py - ly), dh = Math.hypot(px - hx, py - hy);
-      if (e.button === 2) drag = 'rot'; else if (dh < 24 && dh <= dl) drag = 'lis'; else if (dl < 30) drag = 'les'; else drag = null;
+      const [mx, my] = W2C(S.mics.roomX, S.mics.roomY), dm = S.mics.on ? Math.hypot(px - mx, py - my) : 1e9;
+      if (e.button === 2) drag = dm < 18 ? 'pairRot' : 'rot'; else if (dm < 16 && dm <= dh && dm <= dl) drag = 'pair'; else if (dh < 24 && dh <= dl) drag = 'lis'; else if (dl < 30) drag = 'les'; else drag = null;
       if (drag) cv.setPointerCapture(e.pointerId);
     });
     cv.addEventListener('pointermove', (e) => {
@@ -1112,13 +1264,17 @@ self.onmessage = (e) => {
       if (!drag) { const [lx, ly] = W2C(S.les.x, S.les.y), [hx, hy] = W2C(S.lis.x, S.lis.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
       const [wx, wy] = C2W(px, py);
       if (drag === 'rot') setYaw(Math.atan2(wy - S.lis.y, wx - S.lis.x));
+      else if (drag === 'pair') { S.mics.roomX = clamp(wx, 0.3, S.room.Lx - 0.3); S.mics.roomY = clamp(wy, 0.3, S.room.Ly - 0.3); S.mics.placed = true; sendMics(); }
+      else if (drag === 'pairRot') { S.mics.roomYaw = Math.atan2(wy - S.mics.roomY, wx - S.mics.roomX); sendMics(); }
       else { const o = drag === 'les' ? S.les : S.lis; o.x = wx; o.y = wy; clampPos(); sendPos(); }
     });
     const up = () => { if (drag) syncAll(); drag = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
       const [px, py] = local(e), [lx, ly] = W2C(S.les.x, S.les.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
-      if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.lis.yaw - d);
+      const [mx, my] = W2C(S.mics.roomX, S.mics.roomY);
+      if (S.mics.on && Math.hypot(px - mx, py - my) < 22) { S.mics.roomYaw -= d; sendMics(); syncAll(); }
+      else if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.lis.yaw - d);
     }, { passive: false });
 
     function drawTentSide(gt) {
@@ -1199,13 +1355,41 @@ self.onmessage = (e) => {
       g.fillStyle = '#f2c879'; g.beginPath(); g.arc(hx2, hy2, 3.5, 0, Math.PI * 2); g.fill();
       g.strokeStyle = 'rgba(242,200,121,.3)'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - Math.cos(hornA) * hl * 0.7, ly + Math.sin(hornA) * hl * 0.7); g.stroke();
       g.fillStyle = '#c9b89c'; g.font = '12px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Leslie', lx, ly + cab / 2 + 14); g.textAlign = 'left';
+      // Mikros
+      if (S.mics.on) {
+        const M = S.mics, D2R = Math.PI / 180;
+        const mic = (x, y, ax, ay, r) => { const [a, b] = W2C(x, y); g.strokeStyle = '#f2c879'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, b); g.lineTo(a + ax * (r + 7), b - ay * (r + 7)); g.stroke(); g.fillStyle = '#f2c879'; g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill(); g.fillStyle = '#17130f'; g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill(); };
+        const close = (st, ang, center, dist) => {
+          const [a, b] = W2C(S.les.x, S.les.y);
+          (st ? [center - ang / 2, center + ang / 2] : [center]).forEach((ph) => {
+            const t = S.cabYaw + ph * D2R, c = Math.cos(t), sn = Math.sin(t), cf = Math.abs(Math.cos(ph * D2R)), sf = Math.abs(Math.sin(ph * D2R));
+            const R = Math.min(cf > 1e-6 ? 0.275 / cf : 1e9, sf > 1e-6 ? 0.37 / sf : 1e9) + Math.max(0.02, dist);
+            const rp = Math.max(R * view.s, cab * 0.6 + 7);   // bei kleinem Maßstab neben dem Gehäuse halten
+            const [wx, wy] = C2W(a + c * rp, b - sn * rp);
+            mic(wx, wy, -c, -sn, big ? 4 : 3);
+          });
+        };
+        close(M.hornStereo, M.hornAngle, M.hornCenter, M.hornDist);
+        close(M.drumStereo, M.drumAngle, M.drumCenter, M.drumDist);
+        const yawR = M.roomYaw, lx2 = -Math.sin(yawR), ly2 = Math.cos(yawR);
+        const sp = M.roomArr === 0 ? M.roomSpacing : M.roomArr === 2 ? 0.17 : 0.02, aimOff = M.roomArr === 0 ? 0 : (M.roomArr === 2 ? 55 : 45) * D2R;
+        [1, -1].forEach((sg) => {   // 1 = links (von der Blickrichtung aus)
+          const off = Math.max(sp * view.s, M.roomArr === 1 ? 3 : 9) / 2 * sg;
+          const [ca, cb] = W2C(M.roomX, M.roomY), [wx, wy] = C2W(ca + lx2 * off, cb - ly2 * off), a = yawR + sg * aimOff;
+          mic(wx, wy, Math.cos(a), Math.sin(a), big ? 5 : 4);
+        });
+        const [ca, cb] = W2C(M.roomX, M.roomY);
+        g.fillStyle = '#c9b89c'; g.font = '11px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Raumpaar', ca, cb + 20); g.textAlign = 'left';
+      }
       // Hörer + Lautsprecher
       const [hx, hy] = W2C(S.lis.x, S.lis.y), yaw = S.lis.yaw;
+      g.globalAlpha = S.mics.on && S.mics.ch[6].mute ? 0.4 : 1;
       MODES[S.mode].show.forEach((deg) => { const a = yaw + deg * Math.PI / 180, rr = big ? 30 : 24; g.fillStyle = '#7d715f'; g.beginPath(); g.arc(hx + Math.cos(a) * rr, hy - Math.sin(a) * rr, big ? 3.5 : 2.5, 0, Math.PI * 2); g.fill(); });
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
       g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();
       g.fillStyle = '#f2a33a'; [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 9, hy - Math.sin(yaw + o) * 9, 2.6, 0, Math.PI * 2); g.fill(); });
       g.fillStyle = '#c9b89c'; g.fillText(`Du · ${de(Math.hypot(S.les.x - S.lis.x, S.les.y - S.lis.y))} m`, hx + 14, hy + 22);
+      g.globalAlpha = 1;
     }
     return self;
   }
@@ -1337,7 +1521,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMics();
     applyMode();
   }
 
@@ -1348,6 +1532,7 @@ self.onmessage = (e) => {
       Object.assign(S.rot, { horn: m.horn, drum: m.drum, hornHz: m.hornHz, drumHz: m.drumHz, t: performance.now() }); S.meters = m.meters;
       if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + ' %'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
       if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${de(m.vk)} V`;
+      if (m.mm) S.micMeters = m.mm;
       if (tab !== 'spielen') { slowSync++; if (slowSync % 10 === 0) syncAll(); }
     });
     B.addEventListener('roomInfo', (m) => { roomInfo = m; syncAll(); });
@@ -1372,6 +1557,7 @@ self.onmessage = (e) => {
     drawCabinet(hornA, drumA);
     if (tab === 'raum') rooms[1].draw(hornA, drumA); else rooms[0].draw(hornA, drumA);
     drawMeters();
+    if (tab === 'mikros' && S.micMeters) micMeterEls.forEach((b, c) => { const db = S.micMeters[c]; micHold[c] = Math.max(db, micHold[c] - 0.6); b.style.height = (clamp((micHold[c] + 60) / 60, 0, 1) * 100) + '%'; });
     requestAnimationFrame(frame);
   }
 

@@ -47,7 +47,7 @@ MainComponent::MainComponent() {
     auto settingsFile = po.getDefaultFile();
     std::unique_ptr<XmlElement> savedState;
     if (settingsFile.existsAsFile()) savedState = XmlDocument::parse(settingsFile);
-    deviceManager.initialise(0, 8, savedState.get(), true);
+    deviceManager.initialise(0, 16, savedState.get(), true);
     deviceManager.addAudioCallback(this);
     deviceManager.addChangeListener(this);
     enableAllMidiInputs();
@@ -89,12 +89,12 @@ void MainComponent::audioDeviceStopped() {}
 
 void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, float* const* outputChannelData, int numOutputChannels, int numSamples, const AudioIODeviceCallbackContext&) {
     for (int c = 0; c < numOutputChannels; c++) if (outputChannelData[c]) FloatVectorOperations::clear(outputChannelData[c], numSamples);
-    const int nCh = jmin(8, numOutputChannels);
-    float* ptrs[8];
-    for (int c = 0; c < 8; c++) { if (scratch[c].size() < (size_t) numSamples) scratch[c].assign((size_t) numSamples, 0.f); ptrs[c] = scratch[c].data(); }
+    const int nCh = jmin(16, numOutputChannels);
+    float* ptrs[16];
+    for (int c = 0; c < 16; c++) { if (scratch[c].size() < (size_t) numSamples) scratch[c].assign((size_t) numSamples, 0.f); ptrs[c] = scratch[c].data(); }
     {
         std::lock_guard<std::mutex> lock(dspLock);
-        dsp->process(ptrs, 8, numSamples);
+        dsp->process(ptrs, 16, numSamples);
     }
     for (int c = 0; c < nCh; c++) if (outputChannelData[c]) FloatVectorOperations::copy(outputChannelData[c], ptrs[c], numSamples);
 
@@ -113,7 +113,7 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
     // Pegel
     for (int c = 0; c < nCh; c++) { float s = 0; const float* x = outputChannelData[c] ? outputChannelData[c] : ptrs[c]; for (int i = 0; i < numSamples; i++) s += x[i] * x[i]; meterAcc[(size_t) c] += s; }
     meterCount += numSamples;
-    if (meterCount >= 1024) { for (int c = 0; c < 8; c++) { meterRms[(size_t) c] = std::sqrt(meterAcc[(size_t) c] / (float) meterCount); meterAcc[(size_t) c] = 0; } meterCount = 0; }
+    if (meterCount >= 1024) { for (int c = 0; c < 16; c++) { meterRms[(size_t) c] = std::sqrt(meterAcc[(size_t) c] / (float) meterCount); meterAcc[(size_t) c] = 0; } meterCount = 0; }
 }
 
 void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) {
@@ -154,10 +154,13 @@ void MainComponent::timerCallback() {
         o->setProperty("horn", dsp->hornAngle()); o->setProperty("drum", dsp->drumAngle());
         o->setProperty("hornHz", dsp->hornHz()); o->setProperty("drumHz", dsp->drumHz());
     }
-    Array<var> m; for (int c = 0; c < 8; c++) m.add(20.0 * std::log10(meterRms[(size_t) c].load() + 1e-6));
+    Array<var> m; for (int c = 0; c < 16; c++) m.add(20.0 * std::log10(meterRms[(size_t) c].load() + 1e-6));
     o->setProperty("meters", m);
     o->setProperty("cpu", deviceManager.getCpuUsage());
-    { std::lock_guard<std::mutex> lock(dspLock); o->setProperty("vb", dsp->ampPlate()); o->setProperty("vk", dsp->ampCathode()); }
+    {
+        std::lock_guard<std::mutex> lock(dspLock); o->setProperty("vb", dsp->ampPlate()); o->setProperty("vk", dsp->ampCathode());
+        if (dsp->mics().on) { Array<var> mm; for (int c = 0; c < leslie::MIC_CH; c++) mm.add(20.0 * std::log10(dsp->micMeter(c) + 1e-6)); o->setProperty("mm", mm); }
+    }
     web->emitEventIfBrowserIsVisible("rot", var(o));
 }
 
@@ -188,7 +191,7 @@ void MainComponent::sendRoomInfo() {
 }
 
 void MainComponent::openAudioSettings() {
-    auto* sel = new AudioDeviceSelectorComponent(deviceManager, 0, 0, 2, 8, true, false, false, false);
+    auto* sel = new AudioDeviceSelectorComponent(deviceManager, 0, 0, 2, 16, true, false, false, false);
     sel->setSize(520, 560);
     DialogWindow::LaunchOptions lo;
     lo.content.setOwned(sel);
@@ -219,6 +222,27 @@ void MainComponent::handleDspMessage(const var& m) {
         }
         else if (type == "amp") d.setAmp((int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5));
         else if (type == "rotor") d.setRotor((int) numProp(m, "r", 0), numProp(m, "slow", 0.75), numProp(m, "fast", 6.8), numProp(m, "up", 0.8), numProp(m, "down", 1.4));
+        else if (type == "preamp") d.setPreamp((bool) m.getProperty("on", true), numProp(m, "gain", 0.5));
+        else if (type == "mics") {
+            leslie::MicSetup ms; auto v = m.getProperty("v", var());
+            auto b = [&](const char* k, bool def) { auto x = v.getProperty(k, var()); return x.isVoid() ? def : (bool) x; };
+            auto n = [&](const char* k, double def) { return numProp(v, k, def); };
+            ms.on = b("on", false);
+            ms.hornStereo = b("hornStereo", true); ms.hornAngle = n("hornAngle", 180); ms.hornCenter = n("hornCenter", 0); ms.hornDist = n("hornDist", 0.15); ms.hornHeight = n("hornHeight", 0);
+            ms.hornType = (int) n("hornType", 0); ms.hornPattern = (int) n("hornPattern", 0); ms.windscreen = b("windscreen", false);
+            ms.drumStereo = b("drumStereo", false); ms.drumAngle = n("drumAngle", 180); ms.drumCenter = n("drumCenter", 0); ms.drumDist = n("drumDist", 0.15);
+            ms.drumType = (int) n("drumType", 2); ms.drumPattern = (int) n("drumPattern", 0);
+            ms.roomArr = (int) n("roomArr", 0); ms.roomX = n("roomX", 3); ms.roomY = n("roomY", 3); ms.roomZ = n("roomZ", 2); ms.roomYaw = n("roomYaw", 1.5708);
+            ms.roomSpacing = n("roomSpacing", 0.6); ms.roomType = (int) n("roomType", 4); ms.roomPattern = (int) n("roomPattern", 1); ms.roomOrder = (int) n("roomOrder", 2);
+            if (auto* a = v.getProperty("ch", var()).getArray())
+                for (int c = 0; c < leslie::MIC_CH && c < a->size(); c++) {
+                    auto& C = ms.ch[c]; auto x = (*a)[c];
+                    C.gainDb = numProp(x, "gain", C.gainDb); C.pan = numProp(x, "pan", C.pan); C.delayMs = numProp(x, "delay", 0);
+                    C.pol = (bool) x.getProperty("pol", false); C.mute = (bool) x.getProperty("mute", false); C.solo = (bool) x.getProperty("solo", false);
+                    C.out = (int) numProp(x, "out", -1);
+                }
+            d.setMics(ms);
+        }
         else if (type == "brake") d.setBrake((bool) m.getProperty("v", true));
         else if (type == "cabDetail") d.setCabinetDetail(numProp(m, "hornfach", 0.45), numProp(m, "wobble", -1));
         else if (type == "organDetail") d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
