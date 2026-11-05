@@ -59,8 +59,8 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Anschlag**: MIDI-Velocity steuert Key-Click (Kontakte schließen schneller und härter, mehr Prellen) beim Drücken und
   Loslassen. Mit der Maus: Klick vorne auf der Taste = hart, hinten = weich.
 * **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
-  Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Gehäuse (Hornfach, Resonanz, Mechanik, Unrund, Sperrholz/Spanplatte),
-  Aufstellung (Balance, Ausrichtung).
+  Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Gehäuse (Hornfach, Resonanz, Mechanik, Unrund, Sperrholz/Spanplatte,
+  Deflektoren In/Out), Aufstellung (Balance, Ausrichtung).
 * **Pedal**: wie in B-3/C-3 verdrahtet – acht Kontakte je Pedal auf vier Sammelschienen (Grundton + 3., 2. + 4.,
   6. + 8., 10. + 12. Harmonische), über die Widerstandsdrähte R81–R86 auf die Zugriegel 16′ und 8′ gemischt. Die
   untersten zwölf Töne kommen von den Complex-Tonrädern (fast rechteckig: ungerade Harmonische).
@@ -81,7 +81,11 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Abbildung**: Direktschall und der spiegelnde Teil jeder Reflexion werden leistungskonstant zwischen den zwei
   nächsten Lautsprechern gelegt. Der Rest – was die Wand streut (Streugrad je Material, ISO 17497, Holz/Trockenbau
   möbliert 0,5) und was steil von Boden oder Decke kommt – bleibt in seiner Richtung, wird aber breit verteilt und
-  vorher dekorreliert (vier Allpässe je Richtung). Grund: im echten Raum treffen Direktschall und Bodenreflexion aus
+  vorher dekorreliert (vier Allpässe je Richtung). Die Streuung der 1. Ordnung kommt nicht vom Spiegelbild, sondern
+  von den Wandstellen, die der Rotor gerade anstrahlt: jede Fläche ist in bis zu 4 × 4 Felder (~2,5 m) geteilt, jedes
+  Feld ist ein eigener Schallweg (Lambert-Streuung, Abstrahlung des Rotors zum Feld, Doppler, Richtung zum Hörer).
+  So wandert der gestreute Klang über die Wände, während Horn und Trommel drehen. Je Rotor rechnen nur die stärksten
+  Felder (zusammen 97 % der Streuenergie, höchstens 24); höhere Ordnungen streuen wie bisher am Spiegelbild. Grund: im echten Raum treffen Direktschall und Bodenreflexion aus
   verschiedenen Richtungen auf die Ohren und löschen sich nicht aus; im selben Lautsprecherkanal elektrisch summiert
   würden sie kammfiltern und die Drehung vorne verschmieren. Jeder Wandkontakt nimmt dem Hornstrahl Höhen. Der
   Nachhall ist auf die Summe aller Lautsprecher normiert, damit Stereo, Quad und 5.1 gleich viel Raum haben.
@@ -91,6 +95,14 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   umgeschaltet zu werden; der breite Anteil wird erst gepannt und dann je Lautsprecherkanal dekorreliert (gleicher
   Diffusor in allen Kanälen, damit L/R so zusammenhängend bleiben wie vorher). Hornabstrahlung und Hornfach-Anteil
   haben keine Knicke über den Drehwinkel.
+* **Rotoren**: wie im 122 drehen Horn und Trommel gegeneinander (Horn gegen, Trommel mit dem Uhrzeigersinn von oben).
+  Doppler-Radius Horn 17,8 cm (Mund), Trommel 13 cm (akustisches Zentrum der Schaufel laut Simulation, nicht der
+  Außenradius). Die Abstrahlung beider Rotoren stammt aus Randelement-Simulationen (`tools/acoustics`): das Signal
+  wird einmal je Rotor in phasengleiche Linkwitz-Riley-Bänder zerlegt (Horn 4 Bänder, Trommel 3), jeder Schallweg
+  mischt sie mit den Pegeln für seinen Winkel. Weil die Bänder phasengleich sind, ändert die Drehung nur den Pegel –
+  keine falsche Tonhöhenmodulation. Dasselbe Modell gilt für Direktschall, Spiegelbilder, Wandfelder, Zelt, Mikros
+  und die Einspeisung in den Nachhall. Mit Deflektor (Serie) schwankt das Horn über 2 kHz um ~7–13 dB, ohne um
+  20–40 dB; die Trommel unter 200 Hz um < 2,5 dB, von 250–800 Hz um 6–17 dB.
 * **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Leslie und Swell. Alle MIDI-Eingänge sind aktiv.
 * **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Lower | Upper, „3“ = Pedal | Lower | Upper, auf dem
   Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
@@ -161,6 +173,23 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
 * Die Pegel sind geschätzt, nicht gemessen: Leerlauf-Mechanik bei mittlerem Zustand etwa 35–40 dB unter einem
   vollen Akkord, Tastenanschlag etwa 30 dB darunter. `tests/mechanics_test.cpp` misst alle Pegel nach.
 
+## Abstrahlung simulieren (`tools/acoustics`)
+
+Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische Lösung geprüft (`test_sphere.py`,
+`test3d.py`):
+
+* `axibem.py` – rotationssymmetrisches BEM (Ringquellen, CHIEF gegen innere Resonanzen); `horn.py` baut damit das
+  122-Horn nach (geschätzte Maße: Hals r 9,5 mm, Länge 150 mm, Mund r 45 mm, Wand 3 mm; Deflektorkegel r 51 mm,
+  30 mm tief, Spitze 8 mm im Mund = Variante `g-8h30`, `none` = ohne) und rechnet Polardiagramme je Terzband
+  (8 Frequenzen je Band gemittelt).
+* `bem3d.py` – 3D-BEM mit Vierecken; `drum.py` baut die Trommel als Voxelmodell (2,5 cm, r 0,215 m, h 0,25 m,
+  Schaufel, 15″-Kolben darunter, Prallbrett).
+* `fit_directivity.py` – glättet, normiert (mittlere Leistung über den Kreis je Band = bisheriges Modell, die
+  Klangfarbe im diffusen Feld bleibt) und passt die Bandpegel an; schreibt `Source/RotorDirectivity.h`.
+  `results/` enthält die Simulationsergebnisse, mit denen die Tabelle erzeugt wurde.
+* Grenzen: die Maße sind aus Fotos und Datenblättern geschätzt, nicht gemessen; das achssymmetrische Horn hat bei
+  0°/180° einen Lichtfleck, der darum über ±15° geglättet und ab 155° festgehalten wird.
+
 ## Dateien
 
 * `Source/LeslieRoomDSP.h` – Klangkern (Orgel, Leslie, Raum, Hall), ohne JUCE-Abhängigkeit
@@ -169,6 +198,7 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
 * `Source/SpringReverb.h` – Federhall
 * `Source/Mechanics.h` – Leslie-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Leslie und Orgel
 * `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
+* `Source/RotorRadiation.h`, `Source/RotorDirectivity.h` – Bandzerlegung und Abstrahltabellen von Horn und Trommel
 * `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
 * `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
 * `Source/PluginProcessor.*` – VST3: Busse, Parameter, Projektzustand, Editor

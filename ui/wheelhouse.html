@@ -447,7 +447,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true, keyNoise: 0.5 },
     mains: 50, velClick: true, offlineMax: true,
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
-    brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 },
+    brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1, deflector: true },
     amp: { model: 0, quality: 1, sag: 0.5 },
     pre: { on: true, gain: 0.5 },
     spring: { mix: 0.2, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 },
@@ -462,7 +462,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const S = clone(DEF);
-  S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
+  S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: -0.62, t: performance.now() };
   S.meters = null;
   let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, outLatencySamples: 0, driverLatencySamples: 0, channelNames: [], midiDevices: [] };
   let procLatency = 0, droppedBlocks = 0;
@@ -523,25 +523,25 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
       click: 0.5, db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.35, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1, deflector: true }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'B3 + 147 (Rock)', note: '147 with negative feedback, hot preamp, vibrato off',
       chr: { cond: 0.55, leak: 0.55, contact: 0.55, motor: 0.54, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.6, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 8, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 4] }, perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1, deflector: true }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'A-100 + Spring Reverb', note: 'same tone generator as the B3, built-in Hammond spring tank',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1, deflector: true }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
     { n: 'Road-worn B3', note: '40 years on the road: bouncy contacts, slack belts, tired tubes',
       chr: { cond: 0.85, leak: 0.85, contact: 0.9, motor: 0.8, gearTune: true, busComp: true }, organ: { percLevel: 0.85, percShort: 0.17, percLong: 0.9, complex: true },
       click: 0.75, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 4, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 5] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.7 }, amp: { model: 1, quality: 1, sag: 0.8 }, drive: 0.6, balance: 0.5,
       rotor: [{ slow: rpmHz(44), fast: rpmHz(380), up: 0.75, down: 1.1 }, { slow: rpmHz(36), fast: rpmHz(325), up: 2.3, down: 3.2 }],
-      brake: true, cab: { hornBox: 0.5, wobble: 0.65, board: 'chip', res: 0.65, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.5, wobble: 0.65, board: 'chip', res: 0.65, mech: -1, deflector: true }, halfMoon: 'two', spring: { mix: 0 } },
   ];
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
   const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 early · 5U4'], [2, '147 · neg. feedback']];
@@ -634,6 +634,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     'Cabinet/Mechanics': 'Mechanical noise: motors, belts, bearings, relays and the slow motor clutching in. Auto follows Organ › Condition.',
     'Cabinet/Wobble': 'Rotor runout: slightly out-of-round rotation and speed flutter. Auto follows Organ › Condition.',
     'Cabinet/Build': 'Early cabinets are plywood, later ones chipboard – softer, more damped.',
+    'Cabinet/Deflectors': 'The cone-shaped deflectors in the horn mouths. In (stock) spreads the treble – gentle, wide swirl. Out beams the highs – a sharper, more pronounced sweep, as some players mod their cabinets.',
     'Placement/Balance': 'Horn/drum level balance: 50/50 = both at full level, left = more horn, right = more drum.',
     'Placement/Facing': 'Which way the Leslie front points in the room. You can also turn it in the floor plan with the scroll wheel.',
     'Placement/Quick turn': 'Turn the Leslie front towards the listener (or the room pair in Mics mode).',
@@ -1078,6 +1079,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
       knob({ label: 'Wobble', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
     ], [
       rowSeg('Build', [['ply', 'Plywood'], ['chip', 'Chipboard']], () => S.cab.board, v => { S.cab.board = v; sendCab(); }, 'ply'),
+      rowSeg('Deflectors', [[true, 'In'], [false, 'Out']], () => S.cab.deflector !== false, v => { S.cab.deflector = v; sendCab(); }, true),
     ], 'The middle compartment is a vented box for the 15″ woofer. Early cabinets are plywood, later ones chipboard (softer, more damped).'));
     p.appendChild(sec('Placement', [
       knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
@@ -1834,7 +1836,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     const now = performance.now(), dt = (now - S.rot.t) / 1000;
     const hornA = S.rot.horn + S.rot.hornHz * 2 * Math.PI * dt, drumA = S.rot.drum + S.rot.drumHz * 2 * Math.PI * dt;
     const rpm = Math.round(S.rot.hornHz * 60) + '|' + Math.round(S.rot.drumHz * 60);
-    if (rpm !== lastRpm) { lastRpm = rpm; $('hornRpm').textContent = Math.round(S.rot.hornHz * 60); $('drumRpm').textContent = Math.round(S.rot.drumHz * 60); }
+    if (rpm !== lastRpm) { lastRpm = rpm; $('hornRpm').textContent = Math.round(Math.abs(S.rot.hornHz) * 60); $('drumRpm').textContent = Math.round(Math.abs(S.rot.drumHz) * 60); }
     drawCabinet(hornA, drumA);
     if (tab === 'raum') rooms[1].draw(hornA, drumA); else rooms[0].draw(hornA, drumA);
     drawMeters();

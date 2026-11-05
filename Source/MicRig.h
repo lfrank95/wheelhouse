@@ -13,6 +13,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include "RotorRadiation.h"
 
 namespace leslie {
 
@@ -61,6 +62,7 @@ struct MicPath {
     double d0 = 0, d1 = 0, g0 = 0, g1 = 0, kb = 1, kc = 1, kDrum = 1, kRefl = 1, cab = 1;
     double band[3] = {1, 1, 1};
     double lp = 0, zlo = 0, zhi = 0, zd = 0;
+    float bgA[4] = {1, 1, 1, 1}, bgB[4] = {1, 1, 1, 1};   // radiation band gains at sub-block start / end (fast paths)
     bool init = false;
 };
 

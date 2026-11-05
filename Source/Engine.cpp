@@ -177,7 +177,7 @@ void WheelhouseEngine::render(float* const* out, int n, const MidiBuffer* midi) 
         }
         if (pos < n) { for (int c = 0; c < 16; c++) seg[c] = out[c] + pos; dsp->process(seg, 16, n - pos); }
     }
-    teleHorn = dsp->hornAngle(); teleDrum = dsp->drumAngle(); teleHornHz = dsp->hornHz(); teleDrumHz = dsp->drumHz();
+    teleHorn = dsp->hornAngle(); teleDrum = dsp->drumAngle(); teleHornHz = dsp->hornHz() * dsp->rotorDir(0); teleDrumHz = dsp->drumHz() * dsp->rotorDir(1);
     telePlate = dsp->ampPlate(); teleCathode = dsp->ampCathode(); teleLatency = dsp->processingLatency();
     teleMics = dsp->mics().on;
     for (int c = 0; c < 6; c++) teleMicMeter[(size_t) c] = dsp->micMeter(c);
@@ -386,6 +386,7 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
         else if (type == "cabDetail") {
             d.setCabinetDetail(numProp(m, "hornBox", 0.45), numProp(m, "wobble", -1));
             d.setCabinetBody(m.getProperty("board", "ply").toString() == "chip" ? 1 : 0, numProp(m, "res", 0.5), numProp(m, "mech", -1));
+            d.setDeflector(m.hasProperty("deflector") ? (bool) m.getProperty("deflector", true) : true);
         }
         else if (type == "organDetail") {
             d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
