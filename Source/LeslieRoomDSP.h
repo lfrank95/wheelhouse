@@ -25,6 +25,7 @@ struct Biquad {
         double w = TWO_PI * f / fs, cw = std::cos(w), sw = std::sin(w), al = sw / (2 * q);
         double B0, B1, B2, A0 = 1 + al, A1 = -2 * cw, A2 = 1 - al;
         if (type[0] == 'l') { B0 = (1 - cw) / 2; B1 = 1 - cw; B2 = (1 - cw) / 2; }
+        else if (type[0] == 'b') { B0 = al; B1 = 0; B2 = -al; }   // band-pass, 0 dB at the centre
         else if (type[0] == 'h') { B0 = (1 + cw) / 2; B1 = -(1 + cw); B2 = (1 + cw) / 2; }
         else if (type[0] == 's') {   // low shelf (RBJ cookbook)
             double A = std::pow(10.0, gainDb / 40), sA = 2 * std::sqrt(A) * al;
@@ -86,6 +87,7 @@ struct RoomInfo { double rt60[3] = {0, 0, 0}; double rc = 0; int paths = 0; };
 } // namespace leslie
 #include "MicRig.h"
 #include "SpringReverb.h"
+#include "Mechanics.h"
 namespace leslie {
 
 class LeslieRoomDSP {
@@ -112,7 +114,12 @@ public:
     /** Vibrato/chorus knob position: "v1".."v3" (vibrato) or "c1".."c3" (chorus); anything else = off. */
     void setVib(const std::string& v) { vibMode = v; vibDepthSec = (v == "v1" || v == "c1") ? 0.00022 : (v == "v2" || v == "c2") ? 0.00045 : (v == "v3" || v == "c3") ? 0.0008 : 0.0; vibChorusMode = !v.empty() && v[0] == 'c'; configureScanner(); }
     /** Mains frequency (50 or 60 Hz): only the hum changes; the synchronous motor is geared for 20 Hz main-shaft speed either way. */
-    void setMains(double hz) { mainsHz = hz >= 55 ? 60 : 50; }
+    void setMains(double hz) { mainsHz = hz >= 55 ? 60 : 50; lesMech.setMains(mainsHz); orgMech.setMains(mainsHz); }
+    /** Leslie cabinet body: board 0 = plywood (early), 1 = particle board (late); resonance 0..1 = panel radiation;
+        mechanics 0..1 = motor/belt/relay noise (negative = derive from the organ condition). */
+    void setCabinetBody(int board, double resonance, double mechanics) { cabBoard = board; cabRes = resonance; mechUser = mechanics; body.configure(board, resonance); applyCharacter(); }
+    /** Acoustic noise of keys and pedals hitting their felts, 0..1. */
+    void setKeyNoise(double v) { keyNoise = v; applyCharacter(); }
     /** Key click follows the key velocity (how fast the key closes the nine contacts). Off = fixed medium velocity. */
     void setVelocityClick(bool on) { velocityClick = on; }
     /** Leslie amplifier drive, 0..1 (also forwarded to the amp model). */
@@ -158,7 +165,11 @@ public:
     /** Horn/drum balance 0..1: 0 = horn only, 0.5 = both full, 1 = drum only. */
     void setBalance(double v) { hornLevel = std::min(1.0, 2 * (1 - v)); drumLevel = std::min(1.0, 2 * v); }
     /** Leslie speed switch: "slow", "fast" or anything else for "stop". */
-    void setLeslie(const std::string& mode) { leslieMode = mode; for (auto& r : rot) r.tgt = mode == "fast" ? r.fast : mode == "slow" ? r.slow : 0; }
+    void setLeslie(const std::string& mode) {
+        auto code = [](const std::string& m) { return m == "fast" ? 2 : m == "slow" ? 1 : 0; };
+        lesMech.speedChange(code(leslieMode), code(mode));
+        leslieMode = mode; for (auto& r : rot) r.tgt = mode == "fast" ? r.fast : mode == "slow" ? r.slow : 0;
+    }
     /** Replaces the room description (dimensions in metres, absorption, material, shape) and rebuilds all paths. */
     void setRoom(const Room& r) { room = r; rebuildRoom(); }
     /** Precision of the reflections: false = fast (higher orders ramped per sub-block, direction buckets),
@@ -222,16 +233,25 @@ private:
     void applyDelta(int m, int w, double d);
     int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 13) w += 12; while (w > 91) w -= 12; return w; }
     // Calls f(wheel, amplitude) for every tonewheel a key contributes to on manual m.
-    // Pedal: on the original console the 16' and 8' pedal drawbars are mixtures of the fundamental and two
-    // overtones (16' ~ 16' + 8' + 5 1/3', 8' ~ 8' + 4' + 2 2/3'); the mix ratios are approximations.
+    // Pedal (B-3/C-3 wiring, patent 2,508,514): every pedal has 8 contacts on 4 bus bars, two harmonics each -
+    // brown: fundamental + 3rd, red: 2nd + 4th, orange: 6th + 8th, yellow: 10th + 12th. The fundamental is a complex
+    // tonewheel (odd harmonics) for the lowest octave. The resistance wires R81..R86 on the resistor panel mix the
+    // four bars into the two drawbars: 16' takes all four with falling level (brown direct, then 10, 47, 470 ohm),
+    // 8' only red/orange/yellow (5, 5, 20 ohm), so pulling 8' adds the upper even harmonics. The levels below assume
+    // the drawbar circuit loads the wires with about 5 ohm; the level ratio inside each pair is an estimate.
+    static constexpr int PED_OFF[8] = {0, 19, 12, 24, 31, 36, 40, 43};          // semitones above the pedal fundamental
+    static constexpr double PED_PAIR[8] = {1.0, 0.5, 1.0, 0.7, 1.0, 0.7, 1.0, 0.7};
+    static constexpr int PED_BUS[8] = {0, 0, 1, 1, 2, 2, 3, 3};
+    static constexpr double PED_MIX[2][4] = {{1.0, 0.33, 0.096, 0.0105}, {0.0, 0.58, 0.58, 0.23}};
     template <class F> void forParts(int m, int k, const double* amps, F f) const {
-        static const int OFF[2][3] = {{0, 12, 19}, {12, 24, 31}};
-        static const double MIX[2][3] = {{1.0, 0.38, 0.22}, {1.0, 0.32, 0.18}};
-        for (int i = 0; i < 9; i++) {
-            if (amps[i] <= 0) continue;
-            if (m == 2) { if (i < 2) for (int j = 0; j < 3; j++) f(std::max(1, std::min(91, k + 1 + OFF[i][j])), amps[i] * MIX[i][j]); }
-            else f(wheelFor(k, i), amps[i]);
+        if (m == 2) {
+            for (int c = 0; c < 8; c++) {
+                const double a = amps[0] * PED_MIX[0][PED_BUS[c]] + amps[1] * PED_MIX[1][PED_BUS[c]];
+                if (a > 0) f(std::min(91, k + 1 + PED_OFF[c]), a * PED_PAIR[c]);
+            }
+            return;
         }
+        for (int i = 0; i < 9; i++) if (amps[i] > 0) f(wheelFor(k, i), amps[i]);
     }
     void drawbarAmps(int man, double* amps) const;
     // One-pole low-pass coefficient for cutoff f (Hz), clamped below Nyquist
@@ -313,11 +333,28 @@ private:
 
     // ---------------- Expression pedal, crossover and cabinet filters ----------------
     // expLp: bass boost of the expression pedal; lp1/lp2 + hp1/hp2: horn/drum crossover; cabLp: horn-compartment colouration;
-    // hornRes/hornRes2/drumRes/hornHi: resonances of horn and drum; lfeLp1/2: LFE low-pass; motorLp/windBp1/2: motor and wind noise
+    // hornRes/hornRes2/drumRes/hornHi: resonances of horn and drum; lfeLp1/2: LFE low-pass; windBp1/2: horn wind
     double drive = 0.35, volume = 0.8, sagEnv = 0;
-    Biquad expLp, lp1, lp2, hp1, hp2, cabLp, hornRes, hornRes2, drumRes, hornHi, lfeLp1, lfeLp2, motorLp, windBp1, windBp2;
+    Biquad expLp, lp1, lp2, hp1, hp2, cabLp, hornRes, hornRes2, drumRes, hornHi, lfeLp1, lfeLp2, windBp1, windBp2;
     int cabDelay = 0;
     double cabYaw = -1.5707963, cabTyaw = -1.5707963;   // current / target cabinet orientation (radians)
+
+    // ---------------- Cabinet body and mechanical noise (static sources, see Mechanics.h) ----------------
+    // bufSU / bufSL: sound radiated by the upper / lower part of the cabinet itself (panels, motors, relay);
+    // bufK: the organ console (generator, run motor, keys). All three are placed in the room without rotation.
+    CabinetBody body; LeslieMechanics lesMech; OrganMechanics orgMech;
+    int cabBoard = 0; double cabRes = 0.5, mechUser = -1, keyNoise = 0.5;
+    std::vector<float> bufSU, bufSL, bufK;
+    struct StaticPath { double d0 = 0, d1 = 0; float g0[8] = {}, g1[8] = {}; bool init = false; };
+    StaticPath stCab, stKey;                                   // listener: cabinet and console
+    struct MicStatic { double d0[3] = {}, d1[3] = {}, g0[3] = {}, g1[3] = {}; bool init = false; };
+    MicStatic micSt[6];                                        // per mic: upper cabinet, lower cabinet, console
+    double consoleX = 0, consoleY = 0;
+    void staticBlock(bool lisOn, bool micsOn);
+    inline double readStatic(const std::vector<float>& b, int wi, double ds) const {
+        double rp = wi - ds; if (rp < 0) rp += DM + 1; int i1 = (int) rp; double fr = rp - i1, y1 = b[(size_t) (i1 & DM)];
+        return y1 + (b[(size_t) ((i1 + 1) & DM)] - y1) * fr;
+    }
 
     // ---------------- Rotors and rotor delay lines ----------------
     // rot[0] = horn, rot[1] = drum. bufH/bufD hold the horn/drum signals, bufC the horn signal coloured by the cabinet;
@@ -341,7 +378,7 @@ private:
     WorkerPool pool;
     int blockN = 0, listenerJobs = 0; bool blockLisOn = true, blockMicsOn = false;
     std::array<int, SUB> wiArr{};
-    std::array<double, SUB> chcA{}, chsA{}, cdcA{}, cdsA{}, hiA{}, loA{};
+    std::array<double, SUB> chcA{}, chsA{}, cdcA{}, cdsA{}, hiA{}, loA{}, stA{};
     double micRaw[6][SUB] = {};
     void renderListenerJob(int job);
     void renderMicJob(int micIndex);
@@ -409,7 +446,7 @@ private:
 inline void LeslieRoomDSP::init() {
     Lcg rnd(20261104u);
     sine.resize(TAB + 1); complexWave.resize(TAB + 1);
-    for (int i = 0; i <= TAB; i++) { double x = TWO_PI * i / TAB; sine[i] = (float) std::sin(x); complexWave[i] = (float) ((std::sin(x) + 0.28 * std::sin(2 * x) + 0.14 * std::sin(3 * x) + 0.06 * std::sin(5 * x)) / 1.2); }
+    for (int i = 0; i <= TAB; i++) { double x = TWO_PI * i / TAB; sine[i] = (float) std::sin(x); complexWave[i] = (float) (0.83 * (std::sin(x) + 0.30 * std::sin(3 * x) + 0.14 * std::sin(5 * x) + 0.06 * std::sin(7 * x) + 0.025 * std::sin(9 * x))); }
     for (int w = 1; w <= 91; w++) {
         int n = (w - 1) % 12, oct = (w - 1) / 12;
         int teeth = 2 << oct; const int* g = GEARS[n];
@@ -451,11 +488,13 @@ inline void LeslieRoomDSP::init() {
     hornRes.set("peak", 1700, 1.4, fs, 3.5); hornRes2.set("peak", 4200, 2.0, fs, 2.0); drumRes.set("peak", 120, 1.1, fs, 3.0);
     hornHi.set("lp", 9500, 0.6, fs);
     lfeLp1.set("lp", 100, 0.70710678, fs); lfeLp2.set("lp", 100, 0.70710678, fs);
-    motorLp.set("lp", 90, 0.9, fs); windBp1.set("hp", 1500, 0.7, fs); windBp2.set("lp", 5000, 0.7, fs);
+    windBp1.set("hp", 1500, 0.7, fs); windBp2.set("lp", 5000, 0.7, fs);
     rot[0] = {0, 0.75, 0.75, 0.75, 6.8, 0.19, 0.95, 0.8, 1.4};
     rot[1] = {1.3, 0.62, 0.62, 0.62, 5.7, 0.19, 0.40, 4.5, 5.5};
     DL = 1; while (DL < fs * 1.2) DL <<= 1; DM = DL - 1;
     bufH.assign(DL, 0.f); bufD.assign(DL, 0.f); bufC.assign(DL, 0.f);
+    bufSU.assign(DL, 0.f); bufSL.assign(DL, 0.f); bufK.assign(DL, 0.f);
+    body.prepare(fs); lesMech.prepare(fs); orgMech.prepare(fs, GEARS);
     spk.az = {0, 45, 90, 135, 180, -135, -90, -45}; for (auto& a : spk.az) a *= 3.14159265358979 / 180; spk.ch = {0, 1, 2, 3, 4, 5, 6, 7};
     fdnBuf.assign(16, std::vector<float>(65536, 0.f)); apBuf.assign(6, std::vector<float>(4096, 0.f)); lapBuf.assign(16, std::vector<float>(2048, 0.f));
     for (int i = 0; i < 16; i++) { fdnModPh[i] = rnd(); fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs; }
@@ -513,7 +552,11 @@ inline void LeslieRoomDSP::applyCharacter() {
     staggerS = (0.0008 + 0.0045 * c.contact) * fs; bounceP = 0.15 + 0.7 * c.contact;
     gainStep = 1 / ((0.0003 + 0.0004 * (1 - c.contact)) * fs);
     busK = c.busComp ? 0.035 + 0.05 * c.cond : 0;
-    motorLevel = 0.008 * c.motor; rotorWobble = wobbleOverride >= 0 ? 0.004 + 0.05 * wobbleOverride : 0.012 + 0.03 * c.cond; sagAmt = 0.25 + 0.35 * c.cond;
+    // Mechanics: the organ's generator/run motor follows "Motor"; the Leslie's motors, belts and relay follow its own
+    // setting or, on auto, the condition (a serviced cabinet is quiet, a road-worn one rumbles and clunks)
+    const double lesMechLvl = mechUser >= 0 ? mechUser : 0.15 + 0.7 * c.cond;
+    lesMech.setLevel(lesMechLvl, c.cond); orgMech.setLevels(c.motor, keyNoise);
+    motorLevel = 0.008 * lesMechLvl; rotorWobble = wobbleOverride >= 0 ? 0.004 + 0.05 * wobbleOverride : 0.012 + 0.03 * c.cond; sagAmt = 0.25 + 0.35 * c.cond;
     amp.setAge(0.6 * c.cond);
 }
 
@@ -568,8 +611,11 @@ inline void LeslieRoomDSP::noteOn(int k, int man, int velocity) {
     const double v = velocityClick ? std::max(1, std::min(127, velocity)) / 127.0 : 100 / 127.0;
     const double spread = 0.35 + 1.4 * std::pow(1 - v, 1.5), bounce = 0.55 + 0.6 * v;
     curRamp = (float) (0.35 + 2.2 * std::pow(v, 1.5));   // hard stroke: contacts snap on (sharp edge); slow press: they wipe on
-    clickEnv = std::max(clickEnv, (man == 2 ? 0.6 : 1.0) * (0.35 + 0.83 * v));
     double amps[9]; drawbarAmps(man, amps);
+    // the click is the keyed signal being switched: no pulled drawbar, no click (888000000 = 1)
+    double keyed = 0; for (double a : amps) keyed += a * a; keyed = std::min(1.2, std::sqrt(keyed / 3));
+    clickEnv = std::max(clickEnv, (man == 2 ? 0.6 : 1.0) * (0.35 + 0.83 * v) * keyed);
+    orgMech.key(man, std::max(1, std::min(127, velocity)) / 127.0, true);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0, spread, bounce); });
     if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
 }
@@ -580,9 +626,11 @@ inline void LeslieRoomDSP::noteOff(int k, int man, int velocity) {
     if (man == 0) numKeysUpper--;
     // release velocity: many keyboards send none (0 or 64) -> medium
     const double v = (velocityClick && velocity > 0) ? std::min(127, velocity) / 127.0 : 0.5;
-    clickEnv = std::max(clickEnv, 0.35 * (0.5 + v));
-    curRamp = (float) (0.5 + 1.2 * v);
     double amps[9]; drawbarAmps(man, amps);
+    double keyed = 0; for (double a : amps) keyed += a * a; keyed = std::min(1.2, std::sqrt(keyed / 3));
+    clickEnv = std::max(clickEnv, 0.35 * (0.5 + v) * keyed);
+    orgMech.key(man, velocity > 0 ? std::min(127, velocity) / 127.0 : 0.5, false);
+    curRamp = (float) (0.5 + 1.2 * v);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0, 0.5 + 1.0 * (1 - v), 0.6 + 0.5 * v); });
     if (man == 0 && perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
 }
@@ -1101,6 +1149,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     const double modeT = micSetup.on ? 1 : 0;
     const bool micsOn = micSetup.on || modeMix > 1e-5, lisOn = !micSetup.on || modeMix < 1 - 1e-5;
     if (micsOn) micBlock(bt);
+    staticBlock(lisOn, micsOn);
     const double chK = 1 - std::exp(-1 / (0.03 * fs)), modeK = 1 - std::exp(-1 / (0.04 * fs));
     const int nOut = std::min(nCh, 16);
     const int nSp = std::min(nCh, 8);   // room/listener: at most 8 speakers (acc, panning tables); channels 9-16 are mic direct outs only
@@ -1230,15 +1279,18 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     // paths rendered afterwards, which is what allows splitting them across threads.
     for (int n = 0; n < N; n++) {
         double s = orgBuf[(size_t) n];
-        double lo = drumRes.run(lp2.run(lp1.run(s))) * drumLevel;
+        double lo = body.woofer(drumRes.run(lp2.run(lp1.run(s)))) * drumLevel;
         double hi = hornHi.run(hornRes2.run(hornRes.run(hp2.run(hp1.run(s))))) * hornLevel;
-        if (motorLevel > 0) {
-            double nz = fastRand() * 2 - 1;
-            lo += motorLp.run(nz) * motorLevel * (0.3 + rd.hz / rd.fast) * 3;
-            hi += windBp2.run(windBp1.run(nz)) * motorLevel * (rh.hz / rh.fast) * 0.25;
-        }
+        // horn wind: turbulence at the horn mouth, it rotates with the horn
+        if (motorLevel > 0) hi += windBp2.run(windBp1.run(fastRand() * 2 - 1)) * motorLevel * (rh.hz / rh.fast) * 0.25;
+        // the cabinet itself: panel modes, motors, belts, relay (upper / lower compartment), and the organ console
+        double su = 0, sl = 0;
+        body.tick(hi, lo, su, sl);
+        lesMech.tick(rh, rd, su, sl);
+        const double kc = orgMech.tick();
         const int wi = wIdx;
         bufH[wi] = (float) hi; bufD[wi] = (float) lo; bufC[wi] = (float) cabLp.run(hi);
+        bufSU[wi] = (float) su; bufSL[wi] = (float) sl; bufK[wi] = (float) kc; stA[(size_t) n] = su + sl + kc * 0.7;
         // Rotor angles. The wobble term (eccentric belt: speed varies once per revolution) uses the sine from the
         // previous sample, which saves four trig calls per sample at no audible cost.
         rh.ang += rh.hz / fs * TWO_PI * (1 + wob * rh.lastSin); if (rh.ang > TWO_PI) rh.ang -= TWO_PI;
@@ -1271,12 +1323,24 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             lfeIn += P.lfe[n];
         }
         if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+        // static sources at the listener: the cabinet body (panels, motors) and the organ console
+        if (lisOn) {
+            const int wi = wiArr[(size_t) n];
+            const double sc = readStatic(bufSU, wi, stCab.d0 + (stCab.d1 - stCab.d0) * tt) + readStatic(bufSL, wi, stCab.d0 + (stCab.d1 - stCab.d0) * tt);
+            const double sk = readStatic(bufK, wi, stKey.d0 + (stKey.d1 - stKey.d0) * tt);
+            for (int c = 0; c < nSp; c++) acc[c] += sc * (stCab.g0[c] + (stCab.g1[c] - stCab.g0[c]) * tt) + sk * (stKey.g0[c] + (stKey.g1[c] - stKey.g0[c]) * tt);
+        }
 
         // ---------- Microphones: rendered paths plus wind noise (the noise generator stays on this thread) ----------
         if (micsOn) {
             for (int i = 0; i < 6; i++) {
                 MicRt& m = mic[i]; if (!micNeed(i)) { micSig[i] = 0; continue; }
                 double sum = micRaw[i][n];
+                {   // static sources: upper / lower cabinet, console
+                    const MicStatic& q = micSt[i]; const int wi = wiArr[(size_t) n];
+                    const std::vector<float>* B[3] = {&bufSU, &bufSL, &bufK};
+                    for (int j = 0; j < 3; j++) { const double g = q.g0[j] + (q.g1[j] - q.g0[j]) * tt; if (g != 0) sum += readStatic(*B[j], wi, q.d0[j] + (q.d1[j] - q.d0[j]) * tt) * g; }
+                }
                 // Wind: the horn blows past the mic (proportional to speed squared, only while the horn mouth faces the mic)
                 if (m.windAmt > 0 && rh.hz > 0.5) {
                     double c = chc * m.windC + chs * m.windS;
@@ -1293,7 +1357,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         }
 
         // ---------- FDN reverb: pre-delay, input diffusion, 16 modulated lines with 3-band decay, Hadamard mixing ----------
-        revInZ += revInK * ((hi + lo) - revInZ);
+        revInZ += revInK * ((hi + lo + stA[(size_t) n]) - revInZ);
         revHpZ += revHpK * (revInZ - revHpZ);
         preBuf[preIdx] = (float) (revInZ - revHpZ);
         int pi = preIdx + 1; if (pi >= preLen) pi = 0; preIdx = pi;
@@ -1365,6 +1429,46 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     }
 }
 
+
+// Per sub-block geometry of the static sources (cabinet body, console): delay and gain towards the listener's
+// speakers and towards every microphone, ramped over the block like the room paths.
+inline void LeslieRoomDSP::staticBlock(bool lisOn, bool micsOn) {
+    const auto& H = listener; const auto& L = lesliePos;
+    const double fsc = fs / C_SOUND;
+    // The console stands right in front of the listener: you sit at the organ, the Leslie is wherever it was put
+    consoleX = H.x + 0.6 * std::cos(H.yaw); consoleY = H.y + 0.6 * std::sin(H.yaw);
+    float tmp[8];
+    auto set = [](StaticPath& p, double ds, const float* g, double scale) {
+        p.d0 = p.init ? p.d1 : ds; p.d1 = ds;
+        for (int c = 0; c < 8; c++) { float v = (float) (g[c] * scale); p.g0[c] = p.init ? p.g1[c] : v; p.g1[c] = v; }
+        p.init = true;
+    };
+    if (lisOn) {
+        // cabinet: from its centre (0.6 m up) to the head; the panels radiate all round, the louvred front a bit more
+        double vx = H.x - L.x, vy = H.y - L.y, vz = H.z - 0.6, hd = std::hypot(vx, vy), d = std::hypot(hd, vz);
+        double cg, cfc; cabinet(vx, vy, vz, cg, cfc);
+        panGains(std::atan2(-vy, -vx) - H.yaw, std::min(1.0, hd / std::max(d, 1e-6) * 1.15), tmp);
+        set(stCab, d * fsc, tmp, (0.55 + 0.45 * cg) / std::max(d, 0.5));
+        const double dk = std::hypot(0.6, H.z - 0.8);
+        panGains(0, std::min(1.0, 0.6 / dk * 1.15), tmp);
+        set(stKey, dk * fsc, tmp, 1 / dk);
+    } else { stCab.init = stKey.init = false; }
+    if (!micsOn) { for (auto& q : micSt) q.init = false; return; }
+    const double src[3][3] = {{L.x, L.y, 0.85}, {L.x, L.y, 0.35}, {consoleX, consoleY, 0.8}};
+    for (int i = 0; i < 6; i++) {
+        MicStatic& q = micSt[i]; const MicRt& m = mic[i];
+        if (!micNeed(i)) { q.init = false; for (int j = 0; j < 3; j++) q.g0[j] = q.g1[j] = 0; continue; }
+        for (int j = 0; j < 3; j++) {
+            double wx = m.x - src[j][0], wy = m.y - src[j][1], wz = m.z - src[j][2];
+            double d = std::sqrt(wx * wx + wy * wy + wz * wz); if (d < 1e-3) d = 1e-3;
+            double deff = j < 2 ? std::max(0.12, d - 0.3) : std::max(0.3, d);   // cabinet: distance to the panel surface
+            double cth = -(wx * m.ax + wy * m.ay + wz * m.az) / d, pol = m.a[1] + (1 - m.a[1]) * cth;
+            double g = pol / deff, ds = d * fsc;
+            q.d0[j] = q.init ? q.d1[j] : ds; q.d1[j] = ds; q.g0[j] = q.init ? q.g1[j] : g; q.g1[j] = g;
+        }
+        q.init = true;
+    }
+}
 
 // ---------------- Parallel room rendering jobs (called from WorkerPool::run, one slice of paths per job) ----------------
 inline void LeslieRoomDSP::renderListenerJob(int job) {

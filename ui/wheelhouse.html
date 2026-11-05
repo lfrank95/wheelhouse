@@ -397,10 +397,10 @@ select option { background: #1a1511; color: #e8dcc4; }
     db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] },
     perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
     vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
-    organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+    organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true, keyNoise: 0.5 },
     mains: 50, velClick: true,
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
-    brake: true, cab: { hornBox: 0.45, wobble: -1 },
+    brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
     pre: { on: true, gain: 0.5 },
     spring: { mix: 0.2, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 },
@@ -475,25 +475,25 @@ select option { background: #1a1511; color: #e8dcc4; }
       click: 0.5, db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.35, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'B3 + Leslie 147 (Rock)', note: '147 mit Gegenkopplung, Vorstufe heiß, Vibrato aus',
       chr: { cond: 0.55, leak: 0.55, contact: 0.55, motor: 0.54, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.6, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 8, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 4] }, perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
     { n: 'A-100 + Federhall', note: 'gleiches Werk wie die B3, mit eingebautem Hammond-Federhall',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
-      brake: true, cab: { hornBox: 0.45, wobble: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
+      brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
     { n: 'Tour-B3 (abgerockt)', note: '40 Jahre Tour: Kontakte prellen, Riemen locker, Röhren müde',
       chr: { cond: 0.85, leak: 0.85, contact: 0.9, motor: 0.8, gearTune: true, busComp: true }, organ: { percLevel: 0.85, percShort: 0.17, percLong: 0.9, complex: true },
       click: 0.75, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 4, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 5] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.7 }, amp: { model: 1, quality: 1, sag: 0.8 }, drive: 0.6, balance: 0.5,
       rotor: [{ slow: rpmHz(44), fast: rpmHz(380), up: 0.75, down: 1.1 }, { slow: rpmHz(36), fast: rpmHz(325), up: 2.3, down: 3.2 }],
-      brake: true, cab: { hornBox: 0.5, wobble: 0.65 }, halfMoon: 'two', spring: { mix: 0 } },
+      brake: true, cab: { hornBox: 0.5, wobble: 0.65, board: 'chip', res: 0.65, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
   ];
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
   const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
@@ -504,7 +504,15 @@ select option { background: #1a1511; color: #e8dcc4; }
   const cardCtl = {};             // card id -> controls with reset()
   let curCard = null;
   const reg = (c) => { all.push(c); if (curCard) (cardCtl[curCard] = cardCtl[curCard] || []).push(c); return c; };
-  const syncAll = () => all.forEach(c => c.sync && c.sync());
+  // After a sync, refit the knob labels of the open card if its visible sections changed (e.g. room <-> tent)
+  let fitSig = '';
+  const syncAll = () => {
+    all.forEach(c => c.sync && c.sync());
+    let pg = null; try { pg = cardPages[tab]; } catch (e) { return; }   // not declared yet while the cards are being built
+    if (!pg) return;
+    const sig = tab + [...pg.querySelectorAll('.sec')].map(e => e.hidden ? 0 : 1).join('');
+    if (sig !== fitSig) { fitSig = sig; requestAnimationFrame(() => fitKnobLabels(pg)); }
+  };
 
   // Rotary knob: o = { label, get, set, min, max, def, fmt, step, log, opts (discrete), auto }
   function knob(o) {
@@ -605,6 +613,18 @@ select option { background: #1a1511; color: #e8dcc4; }
     if (id === 'raum') requestAnimationFrame(() => rooms[1].resize());
     if (id === 'audio' || id === 'ausgabe' || id === 'midi') nativeInvoke('audioInfo');
     syncAll();
+  }
+  // Long knob labels (ÜBERSPRECHEN, NETZTEIL-SAG ...) next to each other: if any two neighbouring labels on a card
+  // would touch, tighten and shrink *all* labels of that card by the same amount, so the card stays uniform.
+  function fitKnobLabels(root) {
+    const labels = [...root.querySelectorAll('.knob:not(.sm) .kl')];
+    const pairs = [];
+    root.querySelectorAll('.knob:not(.sm)').forEach(k => { const n = k.nextElementSibling; if (n && n.classList.contains('knob') && !n.classList.contains('sm')) pairs.push([k.querySelector('.kl'), n.querySelector('.kl')]); });
+    const clash = () => pairs.some(([a, b]) => { const A = a.getBoundingClientRect(), B = b.getBoundingClientRect(); return A.width > 0 && B.width > 0 && Math.abs(A.top - B.top) < 2 && A.right + 3 * SCALE > B.left; });
+    const apply = (fs, ls) => labels.forEach(l => { l.style.fontSize = fs ? fs + 'px' : ''; l.style.letterSpacing = ls; });
+    apply(0, '');
+    if (!clash()) return;
+    for (let fs = 11; fs >= 8.5; fs -= 0.5) { apply(fs, fs === 11 ? '.2px' : '0px'); if (!clash()) return; }
   }
   $('cClose').onclick = () => setTab('spielen');
   $('openRoom').onclick = () => setTab('raum');
@@ -804,13 +824,15 @@ select option { background: #1a1511; color: #e8dcc4; }
       sendChr(); syncAll();
     } });
     p.appendChild(sec('Charakter', [condK('cond', 'Zustand', 0.5), condK('leak', 'Übersprechen', 0.5), condK('contact', 'Kontakte', 0.5), condK('motor', 'Motor', 0.4)], [],
-      '„Zustand“ zieht die anderen drei mit und bestimmt Pegelstreuung und Schlag der Tonräder: von fabrikneu bis 40 Jahre Tour.'));
-    p.appendChild(sec('Generator', [], [
+      '„Zustand“ zieht die anderen drei mit und bestimmt Pegelstreuung und Schlag der Tonräder: von fabrikneu bis 40 Jahre Tour. „Motor“ ist das Surren von Generator und Laufmotor.'));
+    p.appendChild(sec('Generator', [
+      knob({ label: 'Tasten', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.organ.keyNoise, set: v => { S.organ.keyNoise = v; sendOrgan(); } }),
+    ], [
       rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
       rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
       rowSeg('Tiefe Räder', [[true, 'komplex'], [false, 'Sinus']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
       rowSeg('Netz', [[50, '50 Hz'], [60, '60 Hz']], () => S.mains, v => { S.mains = v; sendMains(); }, 50),
-    ], 'Übersprechen wie im echten Generator: vor allem zwischen den vier Rädern einer Kammer (Oktaven), schwächer über Filterplatten und Kabelbaum. Netz bestimmt nur das Brummen.'));
+    ], 'Tiefe Räder: fast rechteckig, nur im Pedal. Tasten: Anschlag auf den Filz, die Orgel steht vor dem Hörer.'));
     p.appendChild(sec('Percussion · Vibrato · Click', [
       knob({ label: 'Key-Click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
       knob({ label: 'Perc-Pegel', min: 0, max: 1.5, def: 1, fmt: pct, get: () => S.organ.percLevel, set: v => { S.organ.percLevel = v; sendOrgan(); } }),
@@ -857,10 +879,16 @@ select option { background: #1a1511; color: #e8dcc4; }
       rowSeg('Qualität', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); }, 1),
       rowVal('Anode / Kath.', () => ampText),
     ], 'Eco: Kennlinie. HQ und Ultra rechnen Röhren und Ausgangsübertrager als Schaltung (Glow/Iron aus Amberwave).'));
-    p.appendChild(sec('Gehäuse · Aufstellung', [
-      knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
+    p.appendChild(sec('Gehäuse', [
       knob({ label: 'Hornfach', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornBox, set: v => { S.cab.hornBox = v; sendCab(); } }),
+      knob({ label: 'Resonanz', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.cab.res, set: v => { S.cab.res = v; sendCab(); } }),
+      knob({ label: 'Mechanik', min: 0, max: 1, def: -1, fmt: v => v < 0.005 ? 'aus' : pct(v), auto: { v: -1, label: 'auto', show: () => 0.15 + 0.7 * S.chr.cond }, get: () => S.cab.mech, set: v => { S.cab.mech = v; sendCab(); } }),
       knob({ label: 'Unrund', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
+    ], [
+      rowSeg('Bauart', [['ply', 'Sperrholz'], ['chip', 'Spanplatte']], () => S.cab.board, v => { S.cab.board = v; sendCab(); }, 'ply'),
+    ], 'Mittelfach als Bassreflexbox. Resonanz: die Holzwände schwingen mit – frühe Gehäuse Sperrholz, spätere Spanplatte (weicher, stärker gedämpft). Mechanik: Motoren, Riemen, Lager, Relais, Einkuppeln des Langsam-Motors.'));
+    p.appendChild(sec('Aufstellung', [
+      knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
       knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° Front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
       rowBtn('Schnell drehen', 'Front zum Hörer', () => setCabYaw(Math.atan2(S.listener.y - S.lesliePos.y, S.listener.x - S.lesliePos.x))),

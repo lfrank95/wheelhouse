@@ -290,8 +290,14 @@ void MainComponent::handleDspMessage(const var& m) {
             d.setMics(ms);
         }
         else if (type == "brake") d.setBrake((bool) m.getProperty("v", true));
-        else if (type == "cabDetail") d.setCabinetDetail(numProp(m, "hornBox", 0.45), numProp(m, "wobble", -1));
-        else if (type == "organDetail") d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
+        else if (type == "cabDetail") {
+            d.setCabinetDetail(numProp(m, "hornBox", 0.45), numProp(m, "wobble", -1));
+            d.setCabinetBody(m.getProperty("board", "ply").toString() == "chip" ? 1 : 0, numProp(m, "res", 0.5), numProp(m, "mech", -1));
+        }
+        else if (type == "organDetail") {
+            d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
+            d.setKeyNoise(numProp(m, "keyNoise", 0.5));
+        }
         else if (type == "output") d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
         else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); leslieCC = (int) numProp(m, "leslieCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
         else if (type == "vib") d.setVib(m.getProperty("v", "c3").toString().toStdString());
