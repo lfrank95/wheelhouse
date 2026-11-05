@@ -617,10 +617,10 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     'Spring Reverb/Springs': 'Number of springs: 2 is sparser and twangier, 3 is denser.',
     'Spring Reverb/Tank': 'Kick the tank – the springs crash, like bumping the organ.',
     // Leslie
-    'Horn/Slow': 'Horn chorale speed.', 'Horn/Fast': 'Horn tremolo speed.',
-    'Horn/Rise': 'Ramp-up time of the horn from chorale to tremolo. The light horn gets there in under a second.',
-    'Horn/Fall': 'Ramp-down time of the horn from tremolo to chorale.',
-    'Drum/Slow': 'Drum (bass rotor) chorale speed.', 'Drum/Fast': 'Drum tremolo speed.',
+    'Horn/Slow': 'Horn speed on Slow.', 'Horn/Fast': 'Horn speed on Fast.',
+    'Horn/Rise': 'Ramp-up time of the horn from Slow to Fast. The light horn gets there in under a second.',
+    'Horn/Fall': 'Ramp-down time of the horn from Fast to Slow.',
+    'Drum/Slow': 'Drum (bass rotor) speed on Slow.', 'Drum/Fast': 'Drum speed on Fast.',
     'Drum/Rise': 'Ramp-up time of the heavy drum – it lags behind the horn, which is a big part of the Leslie sound.',
     'Drum/Fall': 'Ramp-down time of the drum.',
     'Drum/Brake': 'On: the rotors stop on Stop. Off: they coast to a halt.',
@@ -638,8 +638,8 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     'Placement/Facing': 'Which way the Leslie front points in the room. You can also turn it in the floor plan with the scroll wheel.',
     'Placement/Quick turn': 'Turn the Leslie front towards the listener (or the room pair in Mics mode).',
     'Placement/Back to the wall': 'Put the Leslie against the nearest wall, front facing into the room.',
-    'Control/Switch via': 'Which MIDI controller toggles Chorale/Tremolo. The space bar always works.',
-    'Control/Half-moon': '2-way: Chorale/Tremolo. With Stop: the 3-way half-moon switch with a stop position in the middle.',
+    'Control/Switch via': 'Which MIDI controller toggles Slow/Fast. The space bar always works.',
+    'Control/Half-moon': '2-way: Slow/Fast. With Stop: the 3-way half-moon switch with a stop position in the middle.',
     // Room
     'Dimensions/Width': 'Room width.', 'Dimensions/Length': 'Room length.', 'Dimensions/Height': 'Ceiling height.',
     'Dimensions/Reverb': 'Scales the late reverb tail. 100% = physically correct for the room.',
@@ -901,8 +901,8 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     [[21, .92], [28, .88], [35, .85], [42, .85], [49, .85], [56, .88], [63, .92]].forEach(([y, o]) => mk(top, y, 3.5, o)); mk(top, 70, 4, 1);
     [[103, .92], [110, .86], [117, .82], [124, .82], [131, .82], [138, .82], [145, .82], [152, .86], [159, .9]].forEach(([y, o]) => mk(bot, y, 3.5, o)); mk(bot, 166, 4, 1);
   })();
-  const SPEED_TIP = { slow: 'Chorale: slow rotor speed – a gentle swirl.', stop: 'Stop: rotors stop (or coast, see Leslie › Brake).', fast: 'Tremolo: fast rotor speed. Space bar toggles Chorale/Tremolo.' };
-  const speedBtns = [['slow', 'Chorale'], ['stop', 'Stop'], ['fast', 'Tremolo']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = SPEED_TIP[v]; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
+  const SPEED_TIP = { slow: 'Slow (chorale): gentle swirl.', stop: 'Stop: rotors stop (or coast, see Leslie › Brake).', fast: 'Fast (tremolo): full spin. Space bar toggles Slow/Fast.' };
+  const speedBtns = [['slow', 'Slow'], ['stop', 'Stop'], ['fast', 'Fast']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = SPEED_TIP[v]; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
   reg({ sync() {
     speedBtns.forEach(([v, b]) => { b.classList.toggle('on', v === S.leslie); if (v === 'stop') b.hidden = S.halfMoon !== 'stop'; });
     $('speed').classList.toggle('two', S.halfMoon !== 'stop');
@@ -1089,7 +1089,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     p.appendChild(sec('Control', [], [
       rowSel('Switch via', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
       rowSeg('Half-moon', [['two', '2-way'], ['stop', 'with Stop']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.leslie === 'stop') setLeslie('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
-    ], 'The space bar always toggles Chorale/Tremolo. You can also turn the Leslie in the floor plan with the scroll wheel.'));
+    ], 'The space bar always toggles Slow/Fast. You can also turn the Leslie in the floor plan with the scroll wheel.'));
   });
 
   // ---------------- Card: Room ----------------

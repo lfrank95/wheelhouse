@@ -38,7 +38,7 @@ static const char* VIB_IDS[6] = {"v1", "v2", "v3", "c1", "c2", "c3"};
 static const char* LESLIE_IDS[3] = {"stop", "slow", "fast"};
 
 const StringArray& WheelhouseEngine::choices(int index) {
-    static const StringArray leslie { "Stop", "Chorale", "Tremolo" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
+    static const StringArray leslie { "Stop", "Slow", "Fast" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
     return index == P_LESLIE ? leslie : index == P_VIB ? vib : none;
 }
 

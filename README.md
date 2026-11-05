@@ -31,7 +31,7 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
 
 ## Bedienung
 
-Die Oberfläche ist englisch, mit den üblichen Begriffen aus Studio, Bühne und DAW (Drawbars, Swell, Chorale/Tremolo,
+Die Oberfläche ist englisch, mit den üblichen Begriffen aus Studio, Bühne und DAW (Drawbars, Swell, Slow/Fast/Stop,
 Direct Outs …). Jeder Regler, Schalter und jede Anzeige hat einen Tooltip (Maus kurz darüber halten): was er tut,
 bei Reglern zusätzlich die Bedienung.
 
@@ -105,7 +105,7 @@ Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren
 * **Ausgänge**: Hauptbus Stereo, Quad oder 5.1 (je nach Spur der DAW) plus vier optionale Stereo-Busse
   „Direct 9/10“ … „Direct 15/16“ für die Mikro-Einzelausgänge (Ziel im Mixer der Karte Mics). Der Hauptbus heißt „Main“.
 * **MIDI** vom Host, Noten sampelgenau. Kanalzuordnung für Upper/Lower/Pedal wie in der App (Karte MIDI).
-* **Automation**: alle 20 Zugriegel, Leslie (Stop/Chorale/Tremolo), Swell, Drive, Vibrato/Chorus, Vibrato
+* **Automation**: alle 20 Zugriegel, Leslie (Stop/Slow/Fast), Swell, Drive, Vibrato/Chorus, Vibrato
   Upper/Lower, Percussion (On, Soft, Fast, 3rd). Die Parameter-IDs sind unverändert, ältere Automation bleibt erhalten. Bewegungen in der Oberfläche werden als Automation aufgezeichnet.
 * **Projekt**: alle übrigen Einstellungen (Raum, Mikros, Orgel, Leslie …) werden mit dem Projekt gespeichert und
   auch ohne geöffnetes Fenster geladen.
