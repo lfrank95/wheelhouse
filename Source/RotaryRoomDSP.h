@@ -715,7 +715,7 @@ inline void RotaryRoomDSP::schedule(int m, int w, double d, double baseDelay, do
     }
 }
 
-// Key velocity -> contact behaviour. A Hammond has no velocity sensing, but how fast the key travels decides how
+// Key velocity -> contact behaviour. An organ has no velocity sensing, but how fast the key travels decides how
 // the nine contact springs meet the bus bars: a fast stroke closes them almost together and hard (sharp click,
 // more bounce), a slow press lets them close one after another and scrape (spread-out, softer click).
 inline void RotaryRoomDSP::noteOn(int k, int man, int velocity) {

@@ -1,9 +1,9 @@
 # Wheelhouse
 
-Open-source Hammond tonewheel organ with a physically modelled rotary speaker standing in a real room.
+Open-source tonewheel organ with a physically modelled rotary speaker standing in a real room.
 Stereo, quad and 5.1 output, ASIO. Windows program (VST3 later).
 
-Hammond-Tonradorgel mit Rotary-Lautsprecher (Typ 122): Horn und Trommel als rotierende Schallquellen in einem simulierten Raum. Die Oberfläche
+Tonradorgel mit Rotary-Lautsprecher (Typ 122): Horn und Trommel als rotierende Schallquellen in einem simulierten Raum. Die Oberfläche
 läuft in einem eingebetteten Browserfenster, die Klangberechnung nativ in C++ (`Source/RotaryRoomDSP.h`).
 
 ## Bauen über GitHub Actions
@@ -142,13 +142,13 @@ statische Gegentakt-Kennlinie.
 
 ## Vorverstärker
 
-`Source/OrganPreamp.h` rechnet den Ausgangsteil des Hammond AO-28 hinter dem Schweller: 12AX7-Spannungsverstärker mit
+`Source/OrganPreamp.h` rechnet den Ausgangsteil des Orgel-Vorverstärkers AO-28 hinter dem Schweller: 12AX7-Spannungsverstärker mit
 Gitterstrom, Koppelkondensatoren mit Blocking, 12BH7-Gegentakt auf einen Übertrager mit Kernsättigung. Qualität wie bei
 der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende Versorgung, atmender Kathoden-Bias).
 
 ## Federhall
 
-`Source/SpringReverb.h`: Hammond-Tank wie in A-100 und 122RV, in der Orgel vor dem Rotary. Zwei oder drei Federn als
+`Source/SpringReverb.h`: Orgel-Federhall wie in A-100 und 122RV, in der Orgel vor dem Rotary. Zwei oder drei Federn als
 Rückkopplungsschleifen mit Ketten gedehnter Allpässe (Dispersion – das typische Zirpen), leicht schwankender Laufzeit,
 weich sättigendem Treiber und bandbegrenztem Wandler; „Kick“ schlägt die Federn an. Modell nach Välimäki, Parker &
 Abel (2010) und Parker (2011). Regler: Reverb (vorne), in der Karte Organ Mix, Decay, Tone, Drive, Springs.

@@ -1,5 +1,5 @@
 #pragma once
-// Wheelhouse – spring reverb (Hammond/Accutronics tank, as in the A-100 and Rotary 122RV: inside the organ, before the Rotary)
+// Wheelhouse – spring reverb (organ/Accutronics tank, as in the A-100 and Rotary 122RV: inside the organ, before the Rotary)
 //
 // Model after Välimäki, Parker & Abel ("Parametric spring reverberation effect", 2010) and Parker ("Efficient
 // dispersion generation structures for spring reverb emulation", 2011):

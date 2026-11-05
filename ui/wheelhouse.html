@@ -530,7 +530,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
       pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
       brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1, deflector: true }, halfMoon: 'two', spring: { mix: 0 } },
-    { n: 'A-100 + Spring Reverb', note: 'same tone generator as the B3, built-in Hammond spring tank',
+    { n: 'A-100 + Spring Reverb', note: 'same tone generator as the B3, built-in organ spring tank',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
@@ -996,7 +996,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
   const fk = $('frontKnobs');
   fk.appendChild(knob({ label: 'Vibrato', tip: TIP_VIB, opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
   fk.appendChild(knob({ label: 'Drive', tip: TIP_DRIVE, min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
-  fk.appendChild(knob({ label: 'Reverb', tip: 'Spring reverb mix (Hammond tank inside the organ – it spins through the Rotary).', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Reverb', tip: 'Spring reverb mix (spring tank inside the organ – it spins through the Rotary).', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
   fk.appendChild(knob({ label: 'Swell', tip: 'Swell / expression pedal: volume, plus the bass boost of the original pedal when it is closed down.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
   const TB = [['on', 'PERC\nON', 'PERC\nOFF', 'Percussion', 'Percussion on/off: a decaying 2nd or 3rd harmonic on the attack, upper manual only, single-trigger (retriggers only after all keys are released). Mutes the 1′ drawbar, like the original.'],
     ['soft', 'PERC\nSOFT', 'PERC\nNORM', 'Percussion volume', 'Percussion volume: Soft or Normal. Normal also pulls the upper manual down a little – just like the real thing.'],
@@ -1050,7 +1050,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     ], [
       rowSeg('Springs', [[2, '2'], [3, '3']], () => S.spring.springs, v => { S.spring.springs = v; sendSpring(); }, 3),
       kickBtn,
-    ], 'Hammond tank as in the A-100 and 122RV: inside the organ, before the Rotary – so the reverb spins too.'));
+    ], 'Organ spring tank as in the A-100 and 122RV: inside the organ, before the Rotary – so the reverb spins too.'));
   });
 
   // ---------------- Card: Rotary ----------------

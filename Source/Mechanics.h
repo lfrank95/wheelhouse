@@ -10,7 +10,7 @@
 //   * Rotary motors are AC induction motors (one fast and one slow per rotor); the slow motor's armature drops onto
 //     a rubber rim on the fast motor pulley when it is switched on ("clunk"), speed changes go through a relay
 //     ("definite click"), belts, idler and rotor bearings rumble, the drum's scrim cloth rustles at fast speed.
-//   * Hammond generator: synchronous run motor (two torque pulses per mains cycle), main drive shaft at 20 rev/s
+//   * Organ generator: synchronous run motor (two torque pulses per mains cycle), main drive shaft at 20 rev/s
 //     with 24 bakelite driving gears (two each of 12 sizes), the whole generator under a felt blanket.
 //   * Keys and pedals: the key hits its felt at the bottom of the stroke and again at the top when released.
 // Levels are estimates: they are set so that the noise sits where it does on recordings of real instruments

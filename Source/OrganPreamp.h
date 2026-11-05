@@ -1,5 +1,5 @@
 #pragma once
-// Wheelhouse – organ preamp modelled on the Hammond AO-28 (output section after the swell/expression pedal)
+// Wheelhouse – organ preamp modelled on the AO-28 (output section after the swell/expression pedal)
 //
 // Signal path in the original: matching transformer → input stages (12AX7, 6AU6) → vibrato scanner → swell pedal →
 // voltage amplifier → 12BH7 push-pull output stage → output transformer → Rotary (balanced input).
