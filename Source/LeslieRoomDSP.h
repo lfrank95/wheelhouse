@@ -350,6 +350,11 @@ private:
     struct MicStatic { double d0[3] = {}, d1[3] = {}, g0[3] = {}, g1[3] = {}; bool init = false; };
     MicStatic micSt[6];                                        // per mic: upper cabinet, lower cabinet, console
     double consoleX = 0, consoleY = 0;
+    // Reverb feed: what six directions around the cabinet receive from the rotating horn and drum (Doppler, horn
+    // directivity, drum AM, cabinet). The late reverb is built from these, so it carries the rotation's chorus and,
+    // per delay line, a little of its movement - instead of a static copy of the amplifier signal.
+    static constexpr int RDIR = 6;
+    double rdX[RDIR] = {}, rdY[RDIR] = {}, rdCab[RDIR] = {}, rdLpH[RDIR] = {}, rdLpD[RDIR] = {}, rdZd[RDIR] = {}, rdSig[RDIR] = {};
     void staticBlock(bool lisOn, bool micsOn);
     inline double readStatic(const std::vector<float>& b, int wi, double ds) const {
         double rp = wi - ds; if (rp < 0) rp += DM + 1; int i1 = (int) rp; double fr = rp - i1, y1 = b[(size_t) (i1 & DM)];
@@ -1357,7 +1362,32 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         }
 
         // ---------- FDN reverb: pre-delay, input diffusion, 16 modulated lines with 3-band decay, Hadamard mixing ----------
-        revInZ += revInK * ((hi + lo + stA[(size_t) n]) - revInZ);
+        // reverb feed from the rotating sources (see rdX/rdY): far field at six directions, 0.5 m out
+        double revIn;
+        {
+            const int wi = wiArr[(size_t) n]; const double cdc = cdcA[(size_t) n], cds = cdsA[(size_t) n];
+            const double fscR = fs / C_SOUND, kLo = kLoBand;
+            double sum = 0;
+            for (int k = 0; k < RDIR; k++) {
+                const double cH = chc * rdX[k] + chs * rdY[k], cD = cdc * rdX[k] + cds * rdY[k];
+                double rp = wi - (0.5 - rh.r * cH) * fscR; if (rp < 0) rp += DM + 1;
+                int i1 = (int) rp; double fr = rp - i1, y1 = bufH[(size_t) (i1 & DM)];
+                double vh = y1 + (bufH[(size_t) ((i1 + 1) & DM)] - y1) * fr;
+                rdLpH[k] += hornK(cH) * (vh - rdLpH[k]);
+                rp = wi - (0.5 - rd.r * cD) * fscR; if (rp < 0) rp += DM + 1;
+                i1 = (int) rp; fr = rp - i1; y1 = bufD[(size_t) (i1 & DM)];
+                double vd = y1 + (bufD[(size_t) ((i1 + 1) & DM)] - y1) * fr;
+                const double uD = 0.5 + 0.5 * cD;
+                rdZd[k] += kLo * (vd - rdZd[k]);
+                vd = rdZd[k] * (0.85 + 0.15 * uD) + (vd - rdZd[k]) * (0.3 + 0.7 * uD);
+                const double x = (rdLpH[k] * (0.3 + 0.7 * (0.5 + 0.5 * cH)) / 0.65 + vd / 0.85) * rdCab[k];
+                rdSig[k] = x; sum += x;
+            }
+            sum /= RDIR;
+            for (int k = 0; k < RDIR; k++) rdSig[k] -= sum;   // directional part, fed straight into the lines below
+            revIn = sum + stA[(size_t) n];
+        }
+        revInZ += revInK * (revIn - revInZ);
         revHpZ += revHpK * (revInZ - revHpZ);
         preBuf[preIdx] = (float) (revInZ - revHpZ);
         int pi = preIdx + 1; if (pi >= preLen) pi = 0; preIdx = pi;
@@ -1391,7 +1421,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             for (int k = 0; k < m.nEq; k++) x = m.eq[k].run(x);
             micSig[i] = x * m.trim;
         }
-        for (int i = 0; i < 16; i++) { fdnBuf[i][fdnIdx[i]] = (float) (rv[i] * 0.25 + inj * (0.8 + 0.2 * ((i * 7) % 5) / 4.0)); fdnIdx[i] = (fdnIdx[i] + 1) & FM; }
+        for (int i = 0; i < 16; i++) { fdnBuf[i][fdnIdx[i]] = (float) (rv[i] * 0.25 + inj * (0.8 + 0.2 * ((i * 7) % 5) / 4.0) + rdSig[i % RDIR] * revGain * 0.5); fdnIdx[i] = (fdnIdx[i] + 1) & FM; }
 
         if (lfeIdx >= 0 && lfeIdx < 8) acc[lfeIdx] = lfeLp2.run(lfeLp1.run(lfeIn)) * lfeLevel * 2;
 
@@ -1437,6 +1467,11 @@ inline void LeslieRoomDSP::staticBlock(bool lisOn, bool micsOn) {
     const double fsc = fs / C_SOUND;
     // The console stands right in front of the listener: you sit at the organ, the Leslie is wherever it was put
     consoleX = H.x + 0.6 * std::cos(H.yaw); consoleY = H.y + 0.6 * std::sin(H.yaw);
+    for (int k = 0; k < RDIR; k++) {
+        const double a = TWO_PI * (k + 0.5) / RDIR; rdX[k] = std::cos(a); rdY[k] = std::sin(a);
+        double fc; cabinet(rdX[k], rdY[k], 0.25, rdCab[k], fc);
+    }
+    { double m = 0; for (int k = 0; k < RDIR; k++) m += rdCab[k]; m /= RDIR; for (int k = 0; k < RDIR; k++) rdCab[k] /= m; }   // same reverb level as before
     float tmp[8];
     auto set = [](StaticPath& p, double ds, const float* g, double scale) {
         p.d0 = p.init ? p.d1 : ds; p.d1 = ds;
