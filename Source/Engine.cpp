@@ -391,7 +391,7 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
             d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0), (bool) m.getProperty("complex", true));
             d.setKeyNoise(numProp(m, "keyNoise", 0.5));
         }
-        else if (type == "output") d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
+        else if (type == "output") { d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100)); d.setOutputTrims(numProp(m, "rearDb", 0), numProp(m, "centerDb", 0), numProp(m, "centerDiv", 0)); }
         else if (type == "keyMap") {
             splitMode = jlimit(0, 2, (int) numProp(m, "mode", 0)); splitHi = jlimit(1, 127, (int) numProp(m, "hi", 60)); splitLo = jlimit(0, 126, (int) numProp(m, "lo", 48));
             if (auto* a = m.getProperty("oct", var()).getArray()) for (int i = 0; i < 3 && i < a->size(); i++) octShift[i] = jlimit(-3, 3, (int) (*a)[i]);

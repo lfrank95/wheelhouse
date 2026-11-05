@@ -448,7 +448,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       drumStereo: false, drumAngle: 180, drumCenter: 0, drumDist: 0.15, drumType: 2, drumPattern: 0,
       roomArr: 0, roomX: 3, roomY: 3.5, roomZ: 2, roomYaw: Math.PI / 2, roomSpacing: 0.6, roomType: 4, roomPattern: 1, roomOrder: 2, placed: false,
       grp: [{ gain: 0 }, { gain: 0 }, { gain: -6 }].map(c => Object.assign({ pan: 0, width: 1, delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
-    out: { masterDb: 0, lfeHz: 100 }, chmap: { stereo: null, quad: null, s51: null },
+    out: { masterDb: 0, lfeHz: 100, rearDb: 0, centerDb: 0, centerDiv: 0 }, chmap: { stereo: null, quad: null, s51: null },
     midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
     split: { mode: 0, hi: 60, lo: 48, oct: [0, 0, 0], kb: 61 },
     leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
@@ -642,7 +642,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     leslie: ['Leslie', 'Rotoren, Endstufe und Aufstellung', 5],
     raum: ['Raum', 'Form, Material und Reflexionen', 3],
     mikros: ['Mikros', 'Nahmikros, Raumpaar und Pult', 5],
-    ausgabe: ['Ausgabe', 'Format, Kanäle und Pegel', 3],
+    ausgabe: ['Ausgabe', 'Format, Kanäle, Abhöre', 4],
     midi: ['MIDI', 'Kanäle, Controller und PC-Tastatur', 3],
     audio: ['Audio', 'Gerät, Treiber und Latenz', 3],
   };
@@ -1113,9 +1113,16 @@ select option { background: #1a1511; color: #e8dcc4; }
     const s2 = sec('Kanalzuordnung', [], [...mapRows, rowBtn('', 'Automatisch (1, 2, 3 …)', () => { S.chmap[S.mode] = null; applyMode(); syncAll(); })]);
     p.appendChild(s2);
     reg({ sync() { const M = MODES[S.mode]; mapRows.forEach((r, i) => { r.el.hidden = i >= M.ch; r.el.style.display = i >= M.ch ? 'none' : ''; r.el.querySelector('.rl').textContent = M.long[i] || ''; }); }, reset() { S.chmap = { stereo: null, quad: null, s51: null }; applyMode(); } });
+    const dbFmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + de(Math.abs(v), 1) + ' dB';
+    const rearK = knob({ label: 'Hinten', min: -12, max: 3, step: 0.5, def: 0, fmt: dbFmt, get: () => S.out.rearDb, set: v => { S.out.rearDb = v; sendOut(); } });
+    const centK = knob({ label: 'Center', min: -12, max: 3, step: 0.5, def: 0, fmt: dbFmt, get: () => S.out.centerDb, set: v => { S.out.centerDb = v; sendOut(); } });
+    const divK = knob({ label: 'Center-Breite', min: 0, max: 1, def: 0, fmt: v => v < 0.005 ? 'nur Center' : v > 0.995 ? 'Phantom' : pct(v), get: () => S.out.centerDiv, set: v => { S.out.centerDiv = v; sendOut(); } });
+    const monSec = sec('Abhöre', [rearK, centK, divK], [], 'Trimm für deine Lautsprecher, nicht für den Raum: Hinten = Surround-Kanäle, Center nur bei 5.1. Center-Breite legt eine Quelle vor dir zusätzlich auf L/R (Phantom), falls dein Center schwächer ist.');
+    p.appendChild(monSec);
+    reg({ sync() { const m = S.mode; monSec.style.display = m === 'stereo' ? 'none' : ''; centK.el.style.display = m === 's51' ? '' : 'none'; divK.el.style.display = m === 's51' ? '' : 'none'; } });
     const testRow = rowBtn('Kanaltest', 'Alle Kanäle anpiepen', () => chanTest(testRow.btn));
     p.appendChild(sec('Prüfen', [], [testRow, rowVal('Gerät', () => audioInfo.device ? `${audioInfo.device}, ${audioInfo.outputs} Ausgänge` : '–'), rowVal('Hinweis', () => warnText || 'alles in Ordnung')],
-      'Bei einer Quelle direkt vor dir sollten die hinteren Kanäle deutlich leiser sein als die vorderen.'));
+      'Bei einer Quelle direkt vor dir kommt hinten nur der Raum an: in einem kleinen, lebendigen Raum etwa 8 dB leiser als vorne, mit Abstand und Nachhall mehr.'));
   });
   let testTimers = [];
   function chanTest(btn) {

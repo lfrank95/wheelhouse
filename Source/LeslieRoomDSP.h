@@ -152,6 +152,9 @@ public:
     void setOutput(double masterDb, double lfeHz) {
         masterGain = std::pow(10.0, masterDb / 20); lfeLp1.set("lp", lfeHz, 0.70710678, fs); lfeLp2.set("lp", lfeHz, 0.70710678, fs);
     }
+    /** Monitoring trims: rear speakers (|azimuth| > 90 deg) and the centre speaker in dB; centre divergence 0..1 spreads
+        a frontal source from the centre speaker into L/R (0 = all centre, 1 = phantom centre only). */
+    void setOutputTrims(double rearDb, double centerDb, double divergence) { trimRear = rearDb; trimCenter = centerDb; centerDiv = std::max(0.0, std::min(1.0, divergence)); prepSpeakers(); }
     /** Current plate (B+) supply voltage of the amp model, for the UI. */
     double ampPlate() const { return amp.plateSupply(); }
     /** Current cathode voltage of the amp model, for the UI. */
@@ -400,12 +403,14 @@ private:
     double lfeLevel = 0.5;
     struct SpkS { double a; int ch; };
     std::vector<SpkS> spkSorted;
-    double uniG = 1;
+    double trimRear = 0, trimCenter = 0, centerDiv = 0;
+    std::array<float, 8> spkTrim{};   // per speaker slot, applied at the output
+    int centerCh = -1, centerL = -1, centerR = -1;
     static constexpr int NB = 24;
-    struct Partial { double acc[SUB][8]; float bucket[SUB][NB + 1]; double lfe[SUB]; };   // one per rendering job
+    struct Partial { double acc[SUB][8]; float bucket[SUB][2 * NB]; double lfe[SUB]; };   // one per rendering job; buckets 0..NB-1 horizontal, NB..2NB-1 elevated (wide)
     std::vector<Partial> partials;
     std::vector<std::array<float, 8>> bucketG;
-    std::array<float, NB + 1> bucket{};
+    std::array<float, 2 * NB> bucket{};
 
     // ---------------- FDN reverb (16 modulated delay lines, 6 input allpasses, 16 per-line allpasses, 3-band decay) ----------------
     static constexpr int FM = 65535;
@@ -432,7 +437,7 @@ private:
     double modeMix = 0;                                     // 0 = listener mode, 1 = microphone mode (crossfade)
     double micMeterAcc[MIC_CH] = {0}; float micMeterVal[MIC_CH] = {0}; int micMeterN = 0;
     std::array<double, 16> micOut{};
-    double kBandLo = 0.05, kBandHi = 0.3, kWind = 0.02, micRevScale = 1, roomReflG = 0.8, roomHfRefl = 0.9;
+    double kBandLo = 0.05, kBandHi = 0.3, kWind = 0.02, micRevScale = 1, roomReflG = 0.8, roomHfRefl = 0.9, roomScatter = 0.35;
     double micSig[6] = {0};
     bool micWasConfigured = false;
 
@@ -695,8 +700,12 @@ inline void LeslieRoomDSP::rebuildRoom() {
     lesliePos.tx = clampd(lesliePos.tx, 0.3, R.Lx - 0.3); lesliePos.ty = clampd(lesliePos.ty, 0.3, R.Ly - 0.3); lesliePos.x = clampd(lesliePos.x, 0.3, R.Lx - 0.3); lesliePos.y = clampd(lesliePos.y, 0.3, R.Ly - 0.3);
     listener.tx = clampd(listener.tx, 0.3, R.Lx - 0.3); listener.ty = clampd(listener.ty, 0.3, R.Ly - 0.3); listener.x = clampd(listener.x, 0.3, R.Lx - 0.3); listener.y = clampd(listener.y, 0.3, R.Ly - 0.3);
     double mat[3] = {1.35, 1.0, 0.8};
-    if (R.material == "tent") { mat[0] = 1.9; mat[2] = 0.75; } else if (R.material == "concrete") { mat[0] = 0.55; mat[2] = 1.1; }
-    else if (R.material == "stone") { mat[0] = 0.6; mat[2] = 1.35; } else if (R.material == "glass") { mat[0] = 0.9; mat[2] = 1.6; }
+    // scattering coefficient (ISO 17497): how much of a reflection the surface spreads instead of mirroring.
+    // Real walls are not mirrors - furniture, doors, panelling, plaster texture scatter a good part of the mid/high range.
+    double scatter = 0.35;
+    if (R.material == "tent") { mat[0] = 1.9; mat[2] = 0.75; scatter = 0.5; } else if (R.material == "concrete") { mat[0] = 0.55; mat[2] = 1.1; scatter = 0.2; }
+    else if (R.material == "stone") { mat[0] = 0.6; mat[2] = 1.35; scatter = 0.3; } else if (R.material == "glass") { mat[0] = 0.9; mat[2] = 1.6; scatter = 0.1; }
+    roomScatter = scatter;
     double ab[3];
     for (int i = 0; i < 3; i++) ab[i] = R.hasAbsBands ? clampd(R.absBands[i], 0.03, 0.97) : clampd(R.absorb * mat[i], 0.03, 0.95);
     double reflG = std::sqrt(1 - ab[1]), hfRefl = std::sqrt((1 - ab[2]) / (1 - ab[1]));
@@ -735,7 +744,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
                         p.sx = 1 - 2 * px; p.sy = 1 - 2 * py; p.sz = 1 - 2 * pz;
                         p.ox = 2 * nx * R.Lx; p.oy = 2 * ny * R.Ly; p.oz = 2 * nz * R.Lz;
                         p.g = std::pow(reflG, order) * (order > 0 ? 0.9 : 1);
-                        p.kOn = kOf(14000 * hf); p.kOff = kOf(1500 * hf); p.kDrum = kOf(std::min(20000.0, 6000 * hf * 3));
+                        p.kOn = kOf(std::min(20000.0, (r == 0 ? 14000 : 18000) * hf)); p.kOff = kOf(1500 * hf); p.kDrum = kOf(std::min(20000.0, 6000 * hf * 3));
                         // exact mode: every image is rendered per sample (position, Doppler, directivity, panning);
                         // fast mode: order >= 2 uses the block-ramped float path with direction buckets
                         p.lin = order > 1 && !exactPaths; p.fast = order > 1 && !exactPaths;
@@ -799,9 +808,12 @@ inline void LeslieRoomDSP::rebuildFdnOut() {
     static const int primes[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599};
     const int NP = sizeof(primes) / sizeof(int);
     double sc = fs / 48000;
+    // The diffuse field at the listener is the sum of all speakers: scale the per-speaker feed so the total stays the
+    // same whatever the layout (reference: stereo, where the level was calibrated - direct = room at the critical distance)
+    const float rowG = 0.25f * (float) std::sqrt(2.0 / std::max(1, n));
     for (int c = 0; c < n; c++) {
         int r = c + 1;
-        for (int i = 0; i < 16; i++) { int bits = r & i, par = 0; while (bits) { par ^= bits & 1; bits >>= 1; } fdnOutRows[c][i] = par ? -0.25f : 0.25f; fdnOutOff[c][i] = (int) std::lround(primes[(c * 37 + i * 11 + 5) % NP] * sc); }
+        for (int i = 0; i < 16; i++) { int bits = r & i, par = 0; while (bits) { par ^= bits & 1; bits >>= 1; } fdnOutRows[c][i] = par ? -rowG : rowG; fdnOutOff[c][i] = (int) std::lround(primes[(c * 37 + i * 11 + 5) % NP] * sc); }
     }
 }
 
@@ -811,24 +823,40 @@ inline void LeslieRoomDSP::prepSpeakers() {
     spkSorted.clear();
     for (int i = 0; i < n; i++) { double a = spk.az[i]; while (a < 0) a += TWO_PI; while (a >= TWO_PI) a -= TWO_PI; spkSorted.push_back({a, spk.ch[i]}); }
     std::sort(spkSorted.begin(), spkSorted.end(), [](const SpkS& p, const SpkS& q) { return p.a < q.a; });
-    uniG = 1 / std::sqrt((double) n);
-    bucketG.assign(NB + 1, {});
-    for (int k = 0; k <= NB; k++) { if (k < NB) panGains(k * TWO_PI / NB, 1, bucketG[k].data()); else panGains(0, 0, bucketG[k].data()); }
+    spkTrim.fill(1.f);
+    for (int i = 0; i < n; i++) {
+        double a = spk.az[i]; while (a > 3.14159265358979) a -= TWO_PI; while (a < -3.14159265358979) a += TWO_PI;
+        const bool rear = std::fabs(a) > 3.14159265358979 / 2 + 1e-6, center = std::fabs(a) < 1e-6 && !spk.stereo;
+        if (spk.ch[i] >= 0 && spk.ch[i] < 8) spkTrim[(size_t) spk.ch[i]] = (float) std::pow(10.0, (rear ? trimRear : center ? trimCenter : 0) / 20);
+    }
+    centerCh = centerL = centerR = -1;
+    if (!spk.stereo && n >= 3) for (int i = 0; i < n; i++) if (std::fabs(spkSorted[(size_t) i].a) < 1e-6) { centerCh = spkSorted[(size_t) i].ch; centerL = spkSorted[(size_t) ((i + 1) % n)].ch; centerR = spkSorted[(size_t) ((i - 1 + n) % n)].ch; }
+    bucketG.assign(2 * NB, {});
+    for (int k = 0; k < NB; k++) { panGains(k * TWO_PI / NB, 1, bucketG[k].data()); panGains(k * TWO_PI / NB, 0, bucketG[NB + k].data()); }
 }
 
 // Panning gains for a source at azimuth az (radians, listener-relative). hfrac = horizontal fraction: that part is
-// panned between the two nearest speakers (constant power), the rest (elevated sound) is spread uniformly.
+// panned between the two nearest speakers (constant power). The rest (elevated sound: floor and ceiling reflections)
+// has no height layer to go to, so it stays at its azimuth but spreads wide over the ring (cardioid-shaped weights,
+// constant power) - a ceiling reflection of a Leslie in front still comes from the front, just less pin-pointed.
 inline void LeslieRoomDSP::panGains(double az, double hfrac, float* out) const {
     for (int i = 0; i < 8; i++) out[i] = 0;
-    double uni = (1 - hfrac) * uniG;
+    const double efrac = 1 - hfrac;
     if (spk.stereo) {
         double p = std::max(-1.0, std::min(1.0, std::sin(az) / std::sin(3.14159265358979 / 6) * 0.5));
         double t = (1 - p) / 2 * 3.14159265358979 / 2;
-        out[spk.ch[0]] = (float) (hfrac * std::cos(t) + uni); out[spk.ch[1]] = (float) (hfrac * std::sin(t) + uni);
+        // elevated: narrower stereo spread (half the pan excursion)
+        double te = (1 - 0.5 * p) / 2 * 3.14159265358979 / 2;
+        out[spk.ch[0]] = (float) (hfrac * std::cos(t) + efrac * std::cos(te)); out[spk.ch[1]] = (float) (hfrac * std::sin(t) + efrac * std::sin(te));
         return;
     }
     int n = (int) spkSorted.size();
-    for (int i = 0; i < n; i++) out[spkSorted[i].ch] += (float) uni;
+    if (efrac > 0) {
+        double w[8] = {0}, e = 0;
+        for (int i = 0; i < n; i++) { double c = std::cos(az - spkSorted[i].a); w[i] = 0.5 + 0.5 * c; e += w[i] * w[i]; }
+        const double norm = efrac / std::sqrt(std::max(e, 1e-9));
+        for (int i = 0; i < n; i++) out[spkSorted[i].ch] += (float) (w[i] * norm);
+    }
     while (az < 0) az += TWO_PI; while (az >= TWO_PI) az -= TWO_PI;
     int i = 0; while (i < n && spkSorted[i].a <= az) i++;
     const SpkS& A = spkSorted[(i - 1 + n) % n]; const SpkS& B = spkSorted[i % n];
@@ -836,11 +864,15 @@ inline void LeslieRoomDSP::panGains(double az, double hfrac, float* out) const {
     if (span >= 3.14159265358979) {
         double dA = az - A.a; while (dA < 0) dA += TWO_PI; double f = dA / span, w = std::sin(f * 3.14159265358979);
         out[A.ch] += (float) (hfrac * std::cos(f * 3.14159265358979 / 2) * (1 - 0.3 * w)); out[B.ch] += (float) (hfrac * std::sin(f * 3.14159265358979 / 2) * (1 - 0.3 * w));
-        return;
+    } else {
+        double d = az - A.a; while (d < 0) d += TWO_PI;
+        double t = d / span * 3.14159265358979 / 2;
+        out[A.ch] += (float) (hfrac * std::cos(t)); out[B.ch] += (float) (hfrac * std::sin(t));
     }
-    double d = az - A.a; while (d < 0) d += TWO_PI;
-    double t = d / span * 3.14159265358979 / 2;
-    out[A.ch] += (float) (hfrac * std::cos(t)); out[B.ch] += (float) (hfrac * std::sin(t));
+    if (centerCh >= 0 && centerDiv > 0 && out[centerCh] > 0) {   // centre divergence: part of the centre feed goes to L/R as a phantom
+        const double gc = out[centerCh], th = centerDiv * 3.14159265358979 / 2;
+        out[centerCh] = (float) (gc * std::cos(th)); out[centerL] += (float) (gc * std::sin(th) * 0.70710678); out[centerR] += (float) (gc * std::sin(th) * 0.70710678);
+    }
 }
 
 
@@ -987,7 +1019,7 @@ inline void LeslieRoomDSP::micRebuildPaths() {
                         p.sx = 1 - 2 * px; p.sy = 1 - 2 * py; p.sz = 1 - 2 * pz;
                         p.ox = 2 * nx * R.Lx; p.oy = 2 * ny * R.Ly; p.oz = 2 * nz * R.Lz;
                         p.g = std::pow(roomReflG, order) * (order > 0 ? 0.9 : 1);
-                        p.kDrum = kOf(std::min(20000.0, 18000 * hf));
+                        p.kDrum = kOf(std::min(20000.0, 18000 * hf)); p.kRefl = p.kDrum;
                         p.jit = order > 0 ? (((r * 577 + (int) m.paths.size() * 97 + i * 31) % 89) / 89.0) * 0.9 * order : 0;
                         m.paths.push_back(p);
                     }
@@ -1020,7 +1052,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
             double icx = p.sx * lesliePos.x + p.ox, icy = p.sy * lesliePos.y + p.oy, iz = p.sz * r.h + p.oz;
             double vx = m.x - icx, vy = m.y - icy, vz = m.z - iz, dist = std::sqrt(vx * vx + vy * vy + vz * vz);
             double cg, cfc; cabinet(p.sx * vx, p.sy * vy, p.sz * vz, cg, cfc);   // vx points image -> mic, i.e. the radiation direction
-            p.cab = cg; p.kc = std::min(kOf(cfc), kOf(std::max(2500.0, 260000 / std::max(dist, 1.0))));
+            p.cab = cg; p.kc = std::min(std::min(kOf(cfc), kOf(std::max(2500.0, 260000 / std::max(dist, 1.0)))), p.kRefl);
             double cth = -(vx * m.ax + vy * m.ay + vz * m.az) / std::max(dist, 1e-6);
             for (int b = 0; b < 3; b++) p.band[b] = m.a[b] + (1 - m.a[b]) * cth;
             if (p.exact) continue;
@@ -1090,7 +1122,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             double cg, cfc; cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
             p.cab0 = p.init ? p.cab1 : cg; p.cab1 = cg; p.kb = std::min(p.kb, kOf(cfc));
             int k = (int) std::lround((p.azRoom - H.yaw) / TWO_PI * NB) % NB; if (k < 0) k += NB;
-            p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::sqrt(std::max(0.0, 1 - p.el * p.el)) * 1.15); p.init = true;
+            p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::sqrt(std::max(0.0, 1 - p.el * p.el)) * 1.15) * std::pow(1 - roomScatter, p.order); p.init = true;
             continue;
         }
         p.icx = p.sx * L.x + p.ox; p.icy = p.sy * L.y + p.oy; p.iz = p.sz * r.h + p.oz;
@@ -1100,7 +1132,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         double hd = std::hypot(vx, vy), dist = std::hypot(hd, vz);
         p.kAir = kOf(std::max(2500.0, 260000 / std::max(dist, 1.0)));
         double cg, cfc; cabinet(-p.sx * vx, -p.sy * vy, -p.sz * vz, cg, cfc);
-        p.cab0 = p.cab1 != 0 ? p.cab1 : cg; p.cab1 = cg; p.kc = std::min(kOf(cfc), p.kAir);
+        p.cab0 = p.cab1 != 0 ? p.cab1 : cg; p.cab1 = cg; p.kc = std::min(std::min(kOf(cfc), p.kAir), p.kOn);   // kOn: treble lost at the walls (per bounce)
         if (p.fast) {
             double a0 = r.ang, a1 = r.ang + TWO_PI * r.hz * bt; bool horn = p.rotor == 0;
             for (int e = 0; e < 2; e++) {
@@ -1120,7 +1152,9 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             }
         }
         double az = std::atan2(vy, vx) - H.yaw;
-        double hfr = std::min(1.0, hd / std::max(dist, 1e-6) * 1.15);
+        // sharp (pin-point) fraction: horizontal and still specular after p.order bounces; the rest is spread wide
+        // around the same azimuth (floor/ceiling images, scattered reflections)
+        double hfr = std::min(1.0, hd / std::max(dist, 1e-6) * 1.15) * std::pow(1 - roomScatter, p.order);
         if (p.fast) { int k = (int) std::lround(az / TWO_PI * NB) % NB; if (k < 0) k += NB; p.bP = p.init ? p.bN : k; p.bN = k; p.hf = hfr; p.init = true; }
         else { panGains(az, hfr, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; } }
     }
@@ -1320,10 +1354,10 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         for (int j = 0; j < listenerJobs; j++) {
             const Partial& P = partials[(size_t) j];
             for (int c = 0; c < nSp; c++) acc[c] += P.acc[n][c];
-            for (int k = 0; k <= NB; k++) bucket[k] += P.bucket[n][k];
+            for (int k = 0; k < 2 * NB; k++) bucket[k] += P.bucket[n][k];
             lfeIn += P.lfe[n];
         }
-        if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+        if (lisOn) for (int k = 0; k < 2 * NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
         // static sources at the listener: the cabinet body (panels, motors) and the organ console
         if (lisOn) {
             const int wi = wiArr[(size_t) n];
@@ -1444,7 +1478,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             chDelayIdx = (di + 1) & (CHD - 1);
         }
         for (int c = 0; c < nOut; c++) {
-            double x = ((c < 8 ? acc[c] * lisG : 0) + (micsOn ? micOut[(size_t) c] : 0)) * master;
+            double x = ((c < 8 ? acc[c] * lisG * spkTrim[(size_t) c] : 0) + (micsOn ? micOut[(size_t) c] : 0)) * master;
             out[c][n] = (float) (x > 0.9 ? 0.9 + 0.1 * std::tanh((x - 0.9) * 10) : x < -0.9 ? -0.9 + 0.1 * std::tanh((x + 0.9) * 10) : x);
         }
     }
@@ -1505,7 +1539,7 @@ inline void LeslieRoomDSP::staticBlock(bool lisOn, bool micsOn) {
 inline void LeslieRoomDSP::renderListenerJob(int job) {
     const int N = blockN, nSp = 8;
     Partial& P = partials[(size_t) job];
-    for (int n = 0; n < N; n++) { for (int c = 0; c < 8; c++) P.acc[n][c] = 0; for (int k = 0; k <= NB; k++) P.bucket[n][k] = 0; P.lfe[n] = 0; }
+    for (int n = 0; n < N; n++) { for (int c = 0; c < 8; c++) P.acc[n][c] = 0; for (int k = 0; k < 2 * NB; k++) P.bucket[n][k] = 0; P.lfe[n] = 0; }
     const double fsc = fs / C_SOUND, kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs);
     const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
     const auto& H = listener;
@@ -1576,7 +1610,7 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
             if (!r.horn) P.lfe[n] += v;
             float vh = v * r.hf;
             float* bk = P.bucket[n];
-            bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; bk[NB] += v - vh;
+            bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; const float ve = v - vh; bk[NB + r.bP] += ve * w0; bk[NB + r.bN] += ve * w1;
         }
     }
 }
