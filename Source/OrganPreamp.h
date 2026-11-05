@@ -33,6 +33,7 @@ public:
     void setGain(double g) { gain = std::max(0.0, std::min(1.0, g)); kin = 0.9 * std::pow(12.0, gain); }   // volts at the 12AX7 grid per unit input
     /** Enable/bypass the preamp; when disabled, process() leaves the signal untouched. */
     void setEnabled(bool on) { enabled = on; }
+    int getQuality() const { return quality; }
     /** True when the preamp is active. */
     bool isEnabled() const { return enabled; }
     /** Latency in samples introduced by the oversampling filters (0 without oversampling). */
@@ -216,7 +217,7 @@ private:
         std::memcpy(play, sv.pl, sizeof play);
     }
 
-    const double fs;
+    double fs;   // not const: copy-assigned when a quality change is prepared off the audio thread
     int quality = 1; bool enabled = true;
     double gain = 0.5, kin = 0.9 * std::pow(12.0, 0.5);
     Oversampler ovs;

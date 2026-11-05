@@ -97,12 +97,16 @@ public:
     /** Routes the scanner vibrato to the upper and/or lower manual (the vibrato tabs on the console). */
     void setVibRouting(bool upper, bool lower) { vibUpper = upper; vibLower = lower; }
     /** Vibrato/chorus knob position: "v1".."v3" (vibrato) or "c1".."c3" (chorus); anything else = off. */
-    void setVib(const std::string& v) { vibMode = v; }
+    void setVib(const std::string& v) { vibMode = v; vibDepthSec = (v == "v1" || v == "c1") ? 0.00022 : (v == "v2" || v == "c2") ? 0.00045 : (v == "v3" || v == "c3") ? 0.0008 : 0.0; vibChorusMode = !v.empty() && v[0] == 'c'; }
     /** Leslie amplifier drive, 0..1 (also forwarded to the amp model). */
     void setDrive(double v) { drive = v; amp.setDrive(v); }
     /** Amplifier model index, simulation quality level, and power-supply sag amount 0..1. */
     void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); pre.setQuality(quality); }
     /** Organ preamp stage on/off and its gain 0..1 (see OrganPreamp). */
+    /** Supply sag only (cheap); model/quality switches go through ampModel() so the host can prepare them off the audio thread. */
+    void setAmpSag(double sagAmount) { amp.setSag(sagAmount); }
+    amp::LeslieAmp& ampModel() { return amp; }
+    amp::OrganPreamp& preampModel() { return pre; }
     void setPreamp(bool on, double gain) { pre.setEnabled(on); pre.setGain(gain); }
     /** Spring reverb: on/off, wet mix 0..1, decay time T60 in seconds, tone 0..1, drive 0..1, number of springs. */
     void setSpring(bool on, double mixAmt, double t60, double toneAmt, double driveAmt, int springs) { spring.setEnabled(on); spring.setMix(mixAmt); spring.setDecay(t60); spring.setTone(toneAmt); spring.setDrive(driveAmt); spring.setSprings(springs); }
@@ -180,6 +184,7 @@ public:
 
 private:
     void init();
+    void processBlock(float* const* out, int nCh, int N);   // one sub-block (<= 64 samples), called by process()
     void applyCharacter();
     void rebuildRoom();
     void rebuildFdnOut();
@@ -189,7 +194,7 @@ private:
     void schedule(int m, int w, double d, double baseDelay);
     void retarget();
     void applyDelta(int m, int w, double d);
-    int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 1) w += 12; while (w > 91) w -= 12; return w; }
+    int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 13) w += 12; while (w > 91) w -= 12; return w; }
     // Calls f(wheel, amplitude) for every tonewheel a key contributes to on manual m.
     // Pedal: on the original console the 16' and 8' pedal drawbars are mixtures of the fundamental and two
     // overtones (16' ~ 16' + 8' + 5 1/3', 8' ~ 8' + 4' + 2 2/3'); the mix ratios are approximations.
@@ -239,7 +244,7 @@ private:
     double leakAdj = 0, leakAdj2 = 0, leakBank = 0, leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
 
     // ---------------- Scanner vibrato (delay-line based, 2048-sample buffer) ----------------
-    std::string vibMode = "c3";
+    std::string vibMode = "c3"; double vibDepthSec = 0.0008; bool vibChorusMode = true;
     std::vector<float> vibBuf; int vibW = 0; double vibPh = 0;
 
     // ---------------- Expression pedal, crossover and cabinet filters ----------------
@@ -256,7 +261,7 @@ private:
     Rotor rot[2];
     std::string leslieMode = "slow";
     double hornLevel = 1, drumLevel = 1;
-    static constexpr int DL = 32768, DM = DL - 1;
+    int DL = 65536, DM = DL - 1;   // rotor delay lines: power of two >= 1.2 s so even 5th-order images of a 40 m room fit
     std::vector<float> bufH, bufD, bufC;
     int wIdx = 0;
 
@@ -309,6 +314,7 @@ private:
     std::array<double, 16> micOut{};
     double kBandLo = 0.05, kBandHi = 0.3, kWind = 0.02, micRevScale = 1, roomReflG = 0.8, roomHfRefl = 0.9;
     double micSig[6] = {0};
+    bool micWasConfigured = false;
 
     void micConfigure();
     void micRebuildPaths();
@@ -346,10 +352,12 @@ inline void LeslieRoomDSP::init() {
     motorLp.set("lp", 90, 0.9, fs); windBp1.set("hp", 1500, 0.7, fs); windBp2.set("lp", 5000, 0.7, fs);
     rot[0] = {0, 0.75, 0.75, 0.75, 6.8, 0.19, 0.95, 0.8, 1.4};
     rot[1] = {1.3, 0.62, 0.62, 0.62, 5.7, 0.19, 0.40, 4.5, 5.5};
+    DL = 1; while (DL < fs * 1.2) DL <<= 1; DM = DL - 1;
     bufH.assign(DL, 0.f); bufD.assign(DL, 0.f); bufC.assign(DL, 0.f);
     spk.az = {0, 45, 90, 135, 180, -135, -90, -45}; for (auto& a : spk.az) a *= 3.14159265358979 / 180; spk.ch = {0, 1, 2, 3, 4, 5, 6, 7};
     fdnBuf.assign(16, std::vector<float>(65536, 0.f)); apBuf.assign(6, std::vector<float>(4096, 0.f)); lapBuf.assign(16, std::vector<float>(2048, 0.f));
     for (int i = 0; i < 16; i++) { fdnModPh[i] = rnd(); fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs; }
+    orgBuf.assign(4096, 0.f); events.reserve(4096);
     kLoBand = 1 - std::exp(-TWO_PI * 250 / fs); kHiBand = 1 - std::exp(-TWO_PI * 3500 / fs);
     preBuf.assign(8192, 0.f);
     revInK = 1 - std::exp(-TWO_PI * 6000 / fs); revHpK = 1 - std::exp(-TWO_PI * 45 / fs);
@@ -548,10 +556,12 @@ inline void LeslieRoomDSP::rebuildRoom() {
     double base = clampd(mfp, 0.026, 0.08);
     auto isPrime = [](int n) { if (n < 2) return false; for (int d = 2; d * d <= n; d++) if (n % d == 0) return false; return true; };
     auto toPrime = [&](int n) { while (!isPrime(n)) n++; return n; };
+    // round up to a prime, but never beyond the buffer: fall back to the largest prime <= cap
+    auto primeCapped = [&](int n, int cap) { int q = toPrime(n); if (q > cap) { q = cap; while (!isPrime(q)) q--; } return q; };
     double lenSum = 0;
     for (int i = 0; i < 16; i++) {
         double frac = 0.6 + 1.6 * i / 15.0;
-        int len = toPrime(std::min(60000, (int) std::lround(base * frac * fs * (1 + 0.017 * ((i * 7) % 5)))));
+        int len = primeCapped((int) std::lround(base * frac * fs * (1 + 0.017 * ((i * 7) % 5))), 60000);
         fdnLen[i] = len; lenSum += len;
         auto gOf = [&](double t) { return std::pow(10.0, -3.0 * len / (fs * t)); };
         fdnGl[i] = gOf(rt[0]); fdnGm[i] = gOf(rt[1]); fdnGh[i] = gOf(rt[2]);
@@ -564,9 +574,9 @@ inline void LeslieRoomDSP::rebuildRoom() {
     fdnInGain = std::sqrt(Etarget * (1 - gBar2) / 16);
     fdnModDepth = 5 + 9 * clampd((rt[1] - 0.4) / 3, 0, 1);
     const double apMs[6] = {1.3, 2.1, 3.2, 4.7, 6.3, 8.1}; double apScale = clampd(rt[1] / 0.8, 0.5, 4);
-    for (int i = 0; i < 6; i++) { apLen[i] = toPrime(std::min(4090, (int) std::lround(apMs[i] * apScale * fs / 1000))); if (apIdx[i] >= apLen[i]) apIdx[i] = 0; }
+    for (int i = 0; i < 6; i++) { apLen[i] = primeCapped((int) std::lround(apMs[i] * apScale * fs / 1000), 4093); if (apIdx[i] >= apLen[i]) apIdx[i] = 0; }
     const double lapMs[16] = {2.1, 2.9, 3.7, 4.6, 5.3, 6.1, 7.0, 7.9, 8.7, 9.6, 10.4, 11.3, 12.1, 13.0, 13.8, 14.7};
-    for (int i = 0; i < 16; i++) { lapLen[i] = toPrime(std::min(2040, (int) std::lround(lapMs[(i * 5) % 16] * 0.6 * clampd(apScale, 0.6, 2) * fs / 1000))); if (lapIdx[i] >= lapLen[i]) lapIdx[i] = 0; }
+    for (int i = 0; i < 16; i++) { lapLen[i] = primeCapped((int) std::lround(lapMs[(i * 5) % 16] * 0.6 * clampd(apScale, 0.6, 2) * fs / 1000), 2039); if (lapIdx[i] >= lapLen[i]) lapIdx[i] = 0; }
     rebuildFdnOut();
     micRebuildPaths(); micFdnRows();
     roomInfo.rt60[0] = rt[0]; roomInfo.rt60[1] = rt[1]; roomInfo.rt60[2] = rt[2]; roomInfo.rc = std::sqrt(rc2); roomInfo.paths = (int) paths.size();
@@ -722,7 +732,7 @@ inline void LeslieRoomDSP::micConfigure() {
         } else { grpOutL[g] = G.out == -2 ? rl : fl; grpOutR[g] = G.out == -2 ? rr : fr; }
         grpDelayS[g] = std::max(0, std::min(CHD - 2, (int) std::lround(G.delayMs * 1e-3 * fs)));
     }
-    micPlaceClose(1); micRebuildPaths(); micFdnRows();
+    micPlaceClose(micWasConfigured ? 0 : 1); micWasConfigured = true; micRebuildPaths(); micFdnRows();
 }
 
 // Places the four close mics around the cabinet; a = smoothing factor (1 = jump to target).
@@ -743,13 +753,15 @@ inline void LeslieRoomDSP::micRebuildPaths() {
     const Room& R = room;
     for (int i = 0; i < 6; i++) {
         MicRt& m = mic[i];
-        m.paths.clear();
+        std::vector<MicPath> oldPaths = std::move(m.paths); m.paths.clear();
         if (m.close) {
             // Close mic: its own rotor directly and via the floor reflection (computed exactly per sample); the other rotor as crosstalk
             for (int r = 0; r < 2; r++) {
                 MicPath p; p.rotor = r; p.exact = r == m.rotor; p.kDrum = kOf(18000); m.paths.push_back(p);
                 if (r == m.rotor) { MicPath f = p; f.sz = -1; f.order = 1; f.g = 0.75 * roomReflG; f.kDrum = kOf(9000); m.paths.push_back(f); }
             }
+            if (oldPaths.size() == m.paths.size())
+                for (size_t q = 0; q < m.paths.size(); q++) { auto& a = m.paths[q]; const auto& b = oldPaths[q]; a.lp = b.lp; a.zlo = b.zlo; a.zhi = b.zhi; a.zd = b.zd; }
             continue;
         }
         int maxO = std::max(0, std::min(R.shape == "tent" ? 1 : R.order, micSetup.roomOrder));
@@ -772,6 +784,8 @@ inline void LeslieRoomDSP::micRebuildPaths() {
                     }
                 }
             }
+        if (oldPaths.size() == m.paths.size())   // same layout: carry the filter states over so a reconfigure does not click
+            for (size_t q = 0; q < m.paths.size(); q++) { auto& a = m.paths[q]; const auto& b = oldPaths[q]; a.lp = b.lp; a.zlo = b.zlo; a.zhi = b.zhi; a.zd = b.zd; a.init = b.init; a.d0 = b.d0; a.d1 = b.d1; a.g0 = b.g0; a.g1 = b.g1; a.kb = b.kb; }
     }
 }
 
@@ -796,7 +810,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
             const Rotor& r = rot[p.rotor];
             double icx = p.sx * lesliePos.x + p.ox, icy = p.sy * lesliePos.y + p.oy, iz = p.sz * r.h + p.oz;
             double vx = m.x - icx, vy = m.y - icy, vz = m.z - iz, dist = std::sqrt(vx * vx + vy * vy + vz * vz);
-            double cg, cfc; cabinet(-p.sx * vx, -p.sy * vy, -p.sz * vz, cg, cfc);
+            double cg, cfc; cabinet(p.sx * vx, p.sy * vy, p.sz * vz, cg, cfc);   // vx points image -> mic, i.e. the radiation direction
             p.cab = cg; p.kc = std::min(kOf(cfc), kOf(std::max(2500.0, 260000 / std::max(dist, 1.0))));
             double cth = -(vx * m.ax + vy * m.ay + vz * m.az) / std::max(dist, 1e-6);
             for (int b = 0; b < 3; b++) p.band[b] = m.a[b] + (1 - m.a[b]) * cth;
@@ -824,7 +838,19 @@ inline void LeslieRoomDSP::micBlock(double bt) {
 }
 
 // ---------------- Main render ----------------
+/** Host blocks are split into sub-blocks of at most SUB samples so that the per-block geometry (rotor angles,
+    path distances, directivity) is updated often enough; the result no longer depends on the host buffer size. */
 inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
+    constexpr int SUB = 64;
+    float* sub[16];
+    const int nc = std::min(nCh, 16);
+    for (int off = 0; off < N; off += SUB) {
+        for (int c = 0; c < nc; c++) sub[c] = out[c] + off;
+        processBlock(sub, nc, std::min(SUB, N - off));
+    }
+}
+
+inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     const double PI = 3.14159265358979;
     double a = 1 - std::exp(-N / (0.12 * fs));
     auto& L = lesliePos; auto& H = listener;
@@ -852,6 +878,9 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                 if (e) { p.d1 = d; p.g1 = g; p.kb = std::min(horn ? kOf(1500) + (p.kTrace - kOf(1500)) * u * u : p.kTrace, kOf(std::max(2500.0, 260000 / std::max(d, 1.0)))); }
                 else { p.d0 = d; p.g0 = g; }
             }
+            // cabinet directivity along the real departure direction (no mirroring needed for traced rays)
+            double cg, cfc; cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
+            p.cab0 = p.init ? p.cab1 : cg; p.cab1 = cg; p.kb = std::min(p.kb, kOf(cfc));
             int k = (int) std::lround((p.azRoom - H.yaw) / TWO_PI * NB) % NB; if (k < 0) k += NB;
             p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::sqrt(std::max(0.0, 1 - p.el * p.el)) * 1.15); p.init = true;
             continue;
@@ -900,9 +929,8 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
     const double clickDecay = std::exp(-1 / (0.002 * fs));
     const double percLevel = (perc.soft ? 0.6 : 1.0) * percLevelUser;
-    double vibDepth = 0; if (vibMode == "v1" || vibMode == "c1") vibDepth = 0.00022; else if (vibMode == "v2" || vibMode == "c2") vibDepth = 0.00045; else if (vibMode == "v3" || vibMode == "c3") vibDepth = 0.0008;
-    vibDepth *= fs;
-    const bool vibChorus = vibMode[0] == 'c';
+    const double vibDepth = vibDepthSec * fs;
+    const bool vibChorus = vibChorusMode;
     const double vibInc = 6.87 / fs;
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
     const double fsc = fs / C_SOUND;
@@ -917,7 +945,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     const size_t np = paths.size();
 
     // ---------- 1) Organ: tonewheels, manuals, key contacts, percussion, scanner vibrato, expression pedal -> orgBuf ----------
-    if ((int) orgBuf.size() < N) orgBuf.assign((size_t) N, 0.f);
+    if ((int) orgBuf.size() < N) orgBuf.assign((size_t) N, 0.f);   // pre-sized in init(); only grows for unusually large host blocks
     for (int n = 0; n < N; n++) {
         if (!events.empty()) {
             double now = sampleClock;
@@ -989,7 +1017,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         const double tt = (n + 1.0) / N;
 
         acc.fill(0); bucket.fill(0);
-        double revIn = 0, lfeIn = 0;
+        double lfeIn = 0;
 
         // Listener rendering: every room path reads the rotor ring buffers with its own (Doppler) delay and directivity
 
@@ -1007,7 +1035,6 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                 if (p.trace) { p.zlo += kLoBand * (xin - p.zlo); xin += (p.glr - 1) * p.zlo; }
                 p.lp += p.kb * (xin - p.lp);
                 double v = p.lp * g;
-                revIn += v * d;
                 if (p.rotor) lfeIn += v;
                 double vh = v * p.hf;
                 bucket[p.bP] += (float) (vh * (1 - tt)); bucket[p.bN] += (float) (vh * tt); bucket[NB] += (float) (v - vh);
@@ -1048,7 +1075,6 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             if (p.kc < k) k = p.kc;
             p.lp += k * (v - p.lp); v = p.lp;
             v *= dirG * p.g * (p.cab0 + (p.cab1 - p.cab0) * tt);
-            if (p.order > 0) revIn += v;
             v /= (dist > 0.3 ? dist : 0.3);
             if (!horn) lfeIn += v;
             for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) acc[c] += v * gg; }

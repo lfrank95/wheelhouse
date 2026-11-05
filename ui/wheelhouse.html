@@ -383,7 +383,8 @@ select option { background: #1a1511; color: #e8dcc4; }
   });
   if (NATIVE) window.__JUCE__.backend.addEventListener('__juce__complete', ({ promiseId, result }) => { const p = promises.get(promiseId); if (p) { p(result); promises.delete(promiseId); } });
   let ready = false;
-  const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); if (ready) scheduleSave(); };
+  const NO_SAVE = new Set(['noteOn', 'noteOff', 'panic', 'springKick', 'taps']);
+  const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); if (ready && !NO_SAVE.has(m.type)) scheduleSave(); };
 
   // ---------------- State ----------------
   // DEF holds the defaults, S is the live state; all keys of DEF are persisted via saveUi/loadUi.
@@ -424,7 +425,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       if (!(k in dst)) continue;
       const a = dst[k], b = src[k];
       if (a && typeof a === 'object' && !Array.isArray(a) && b && typeof b === 'object' && !Array.isArray(b)) deepMerge(a, b);
-      else if (Array.isArray(a) && Array.isArray(b)) { if (a.length === b.length) dst[k] = b.slice(); }
+      else if (Array.isArray(a) && Array.isArray(b)) { if (a.length === b.length) { if (a.length && a[0] && typeof a[0] === 'object') a.forEach((el, i) => { if (b[i] && typeof b[i] === 'object') deepMerge(el, b[i]); }); else dst[k] = b.slice(); } }
       else if (b === null || typeof b === typeof a || a === null) dst[k] = b;
     }
   }
@@ -444,7 +445,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     { n: 'Zirkuszelt', s: 'Zirkus', tent: true },
   ];
   const MATERIALS = [['wood', 'Holz / Trockenbau'], ['concrete', 'Beton'], ['stone', 'Stein'], ['glass', 'Glas / Fliesen'], ['tent', 'Zeltplane']];
-  const MAT_SHORT = { holz: 'Holz', concrete: 'Beton', stein: 'Stein', glas: 'Glas', zelt: 'Plane' };
+  const MAT_SHORT = { wood: 'Holz', concrete: 'Beton', stone: 'Stein', glass: 'Glas', tent: 'Plane' };
   const UPPER_PRESETS = [
     ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Gospel', [8, 8, 8, 8, 8, 8, 8, 8, 8]], ['Rock', [8, 8, 8, 8, 0, 0, 0, 0, 0]], ['Ballade', [8, 3, 8, 0, 0, 0, 0, 0, 0]],
     ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]], ['Theater', [8, 7, 6, 5, 4, 3, 2, 1, 1]], ['Perc 2nd', [8, 4, 8, 0, 0, 0, 0, 0, 0]], ['Smith', [8, 8, 8, 8, 0, 0, 0, 0, 8]],
@@ -541,7 +542,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     let sig = '';
     const fill = (list) => { const ns = JSON.stringify(list); if (ns === sig) return; sig = ns; s.innerHTML = ''; list.forEach(([v, t]) => { const op = h('option', '', t); op.value = String(v); s.appendChild(op); }); };
     fill(typeof opts === 'function' ? opts() : opts);
-    s.onchange = () => { const raw = s.value; const list = typeof opts === 'function' ? opts() : opts; const it = list.find(x => String(x[0]) === raw); set(it ? it[0] : raw); c.sync(); };
+    s.onchange = () => { const raw = s.value; const list = typeof opts === 'function' ? opts() : opts; const it = list.find(x => String(x[0]) === raw); set(it ? it[0] : raw); c.sync(); s.blur(); };
     const c = { el: r, sel: s, sync() { if (typeof opts === 'function') fill(opts()); s.value = String(get()); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
     c.sync(); return reg(c);
   }
@@ -601,7 +602,11 @@ select option { background: #1a1511; color: #e8dcc4; }
   }
   $('cClose').onclick = () => setTab('spielen');
   $('openRoom').onclick = () => setTab('raum');
-  $('cReset').onclick = () => { (cardCtl[tab] || []).forEach(c => c.reset && c.reset()); syncAll(); };
+  $('cReset').onclick = () => {
+    (cardCtl[tab] || []).forEach(c => c.reset && c.reset());
+    if (tab === 'raum') { if (S.room.shape === 'tent') applyTent(false); else { clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); } }
+    syncAll();
+  };
   function page(id, build) {
     const p = h('div', 'secs'); p.style.gridTemplateColumns = `repeat(${CARD_INFO[id][2]}, minmax(0, 1fr))`; p.hidden = true;
     curCard = id; build(p); curCard = null;
@@ -629,6 +634,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     curInst = i; instSig = instState(); syncAll();
   }
   presetSel.onchange = () => {
+    presetSel.blur();
     const val = presetSel.value;
     if (val[0] === 'i') { applyInstrument(+val.slice(1)); return; }
     const p = PRESETS[+val]; if (!p) return;
@@ -667,7 +673,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   // ---------------- Channel mapping (logical channel -> physical output) ----------------
   function autoMap(mode) { const M = MODES[mode]; const out = []; for (let i = 0; i < M.ch; i++) out.push(i); return out; }
-  function curMap() { const m = S.chmap[S.mode]; return m && m.length === MODES[S.mode].ch ? m : autoMap(S.mode); }
+  function curMap() { const m = S.chmap[S.mode]; return m && m.length === MODES[S.mode].ch && m.every(c => Number.isInteger(c) && c >= 0 && c < 8) ? m : autoMap(S.mode); }
   function physCh(i) { return curMap()[i]; }
   let curSpk = null;
   function applyMode() {
@@ -736,7 +742,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       psel = h('select'); psel.setAttribute('aria-label', 'Register ' + name);
       const o0 = h('option', '', '–'); o0.value = ''; o0.disabled = true; psel.appendChild(o0);
       presets.forEach(([n], i) => { const o = h('option', '', n); o.value = i; psel.appendChild(o); });
-      psel.onchange = () => { const p = presets[+psel.value]; if (!p) return; S.db[key] = p[1].slice(); sendDb(man); syncAll(); };
+      psel.onchange = () => { psel.blur(); const p = presets[+psel.value]; if (!p) return; S.db[key] = p[1].slice(); sendDb(man); syncAll(); };
       hd.appendChild(psel);
     }
     const bars = h('div', 'dbbars'); g.appendChild(bars);
@@ -872,15 +878,15 @@ select option { background: #1a1511; color: #e8dcc4; }
       rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
     ], '', { id: 'secSurf' }));
     // Circus tent section
-    const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; applyTent(false); } });
+    const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; if (S.room.shape === 'tent') applyTent(false); } });
     p.appendChild(sec('Zirkuszelt', [
       tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('dome', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
       tk('hm', 'Kranzhöhe', 5, 16, 8.5, m, 0.1), tk('hb', 'Kranzband', 0.3, 3, 1.3, m, 0.1), tk('tip', 'Spitze', 0.5, 8, 3.5, m, 0.1), tk('hw', 'Wandhöhe', 2.2, 5, 4, m, 0.1),
       tk('sagPct', 'Durchhang', 0, 1, 0.45, pct, 0.01), tk('ring', 'Manege-Ø', 8, 18, 13, m, 0.5), tk('audience', 'Publikum', 0, 1, 0.8, pct, 0.01),
     ], [
       rowSel('Untergrund', [['grass', 'Wiese'], ['gravel', 'Schotter / Kies'], ['sandlot', 'Sandplatz'], ['asphalt', 'Asphalt'], ['concrete', 'Betonplatz'], ['paving', 'Pflaster'], ['woodfloor', 'Holzboden'], ['snow', 'Schnee']],
-        () => S.tent.ground, v => { S.tent.ground = v; applyTent(false); }, 'grass'),
-      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['ground', 'wie Untergrund']], () => S.tent.ringFloor, v => { S.tent.ringFloor = v; applyTent(false); }, 'sand'),
+        () => S.tent.ground, v => { S.tent.ground = v; if (S.room.shape === 'tent') applyTent(false); }, 'grass'),
+      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['ground', 'wie Untergrund']], () => S.tent.ringFloor, v => { S.tent.ringFloor = v; if (S.room.shape === 'tent') applyTent(false); }, 'sand'),
       rowSeg('Form', [['box', 'Quader'], ['tent', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'box'),
       rowVal('Strahlen', () => tInfoText),
     ], '', { id: 'secTent', span: 2, kcols: 6, rcols: 2 }));
@@ -1011,7 +1017,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       'LFE und Weiche wirken nur bei 5.1.'));
     // Channel mapping: rows for up to 6 channels, visible count depends on the format
     const mapRows = [0, 1, 2, 3, 4, 5].map(i => {
-      const r = rowSel('Kanal ' + (i + 1), () => { const n = Math.max(audioInfo.outputs || 0, 8); return Array.from({ length: n }, (_, k) => [k, outName(k)]); },
+      const r = rowSel('Kanal ' + (i + 1), () => { const n = 8; return Array.from({ length: n }, (_, k) => [k, outName(k)]); },   // the room mix has 8 speaker slots; higher outputs are for mic direct outs
         () => curMap()[i] ?? i, v => { const m = curMap().slice(); m[i] = +v; S.chmap[S.mode] = m; applyMode(); syncAll(); });
       return r;
     });
@@ -1026,7 +1032,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   function chanTest(btn) {
     testTimers.forEach(clearTimeout); testTimers = [];
     const M = MODES[S.mode], n = M.ch;
-    M.long.forEach((name, i) => testTimers.push(setTimeout(() => { const phys = physCh(i); btn.textContent = `${i + 1}/${n}: ${name} → ${phys + 1}`; btn.classList.add('on'); nativeInvoke('chantest', phys); }, i * 750)));
+    M.long.forEach((name, i) => testTimers.push(setTimeout(() => { const phys = physCh(i); btn.textContent = `${i + 1}/${n}: ${name} → ${phys + 1}`; btn.classList.add('on'); nativeInvoke('chantest', phys, S.mode === 's51' && i === 3); }, i * 750)));
     testTimers.push(setTimeout(() => { btn.textContent = 'Alle Kanäle anpiepen'; btn.classList.remove('on'); }, n * 750));
   }
 
@@ -1082,7 +1088,9 @@ select option { background: #1a1511; color: #e8dcc4; }
     Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material });
     S.lesliePos.x = fx * r.Lx; S.lesliePos.y = Math.min(r.Ly - 1, fy * r.Ly);
     S.listener.x = gx * r.Lx; S.listener.y = Math.max(0.6, S.lesliePos.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
-    clampPos(); send({ type: 'room', v: S.room }); sendPos(true); syncAll();
+    clampPos(); send({ type: 'room', v: S.room }); sendPos(true);
+    if (S.mics.placed) { S.mics.roomX = clamp(S.mics.roomX, 0.5, r.Lx - 0.5); S.mics.roomY = clamp(S.mics.roomY, 0.5, r.Ly - 0.5); sendMics(); }
+    syncAll();
   }
   const quick = ROOMS.map((r, i) => [r, i]).filter(([r]) => !r.noQuick);
   const preBtns = quick.map(([r, i]) => { const b = h('button', '', r.s); b.type = 'button'; b.title = r.n; b.onclick = () => loadRoom(i); $('roomPre').appendChild(b); return [i, b]; });
@@ -1147,7 +1155,13 @@ select option { background: #1a1511; color: #e8dcc4; }
       }
     }
   }
-  function sendPos(jump) { send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: !!jump }); if (S.room.shape === 'tent') scheduleTrace(); }
+  let lastTracePos = '';
+  function sendPos(jump) {
+    send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: !!jump });
+    if (S.room.shape !== 'tent') return;
+    const key = [S.lesliePos.x, S.lesliePos.y, S.listener.x, S.listener.y].map(v => v.toFixed(3)).join();   // the trace does not depend on the viewing direction
+    if (key !== lastTracePos) { lastTracePos = key; scheduleTrace(); }
+  }
 
   // ---------------- Floor plan canvas (small on the play surface, large in the Room card) ----------------
   function RoomView(cv, big) {
@@ -1453,6 +1467,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         if (m.type === 'noteOn') { active[man].add(m.key); keyEl(man, m.key, true); } else { active[man].delete(m.key); keyEl(man, m.key, false); }
       } else if (m.type === 'leslie') { S.leslie = m.v; syncAll(); }
       else if (m.type === 'volume') { S.volume = m.v; syncAll(); }
+      else if (m.type === 'panic') { [0, 1, 2].forEach(man => { active[man].forEach(k => keyEl(man, k, false)); active[man].clear(); }); }
     });
   }
 

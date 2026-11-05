@@ -33,6 +33,10 @@ private:
     void sendAudioInfo();
     void sendRoomInfo();
     void enableAllMidiInputs();
+    void applyAmpModelOffLock();
+    struct AmpRequest { int model = 0, quality = 1; double sag = 0.5; } ampRequest;
+    juce::StringArray knownMidiInputs;
+    juce::Component::SafePointer<juce::DialogWindow> settingsWindow;
 
     juce::AudioDeviceManager deviceManager;
     std::unique_ptr<leslie::LeslieRoomDSP> dsp;
@@ -43,7 +47,8 @@ private:
 
     // Channel test tone (see "chantest" native function)
     std::atomic<int> testChannel { -1 };
-    int testSamplesLeft = 0;
+    std::atomic<int> testSamplesLeft { 0 };
+    std::atomic<bool> testIsLfe { false };
     double testPhase = 0;
 
     // Output level meters

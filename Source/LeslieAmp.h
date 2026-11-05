@@ -148,9 +148,9 @@ public:
     /** Recomputes the input scaling (volts at the driver grid per unit input) from drive and model. */
     void updateKin() { kin = 1.2 * std::pow(30.0, drive) * (model == M147 ? 1.8 : 1.0); }
     /** Sag 0..1: power-supply source resistance (0 = stiff supply, 1 = soft, strong compression). Rebuilds the circuit. */
-    void setSag(double s) { if (std::fabs(s - sag) > 1e-6) { sag = std::max(0.0, std::min(1.0, s)); configure(); } }
+    void setSag(double s) { if (std::fabs(s - sag) > 1e-6) { sag = std::max(0.0, std::min(1.0, s)); applySupply(); } }   // cheap: the supply just drifts to its new point
     /** Tube age 0..1: reduced emission of the output tubes (0 = new, 1 = worn). Rebuilds the circuit. */
-    void setAge(double a) { if (std::fabs(a - age) > 1e-6) { age = std::max(0.0, std::min(1.0, a)); configure(); } }
+    void setAge(double a) { if (std::fabs(a - age) > 1e-6) { age = std::max(0.0, std::min(1.0, a)); applyEmission(); } }   // cheap: no re-settle
     /** Current amp model (see Model). */
     int getModel() const { return model; }
     /** Current quality level 0..2. */
@@ -369,16 +369,11 @@ private:
         Vscreen = 310; Rko = 150; Cko = 50e-6;
         Raa = 4300;
         Ireg = 0.012;   // bleed current of the OC3 regulator plus the driver, fed from the same supply
-        bool tubeRect = model == M122_EARLY;
-        V0 = tubeRect ? 455 : 438;
-        Rs = (tubeRect ? 190 : 55) * (0.5 + 1.5 * sag);
-        RsEff = Rs + 60;   // HQ: choke resistance folded in
+        applySupply();
         C1 = 30e-6; C2 = 40e-6; Lch = 4; RL = 60;
         ltpImbalance = 0.94;
         // tubes: fixed tolerance mismatch and age (reduced emission)
-        double emis = 1 + 0.7 * age;
-        kgBase[0] = 1.00 * emis; kgBase[1] = (quality >= 1 ? 1.045 : 1.0) * emis;
-        kgTube[0] = kgBase[0]; kgTube[1] = kgBase[1];
+        applyEmission();
         // transformer: iron core (Amberwave Iron core model), primary inductance ~25 H
         bs = 1.5; hystW = quality >= 1 ? 0.45 : 0; double hyst = 0.07 * (quality == 2 ? 1.2 : 1);
         double ws = 0; for (int j = 1; j <= PLAYS; j++) { playR[j - 1] = hyst * j / PLAYS; playW[j - 1] = j; ws += j; }
@@ -396,6 +391,19 @@ private:
         calibrate();
     }
 
+    /** Rectifier type and series resistance (sag) of the power supply; safe to call while running. */
+    void applySupply() {
+        bool tubeRect = model == M122_EARLY;
+        V0 = tubeRect ? 455 : 438;
+        Rs = (tubeRect ? 190 : 55) * (0.5 + 1.5 * sag);
+        RsEff = Rs + 60;   // HQ: choke resistance folded in
+    }
+    /** Tube emission (age) and the fixed pair mismatch; safe to call while running. */
+    void applyEmission() {
+        double emis = 1 + 0.7 * age;
+        kgBase[0] = 1.00 * emis; kgBase[1] = (quality >= 1 ? 1.045 : 1.0) * emis;
+        kgTube[0] = kgBase[0]; kgTube[1] = kgBase[1];
+    }
     void settle() {
         Vb = V0 - 0.2 * (V0 - 415); V1 = Vb; iL = 0.19; Vko = 25; Vkd = 4; Vbd = quality == 2 ? 258 : 260;
         drvVp[0] = drvVp[1] = 140; ccQ[0] = ccQ[1] = 140; vPrev = 0; phi = 0; eddy = 0;
@@ -454,7 +462,7 @@ private:
         std::memcpy(play, s.pl, sizeof play);
     }
 
-    const double fs;
+    double fs;   // not const: instances are copy-assigned when a model/quality change is prepared off the audio thread
     int model = M122, quality = 1;
     double drive = 0.35, kin = 1.2 * std::pow(30.0, 0.35), sag = 0.5, age = 0.0;
     Oversampler ovs;

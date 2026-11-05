@@ -42,7 +42,11 @@ MainComponent::MainComponent() {
         })
         // "chantest": plays a 0.5 s test tone on one output channel (index as argument) so the user can identify speakers
         .withNativeFunction("chantest", [this](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
-            if (args.size() > 0) { testChannel = (int) args[0]; testSamplesLeft = (int) (currentSampleRate * 0.5); testPhase = 0; }
+            if (args.size() > 0) {
+                testIsLfe = args.size() > 1 && (bool) args[1];
+                testSamplesLeft = (int) (currentSampleRate * 0.5); testPhase = 0;
+                testChannel = (int) args[0];   // published last: the audio thread reads the count only after it sees the channel
+            }
             complete(var());
         });
     web = std::make_unique<WebBrowserComponent>(opts);
@@ -75,8 +79,13 @@ MainComponent::~MainComponent() {
 
 void MainComponent::resized() { web->setBounds(getLocalBounds()); }
 
+// Newly appearing MIDI inputs are switched on automatically; inputs the user disabled in the dialog stay off.
 void MainComponent::enableAllMidiInputs() {
-    for (auto& d : MidiInput::getAvailableDevices()) deviceManager.setMidiInputDeviceEnabled(d.identifier, true);
+    for (auto& d : MidiInput::getAvailableDevices()) {
+        if (knownMidiInputs.contains(d.identifier)) continue;
+        knownMidiInputs.add(d.identifier);
+        deviceManager.setMidiInputDeviceEnabled(d.identifier, true);
+    }
 }
 
 // ---------------- Audio ----------------
@@ -100,8 +109,11 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
     float* ptrs[16];
     for (int c = 0; c < 16; c++) { if (scratch[c].size() < (size_t) numSamples) scratch[c].assign((size_t) numSamples, 0.f); ptrs[c] = scratch[c].data(); }
     {
-        std::lock_guard<std::mutex> lock(dspLock);
-        dsp->process(ptrs, 16, numSamples);
+        // try_lock: if the message thread holds the lock (room rebuild, amp swap) we output one silent block
+        // instead of stalling the driver
+        std::unique_lock<std::mutex> lock(dspLock, std::try_to_lock);
+        if (lock.owns_lock()) dsp->process(ptrs, 16, numSamples);
+        else for (int c = 0; c < 16; c++) FloatVectorOperations::clear(ptrs[c], numSamples);
     }
     for (int c = 0; c < nCh; c++) if (outputChannelData[c]) FloatVectorOperations::copy(outputChannelData[c], ptrs[c], numSamples);
 
@@ -109,14 +121,16 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
     // (index 3 of a 5.1 layout), with 20 ms fade in/out
     int tc = testChannel.load();
     if (tc >= 0 && testSamplesLeft > 0 && tc < numOutputChannels && outputChannelData[tc]) {
-        double f = tc == 3 && numOutputChannels >= 6 ? 55.0 : 440.0;
-        for (int i = 0; i < numSamples && testSamplesLeft > 0; i++, testSamplesLeft--) {
-            double env = jmin(1.0, testSamplesLeft / (0.02 * currentSampleRate), (currentSampleRate * 0.5 - testSamplesLeft) / (0.02 * currentSampleRate));
+        double f = testIsLfe.load() ? 55.0 : 440.0;
+        int left = testSamplesLeft.load();
+        for (int i = 0; i < numSamples && left > 0; i++, left--) {
+            double env = jmin(1.0, left / (0.02 * currentSampleRate), (currentSampleRate * 0.5 - left) / (0.02 * currentSampleRate));
             testPhase += f / currentSampleRate; if (testPhase >= 1) testPhase -= 1;
             double tri = 1 - 4 * std::fabs(testPhase - 0.5);
             outputChannelData[tc][i] += (float) (tri * 0.18 * env);
         }
-        if (testSamplesLeft <= 0) testChannel = -1;
+        testSamplesLeft = left;
+        if (left <= 0) testChannel = -1;
     }
     // Output level meters: accumulate energy, publish RMS per channel every 1024 samples
     for (int c = 0; c < nCh; c++) { float s = 0; const float* x = outputChannelData[c] ? outputChannelData[c] : ptrs[c]; for (int i = 0; i < numSamples; i++) s += x[i] * x[i]; meterAcc[(size_t) c] += s; }
@@ -149,7 +163,7 @@ void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) 
             int cc = m.getControllerNumber(), v = m.getControllerValue();
             if (cc == leslieCC.load()) { dsp->setLeslie(v >= 64 ? "fast" : "slow"); auto* o = new DynamicObject(); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); ev = var(o); }
             else if (cc == swellCC.load()) { dsp->setVolume(v / 127.0); auto* o = new DynamicObject(); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); ev = var(o); }
-            else if (cc == 123) dsp->panic();
+            else if (cc == 123) { dsp->panic(); auto* o = new DynamicObject(); o->setProperty("type", "panic"); ev = var(o); }
         }
     }
     if (!ev.isVoid()) MessageManager::callAsync([this, ev] { if (web) web->emitEventIfBrowserIsVisible("midi", ev); });
@@ -208,6 +222,7 @@ void MainComponent::sendRoomInfo() {
 }
 
 void MainComponent::openAudioSettings() {
+    if (settingsWindow != nullptr) { settingsWindow->toFront(true); return; }
     auto* sel = new AudioDeviceSelectorComponent(deviceManager, 0, 0, 2, 16, true, false, false, false);
     sel->setSize(520, 560);
     DialogWindow::LaunchOptions lo;
@@ -217,7 +232,7 @@ void MainComponent::openAudioSettings() {
     lo.escapeKeyTriggersCloseButton = true;
     lo.useNativeTitleBar = true;
     lo.resizable = true;
-    lo.launchAsync();
+    settingsWindow = lo.launchAsync();
 }
 
 // ---------------- Messages from the UI (same JSON format the browser prototype uses) ----------------
@@ -239,7 +254,7 @@ void MainComponent::handleDspMessage(const var& m) {
             p.on = (bool) v.getProperty("on", true); p.third = (bool) v.getProperty("third", true); p.fast = (bool) v.getProperty("fast", true); p.soft = (bool) v.getProperty("soft", false);
             d.setPerc(p); d.setVibRouting((bool) v.getProperty("vibU", true), (bool) v.getProperty("vibL", false));
         }
-        else if (type == "amp") d.setAmp((int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5));
+        else if (type == "amp") { ampRequest = { (int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5) }; d.setAmpSag(ampRequest.sag); }
         else if (type == "rotor") d.setRotor((int) numProp(m, "r", 0), numProp(m, "slow", 0.75), numProp(m, "fast", 6.8), numProp(m, "up", 0.8), numProp(m, "down", 1.4));
         else if (type == "spring") d.setSpring(numProp(m, "mix", 0) > 0.001, numProp(m, "mix", 0.2), numProp(m, "decay", 2.8), numProp(m, "tone", 0.5), numProp(m, "drive", 0.3), (int) numProp(m, "springs", 3));
         else if (type == "springKick") d.kickSpring(numProp(m, "v", 1));
@@ -308,7 +323,10 @@ void MainComponent::handleDspMessage(const var& m) {
             if (auto* a = m.getProperty("az", var()).getArray()) for (auto& x : *a) s.az.push_back((double) x);
             if (auto* a = m.getProperty("ch", var()).getArray()) for (auto& x : *a) s.ch.push_back((int) x);
             s.lfe = (int) m.getProperty("lfe", -1); s.stereo = (bool) m.getProperty("stereo", false);
-            if (!s.az.empty() && s.az.size() == s.ch.size()) d.setSpeakers(s);
+            // the room/listener mix has 8 speaker slots; reject anything outside (a stale saved mapping must not crash the app)
+            bool valid = !s.az.empty() && s.az.size() == s.ch.size() && s.lfe < 8;
+            for (int c : s.ch) if (c < 0 || c >= 8) valid = false;
+            if (valid) d.setSpeakers(s);
         }
         else if (type == "taps") {
             std::vector<leslie::Tap> taps;
@@ -322,6 +340,25 @@ void MainComponent::handleDspMessage(const var& m) {
         }
     }
     if (roomInfoChanged) sendRoomInfo();
+    if (type == "amp") applyAmpModelOffLock();
+}
+
+// A model or quality change re-settles the whole tube circuit (hundreds of ms of simulation). Doing that under
+// dspLock would stall the audio thread, so the new amplifier is prepared on a copy and swapped in afterwards.
+void MainComponent::applyAmpModelOffLock() {
+    const AmpRequest req = ampRequest;
+    std::unique_ptr<leslie::amp::LeslieAmp> ampCopy; std::unique_ptr<leslie::amp::OrganPreamp> preCopy;
+    {
+        std::lock_guard<std::mutex> lock(dspLock);
+        if (dsp->ampModel().getModel() != req.model || dsp->ampModel().getQuality() != req.quality) ampCopy = std::make_unique<leslie::amp::LeslieAmp>(dsp->ampModel());
+        if (dsp->preampModel().getQuality() != req.quality) preCopy = std::make_unique<leslie::amp::OrganPreamp>(dsp->preampModel());
+    }
+    if (!ampCopy && !preCopy) return;
+    if (ampCopy) { ampCopy->setModel(req.model); ampCopy->setQuality(req.quality); ampCopy->setSag(req.sag); }
+    if (preCopy) preCopy->setQuality(req.quality);
+    std::lock_guard<std::mutex> lock(dspLock);
+    if (ampCopy) dsp->ampModel() = *ampCopy;
+    if (preCopy) dsp->preampModel() = *preCopy;
 }
 
 std::optional<WebBrowserComponent::Resource> MainComponent::getResource(const String& url) {
