@@ -55,7 +55,18 @@ struct Path {
     double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, glr = 1, kTrace = 1;
 };
 
-struct Rotor { double ang, hz, tgt, slow, fast, r, h, upTau, dnTau; };
+struct Rotor { double ang, hz, tgt, slow, fast, r, h, upTau, dnTau; double lastSin = 0, lastCos = 1; };
+
+/** Per-sub-block working set of one fast path (higher-order image or traced ray): everything the sample loop
+    needs, in float and in one cache line, with the per-sample increments precomputed. */
+struct FastPathRT {
+    double ds, dds;     // delay in samples and its increment (double: a float would quantise the fractional delay)
+    float g, dg;        // gain (path gain x cabinet) and its increment
+    float u, du;        // drum directivity 0..1 and increment (drum paths only)
+    float kb, zd, lp, zlo, glr, hf;
+    int bP, bN;
+    uint8_t horn, trace;
+};
 
 struct Room {
     double Lx = 6, Ly = 8, Lz = 2.8, absorb = 0.25, reverb = 1, tentVolume = 0, tentSurface = 0;
@@ -210,6 +221,22 @@ private:
     void drawbarAmps(int man, double* amps) const;
     // One-pole low-pass coefficient for cutoff f (Hz), clamped below Nyquist
     double kOf(double f) const { return 1 - std::exp(-TWO_PI * std::min(f, fs * 0.45) / fs); }
+    /** Exact horn directivity filter coefficient for the angle between horn axis and listener (cos). The horn mouth
+        radiates like a 9 cm piston: the cut-off falls with the sine of the off-axis angle, behind the horn it keeps falling. */
+    double hornKExact(double cosE) const {
+        const double PI = 3.14159265358979;
+        double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
+        double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
+        return kOf(std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))));
+    }
+    static constexpr int HORNK_N = 1024;
+    std::array<float, HORNK_N + 1> hornKTab{};   // hornKExact sampled over cosE in [-1, 1]
+    /** Table lookup of hornKExact (linear interpolation; error < 1e-5 relative to the per-sample exact value). */
+    double hornK(double cosE) const {
+        double x = (cosE + 1) * (HORNK_N / 2.0); if (x < 0) x = 0; else if (x > HORNK_N) x = HORNK_N;
+        int i = (int) x; if (i >= HORNK_N) i = HORNK_N - 1; double f = x - i;
+        return hornKTab[(size_t) i] + (hornKTab[(size_t) i + 1] - hornKTab[(size_t) i]) * f;
+    }
 
     // Semitone offset of each drawbar relative to the 8' fundamental (16', 5 1/3', 8', 4', 2 2/3', 2', 1 3/5', 1 1/3', 1')
     static constexpr int DB_OFF[9] = {-12, 7, 0, 12, 19, 24, 28, 31, 36};
@@ -271,6 +298,7 @@ private:
     struct Pos { double x, y, tx, ty; } lesliePos{3, 6, 3, 6};
     struct ListenerPos { double x, y, tx, ty, yaw, tyaw, z; } listener{3, 2.5, 3, 2.5, 1.5707963, 1.5707963, 1.2};
     std::vector<Path> paths;
+    std::vector<FastPathRT> fastRT; std::vector<int> fastIdx;   // rebuilt every sub-block from `paths`
     int nRefl = 0;
     RoomInfo roomInfo;
     double rt60[3] = {0, 0, 0};
@@ -292,7 +320,7 @@ private:
     std::vector<std::vector<float>> fdnBuf, apBuf, lapBuf;
     std::array<int, 16> fdnLen{}, fdnIdx{}, lapLen{}, lapIdx{};
     std::array<int, 6> apLen{}, apIdx{};
-    std::array<double, 16> fdnGl{}, fdnGm{}, fdnGh{}, fdnZlo{}, fdnZhi{}, fdnModPh{}, fdnModInc{};
+    std::array<double, 16> fdnGl{}, fdnGm{}, fdnGh{}, fdnZlo{}, fdnZhi{}, fdnModPh{}, fdnModInc{}, fdnOff0{}, fdnOffD{};
     double fdnModDepth = 4, fdnInGain = 0, kLoBand = 0, kHiBand = 0;
     std::vector<float> preBuf; int preIdx = 0, preLen = 480;
     double revInZ = 0, revInK = 0, revHpZ = 0, revHpK = 0;
@@ -358,6 +386,7 @@ inline void LeslieRoomDSP::init() {
     fdnBuf.assign(16, std::vector<float>(65536, 0.f)); apBuf.assign(6, std::vector<float>(4096, 0.f)); lapBuf.assign(16, std::vector<float>(2048, 0.f));
     for (int i = 0; i < 16; i++) { fdnModPh[i] = rnd(); fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs; }
     orgBuf.assign(4096, 0.f); events.reserve(4096);
+    for (int i = 0; i <= HORNK_N; i++) hornKTab[(size_t) i] = (float) hornKExact(-1 + 2.0 * i / HORNK_N);
     kLoBand = 1 - std::exp(-TWO_PI * 250 / fs); kHiBand = 1 - std::exp(-TWO_PI * 3500 / fs);
     preBuf.assign(8192, 0.f);
     revInK = 1 - std::exp(-TWO_PI * 6000 / fs); revHpK = 1 - std::exp(-TWO_PI * 45 / fs);
@@ -539,6 +568,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
     }
     if (old.size() == np.size()) for (size_t i = 0; i < np.size(); i++) { np[i].gPrev = old[i].gPrev; np[i].gNext = old[i].gNext; np[i].init = old[i].init; np[i].lp = old[i].lp; }
     paths = std::move(np);
+    fastRT.reserve(paths.size()); fastIdx.reserve(paths.size());
     nRefl = 0; for (auto& p : paths) if (p.order > 0) nRefl++; nRefl /= 2;
 
     double V = tent && R.tentVolume > 0 ? R.tentVolume : R.Lx * R.Ly * R.Lz;
@@ -917,6 +947,31 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         else { panGains(az, hfr, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; } }
     }
     for (int c = 0; c < nCh; c++) std::fill(out[c], out[c] + N, 0.f);
+    // Working set for the fast paths: linear ramps over this sub-block. The cabinet factor is folded into the
+    // gain ramp (start and end products interpolated linearly, which is indistinguishable from the exact product
+    // over <= 64 samples).
+    fastRT.clear(); fastIdx.clear();
+    {
+        const float invN = 1.0f / (float) N; const double fsc = fs / C_SOUND;
+        for (size_t q = 0; q < paths.size(); q++) {
+            const Path& p = paths[q]; if (!p.fast) continue;
+            FastPathRT r;
+            const double ds0 = p.d0 * fsc, ds1 = p.d1 * fsc;
+            const float g0 = (float) (p.g0 * p.cab0), g1 = (float) (p.g1 * p.cab1);
+            r.ds = ds0; r.dds = (ds1 - ds0) / N; r.g = g0; r.dg = (g1 - g0) * invN;
+            r.u = (float) p.dl0; r.du = (float) (p.dl1 - p.dl0) * invN;
+            r.kb = (float) p.kb; r.zd = (float) p.zd; r.lp = (float) p.lp; r.zlo = (float) p.zlo; r.glr = (float) p.glr; r.hf = (float) p.hf;
+            r.bP = p.bP; r.bN = p.bN; r.horn = p.rotor == 0; r.trace = p.trace;
+            fastRT.push_back(r); fastIdx.push_back((int) q);
+        }
+    }
+    // FDN delay modulation (0.1-0.5 Hz): evaluate the sine at the sub-block edges and ramp in between
+    for (int i = 0; i < 16; i++) {
+        double ph0 = fdnModPh[i], ph1 = ph0 + fdnModInc[i] * N; if (ph1 >= 1) ph1 -= 1;
+        double o0 = fdnLen[i] - 2 - fdnModDepth * (0.5 + 0.5 * std::sin(TWO_PI * ph0));
+        double o1 = fdnLen[i] - 2 - fdnModDepth * (0.5 + 0.5 * std::sin(TWO_PI * ph1));
+        fdnOff0[i] = o0; fdnOffD[i] = o1 - o0; fdnModPh[i] = ph1;
+    }
     // Listener <-> microphone mode: crossfade smoothly; whatever is fully faded out is not computed (the reverb runs for both)
     const double modeT = micSetup.on ? 1 : 0;
     const bool micsOn = micSetup.on || modeMix > 1e-5, lisOn = !micSetup.on || modeMix < 1 - 1e-5;
@@ -942,6 +997,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     const double master = 6.5 * masterGain;
     const double kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs), kScale = TWO_PI / fs;
     const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
+    constexpr double COS1 = 0.5403023058681398, SIN1 = 0.8414709848078965;
     const size_t np = paths.size();
 
     // ---------- 1) Organ: tonewheels, manuals, key contacts, percussion, scanner vibrato, expression pedal -> orgBuf ----------
@@ -1011,9 +1067,12 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         const int wi = wIdx;
         bufH[wi] = (float) hi; bufD[wi] = (float) lo; bufC[wi] = (float) cabLp.run(hi);
 
-        rh.ang += rh.hz / fs * TWO_PI * (1 + wob * std::sin(rh.ang)); if (rh.ang > TWO_PI) rh.ang -= TWO_PI;
-        rd.ang += rd.hz / fs * TWO_PI * (1 + wob * std::sin(rd.ang + 1)); if (rd.ang > TWO_PI) rd.ang -= TWO_PI;
+        // Rotor angles. The wobble term (eccentric belt: speed varies once per revolution) uses the sine from the
+        // previous sample, which saves four trig calls per sample at no audible cost.
+        rh.ang += rh.hz / fs * TWO_PI * (1 + wob * rh.lastSin); if (rh.ang > TWO_PI) rh.ang -= TWO_PI;
+        rd.ang += rd.hz / fs * TWO_PI * (1 + wob * (rd.lastSin * COS1 + rd.lastCos * SIN1)); if (rd.ang > TWO_PI) rd.ang -= TWO_PI;   // sin(ang + 1)
         const double chc = std::cos(rh.ang), chs = std::sin(rh.ang), cdc = std::cos(rd.ang), cds = std::sin(rd.ang);
+        rh.lastSin = chs; rh.lastCos = chc; rd.lastSin = cds; rd.lastCos = cdc;
         const double tt = (n + 1.0) / N;
 
         acc.fill(0); bucket.fill(0);
@@ -1021,25 +1080,31 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
 
         // Listener rendering: every room path reads the rotor ring buffers with its own (Doppler) delay and directivity
 
+        if (lisOn) {
+            // Fast paths: float working set; the two type flags change only between long runs of paths
+            const float w1 = (float) tt, w0 = 1.0f - w1, kDrumLoF = (float) kDrumLo, kLoBandF = (float) kLoBand;
+            const float* bh = bufH.data(); const float* bd = bufD.data();
+            float lfeAcc = 0; float* bk = bucket.data(); float& bkOmni = bk[NB];
+            for (FastPathRT& r : fastRT) {
+                r.ds += r.dds; r.g += r.dg;
+                double rp = wi - r.ds; if (rp < 0) rp += DM + 1;
+                int i1 = (int) rp; float fr = (float) (rp - i1);
+                const float* buf = r.horn ? bh : bd;
+                float y1 = buf[i1 & DM];
+                float xin = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
+                if (!r.horn) { r.u += r.du; r.zd += kDrumLoF * (xin - r.zd); xin = r.zd * (0.85f + 0.15f * r.u) + (xin - r.zd) * (0.3f + 0.7f * r.u); }
+                if (r.trace) { r.zlo += kLoBandF * (xin - r.zlo); xin += (r.glr - 1.0f) * r.zlo; }
+                r.lp += r.kb * (xin - r.lp);
+                float v = r.lp * r.g;
+                if (!r.horn) lfeAcc += v;
+                float vh = v * r.hf;
+                bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; bkOmni += v - vh;
+            }
+            lfeIn += lfeAcc;
+        }
         for (size_t q = 0; q < (lisOn ? np : 0); q++) {
             Path& p = paths[q];
-            if (p.fast) {
-                double d = p.d0 + (p.d1 - p.d0) * tt, g = (p.g0 + (p.g1 - p.g0) * tt) * (p.cab0 + (p.cab1 - p.cab0) * tt);
-                double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
-                int i1 = (int) rp; double fr = rp - i1;
-                bool hornP = p.rotor == 0;
-                const float* buf = hornP ? bufH.data() : bufD.data();
-                double y1 = buf[i1 & DM];
-                double xin = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
-                if (!hornP) { double u = p.dl0 + (p.dl1 - p.dl0) * tt; p.zd += kDrumLo * (xin - p.zd); xin = p.zd * (0.85 + 0.15 * u) + (xin - p.zd) * (0.3 + 0.7 * u); }
-                if (p.trace) { p.zlo += kLoBand * (xin - p.zlo); xin += (p.glr - 1) * p.zlo; }
-                p.lp += p.kb * (xin - p.lp);
-                double v = p.lp * g;
-                if (p.rotor) lfeIn += v;
-                double vh = v * p.hf;
-                bucket[p.bP] += (float) (vh * (1 - tt)); bucket[p.bN] += (float) (vh * tt); bucket[NB] += (float) (v - vh);
-                continue;
-            }
+            if (p.fast) continue;
             bool horn = p.rotor == 0;
             double ca = horn ? chc : cdc, sa = horn ? chs : cds, rr = horn ? rh.r : rd.r;
             double dxp = p.sx * ca, dyp = p.sy * sa;
@@ -1059,10 +1124,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             double dirG, k;
             if (horn) {
                 dirG = 0.3 + 0.7 * u;
-                double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
-                double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
-                double fc = std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06)));
-                k = 1 - std::exp(-fc * kScale);
+                k = hornK(cosE);
                 if (p.order == 0 || p.order == 1) {
                     double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
                     if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornBoxLevel / std::max(0.05, dirG); }
@@ -1104,9 +1166,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
                         double dirG, k;
                         if (horn) {
                             dirG = 0.3 + 0.7 * u;
-                            double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
-                            double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
-                            k = 1 - std::exp(-std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))) * kScale);
+                            k = hornK(cosE);
                             // when the horn points away, sound reaches the mic via the horn compartment (reflection inside the cabinet)
                             double back = std::max(0.0, -cosE);
                             if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
@@ -1157,8 +1217,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         double inj = preBuf[pi] * revGain;
         for (int i = 0; i < 6; i++) { auto& b = apBuf[i]; int ix = apIdx[i]; double dl = b[ix]; double x = inj - 0.68 * dl; b[ix] = (float) x; inj = dl + 0.68 * x; int ni = ix + 1; if (ni >= apLen[i]) ni = 0; apIdx[i] = ni; }
         for (int i = 0; i < 16; i++) {
-            double ph = fdnModPh[i] + fdnModInc[i]; if (ph >= 1) ph -= 1; fdnModPh[i] = ph;
-            double off = fdnLen[i] - 2 - fdnModDepth * (0.5 + 0.5 * std::sin(TWO_PI * ph));
+            double off = fdnOff0[i] + fdnOffD[i] * tt;   // modulated read offset, ramped over the sub-block
             double rp = fdnIdx[i] - off; if (rp < 0) rp += 65536;
             int ri = (int) rp; double rf = rp - ri;
             const auto& b = fdnBuf[i];
@@ -1217,6 +1276,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         }
         wIdx = (wi + 1) & DM;
     }
+    for (size_t i = 0; i < fastRT.size(); i++) { Path& p = paths[(size_t) fastIdx[i]]; const FastPathRT& r = fastRT[i]; p.zd = r.zd; p.lp = r.lp; p.zlo = r.zlo; }
     if (micsOn) {
         micMeterN += N;
         if (micMeterN >= 2048) { for (int c = 0; c < MIC_CH; c++) { micMeterVal[c] = (float) std::sqrt(micMeterAcc[c] / micMeterN) * (float) master; micMeterAcc[c] = 0; } micMeterN = 0; }

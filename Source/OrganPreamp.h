@@ -84,7 +84,7 @@ private:
             double f = Vp - Vb + Ra1 * ip, df = 1 + Ra1 * gp;
             double d = f / df; Vp -= d;
             if (Vp < Vk1 + 0.5) Vp = Vk1 + 0.5; else if (Vp > Vb) Vp = Vb;
-            if (std::fabs(d) < 1e-4) break;
+            if (std::fabs(d) < NEWTON_TOL_V) break;   // quadratic convergence: a step this small means the next error is far below 1 mV
         }
         vp1 = Vp; double ip1 = ip;
         double rout1 = 1 / (1 / Ra1 + std::max(gp, 1e-8));
@@ -102,7 +102,7 @@ private:
                     gridCurrent(T_12BH7.rgi, T_12BH7.vth, T_12BH7.w, Vgj - Vk2, igj, dig);
                     double f = (s - Vgj) / Req - Vgj / Rg - igj, df = -1 / Req - 1 / Rg - dig;
                     double d = f / df; Vgj -= d;
-                    if (std::fabs(d) < 1e-4) break;
+                    if (std::fabs(d) < NEWTON_TOL_V) break;   // quadratic convergence: a step this small means the next error is far below 1 mV
                 }
                 gridCurrent(T_12BH7.rgi, T_12BH7.vth, T_12BH7.w, Vgj - Vk2, igj, dig);
             }
@@ -122,7 +122,7 @@ private:
             double d = F / dF; v -= d;
             double vmax = Vb - Vk2 - 2;
             if (v > vmax) v = vmax; else if (v < -vmax) v = -vmax;
-            if (std::fabs(d) < 1e-3) break;
+            if (std::fabs(d) < NEWTON_TOL_OUT_V) break;
         }
         vPrev = v;
         coreUpdate(2 * v);

@@ -17,6 +17,7 @@
 //                (voice coil + drum resonance), tube tolerance with drift, eddy currents in the core
 #pragma once
 #include <cmath>
+#include "FastMath.h"
 #include <vector>
 #include <algorithm>
 #include <cstdint>
@@ -30,6 +31,9 @@ constexpr double PI = 3.14159265358979323846;
 struct Triode { double mu, ex, kg1, kp, kvb, rgi, vth, w; };
 struct Pentode { double mu, ex, kg1, kg2, kp, kvb, rgi, vth, w; };
 // 12AU7 as in Amberwave Glow, 6550 per Koren
+// Newton termination: once a step is this small the next one would be ~1e-6 V, so the evaluation is skipped
+static constexpr double NEWTON_TOL_V = 3e-3, NEWTON_TOL_OUT_V = 3e-2;
+
 static const Triode T_12AU7 { 21.5, 1.3, 1180, 84, 300, 2000, -0.7, 0.12 };
 static const Pentode P_6550 { 7.9, 1.35, 890, 4200, 60, 24, 1000, -0.7, 0.18 };
 
@@ -64,7 +68,7 @@ static inline PentGrid pentGrid(const Pentode& P, double Vg1k, double Vg2k, doub
     double kg = P.kg1 * kgScale;
     return { 2 * e / kg, 2 * P.ex * e / E1 / kg * sig };
 }
-static inline double pentAtan(const Pentode& P, double Vpk) { return std::atan(std::max(Vpk, 0.5) / P.kvb); }
+static inline double pentAtan(const Pentode& P, double Vpk) { return fastmath::atanFast(std::max(Vpk, 0.5) / P.kvb); }
 static inline double pentAtanD(const Pentode& P, double Vpk) { double x = std::max(Vpk, 0.5) / P.kvb; return (1 / P.kvb) / (1 + x * x); }
 static inline double screenCurrent(const Pentode& P, double Vg1k, double Vg2k, double kgScale) {
     double x = Vg1k + Vg2k / P.mu;
@@ -75,7 +79,7 @@ static inline double screenCurrent(const Pentode& P, double Vg1k, double Vg2k, d
 static inline void gridCurrent(double rgi, double vth, double w, double Vgk, double& ig, double& dig) {
     double xg = (Vgk - vth) / w;
     if (xg > 30) { ig = (Vgk - vth) / rgi; dig = 1 / rgi; return; }
-    if (xg < -40) { ig = 0; dig = 0; return; }
+    if (xg < -25) { ig = 0; dig = 0; return; }   // below this the current is < 1e-11 A: nothing to compute
     double e = std::exp(xg);
     ig = w * std::log1p(e) / rgi; dig = (e / (1 + e)) / rgi;
 }
@@ -86,6 +90,7 @@ static inline double besselI0(double x) { double s = 1, t = 1; for (int k = 1; k
 struct Oversampler {
     int os = 1, taps = 1, ph = 1, delay = 0;
     std::vector<double> h, up, down;   // h: length ph*os
+    std::vector<double> hUpRev, hDownRev;   // polyphase rows / full filter, stored reversed so the FIRs are contiguous dot products
     std::vector<double> ringUp, ringDown;
     int posUp = 0, posDown = 0;
     void init(int factor) {
@@ -102,15 +107,19 @@ struct Oversampler {
         }
         for (auto& v : h) v *= os / sum;   // gain of os when upsampling (zeros are inserted)
         ringUp.assign((size_t) ph * 2, 0.0); ringDown.assign((size_t) taps * 2, 0.0); posUp = posDown = 0;
+        hUpRev.assign((size_t) os * ph, 0.0); hDownRev.assign((size_t) taps, 0.0);
+        for (int k = 0; k < os; k++) for (int j = 0; j < ph; j++) hUpRev[(size_t) (k * ph + j)] = h[(size_t) (k + (ph - 1 - j) * os)];
+        for (int j = 0; j < taps; j++) hDownRev[(size_t) j] = h[(size_t) (taps - 1 - j)];
     }
     // one input sample → os output samples
     void upsample(double x, double* out) {
         if (os == 1) { out[0] = x; return; }
         ringUp[(size_t) posUp] = x; ringUp[(size_t) (posUp + ph)] = x;
+        const double* win = ringUp.data() + posUp + 1;   // the ph most recent inputs, oldest first
         for (int k = 0; k < os; k++) {
+            const double* hk = hUpRev.data() + (size_t) k * ph;
             double s = 0;
-            // output k: sum over j of h[k + j*os] * x[n - j]
-            for (int j = 0; j < ph; j++) s += h[(size_t) (k + j * os)] * ringUp[(size_t) (posUp + ph - j)];
+            for (int j = 0; j < ph; j++) s += hk[j] * win[j];   // output k: sum over j of h[k + j*os] * x[n - j]
             out[k] = s;
         }
         posUp = posUp == ph - 1 ? 0 : posUp + 1;
@@ -122,8 +131,9 @@ struct Oversampler {
         for (int k = 0; k < os; k++) {
             ringDown[(size_t) posDown] = in[k]; ringDown[(size_t) (posDown + taps)] = in[k];
             if (k == 0) {
+                const double* win = ringDown.data() + posDown + 1; const double* hr = hDownRev.data();
                 double s = 0;
-                for (int j = 0; j < taps; j++) s += h[(size_t) j] * ringDown[(size_t) (posDown + taps - j)];
+                for (int j = 0; j < taps; j++) s += hr[j] * win[j];
                 y = s / os;
             }
             posDown = posDown == taps - 1 ? 0 : posDown + 1;
@@ -223,7 +233,7 @@ private:
                 double f = Vp - Vbd + Ra * ip, df = 1 + Ra * gp;
                 double d = f / df; Vp -= d;
                 if (Vp < Vkd + 1) Vp = Vkd + 1; else if (Vp > Vbd) Vp = Vbd;
-                if (std::fabs(d) < 1e-4) break;
+                if (std::fabs(d) < NEWTON_TOL_V) break;   // quadratic convergence: a step this small means the next error is far below 1 mV
             }
             drvVp[j] = Vp; vpoc[j] = Vp; ipd[j] = ip;
             rout[j] = quality == 2 ? 1 / (1 / Ra + std::max(gp, 1e-7)) : drvRout;
@@ -242,7 +252,7 @@ private:
                     double f = (src - Vgj) / Req - Vgj / Rg - igj;
                     double df = -1 / Req - 1 / Rg - dig;
                     double d = f / df; Vgj -= d;
-                    if (std::fabs(d) < 1e-4) break;
+                    if (std::fabs(d) < NEWTON_TOL_V) break;   // quadratic convergence: a step this small means the next error is far below 1 mV
                 }
                 gridCurrent(P_6550.rgi, P_6550.vth, P_6550.w, Vgj - VkoJ, igj, dig);
             }
@@ -277,7 +287,7 @@ private:
             double d = F / dF; v -= d;
             double vmax = Vb - Vko - 2;
             if (v > vmax) v = vmax; else if (v < -vmax) v = -vmax;
-            if (std::fabs(d) < 1e-3) break;
+            if (std::fabs(d) < NEWTON_TOL_OUT_V) break;
         }
         vPrev = v;
         lastIp[0] = ip0; lastIp[1] = ip1;

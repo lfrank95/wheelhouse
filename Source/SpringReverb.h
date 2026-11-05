@@ -58,7 +58,7 @@ public:
                 if (kickPh > 0.15) kickEnv = 0;
             }
             double sum = 0;
-            for (int s = 0; s < nSpr; s++) sum += springTick(spr[s], in) * (s == 1 ? -1 : 1);
+            sum = springsTick(in);
             double y = outHp.run(outLp2.run(outLp.run(sum)));
             y = toneLp.run(y);
             peak = std::max(peak, std::fabs(y));
@@ -80,31 +80,51 @@ private:
         double tapFrac = 0.3; int tapLen = 300;
     };
 
-    double springTick(Spring& S, double in) {
+    /** All springs in one pass: the allpass chains are evaluated stage by stage across springs so the CPU can
+        overlap the three independent dependency chains (the chain of one spring is strictly serial). */
+    double springsTick(double in) {
+        double v[3], sumOut = 0;
+        for (int s = 0; s < nSpr; s++) v[s] = springRead(spr[s]);
+        const int K = spr[0].K, j = spr[0].apIdx;   // all springs share K and advance their index together
+        if (nSpr == 3) {
+            float *X0 = spr[0].apX.data(), *Y0 = spr[0].apY.data(), *X1 = spr[1].apX.data(), *Y1 = spr[1].apY.data(), *X2 = spr[2].apX.data(), *Y2 = spr[2].apY.data();
+            const double a0 = spr[0].a, a1 = spr[1].a, a2 = spr[2].a;
+            for (int k = 0; k < NAP; k++) {
+                const int i = k * K + j;
+                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i]; X0[i] = (float) v[0]; Y0[i] = (float) y0; v[0] = y0;
+                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i]; X1[i] = (float) v[1]; Y1[i] = (float) y1; v[1] = y1;
+                double y2 = a2 * v[2] + X2[i] - a2 * Y2[i]; X2[i] = (float) v[2]; Y2[i] = (float) y2; v[2] = y2;
+            }
+        } else {
+            float *X0 = spr[0].apX.data(), *Y0 = spr[0].apY.data(), *X1 = spr[1].apX.data(), *Y1 = spr[1].apY.data();
+            const double a0 = spr[0].a, a1 = spr[1].a;
+            for (int k = 0; k < NAP; k++) {
+                const int i = k * K + j;
+                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i]; X0[i] = (float) v[0]; Y0[i] = (float) y0; v[0] = y0;
+                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i]; X1[i] = (float) v[1]; Y1[i] = (float) y1; v[1] = y1;
+            }
+        }
+        for (int s = 0; s < nSpr; s++) { spr[s].apIdx = (j + 1) % K; sumOut += springWrite(spr[s], in, v[s]) * (s == 1 ? -1 : 1); }
+        return sumOut;
+    }
+    /** Read the modulated delay line of one spring (input of its allpass chain). */
+    double springRead(Spring& S) {
         // travel time wobbles slightly (filtered noise + slow sine)
         S.modPh += S.modInc; if (S.modPh > 1) S.modPh -= 1;
         S.modZ += 0.0008 * ((rnd() * 2 - 1) - S.modZ);
         double off = S.len - 2 - S.modDepth * (0.5 + 0.35 * std::sin(TWO_PI_S * S.modPh) + 6 * S.modZ);
         double rp = S.idx - off; const int L = (int) S.dl.size(); while (rp < 0) rp += L;
         int i0 = (int) rp; double fr = rp - i0;
-        double d = S.dl[(size_t) (i0 % L)] + (S.dl[(size_t) ((i0 + 1) % L)] - S.dl[(size_t) (i0 % L)]) * fr;
-        // dispersion: cascade of stretched allpass filters  H(z) = (a + z^-K) / (1 + a z^-K)
-        const int K = S.K, j = S.apIdx; const double a = S.a;
-        double v = d;
-        float* X = S.apX.data(); float* Y = S.apY.data();
-        for (int k = 0; k < NAP; k++) {
-            const int base = k * K;
-            double xk = X[base + j], yk = Y[base + j];       // values from K samples ago
-            double y = a * v + xk - a * yk;
-            X[base + j] = (float) v; Y[base + j] = (float) y;
-            v = y;
-        }
-        S.apIdx = (j + 1) % K;
+        int ia = i0 % L, ib = ia + 1; if (ib == L) ib = 0;
+        return S.dl[(size_t) ia] + (S.dl[(size_t) ib] - S.dl[(size_t) ia]) * fr;
+    }
+    /** Damping, DC blocking and feedback write of one spring; returns the spring's output. */
+    double springWrite(Spring& S, double in, double v) {
         v = S.lp2.run(S.lp1.run(v));
         v = S.dcb.run(v);
-        // feedback with damping, plus the input
         double w = in + v * S.g;
-        S.dl[(size_t) S.idx] = (float) w; S.idx = (S.idx + 1) % L;
+        const int L = (int) S.dl.size();
+        S.dl[(size_t) S.idx] = (float) w; S.idx = S.idx + 1 == L ? 0 : S.idx + 1;
         return v;
     }
 

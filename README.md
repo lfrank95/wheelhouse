@@ -92,7 +92,11 @@ Abel (2010) und Parker (2011). Regler: Hall (vorne), in der Karte Orgel Anteil, 
 * `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
 * `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
-* `tests/` – Messungen für Endstufe und Klangkern (`g++ -O2 -std=c++17 -ISource tests/dsp_test.cpp`)
+* `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
+* `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
+  `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
+  `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `bench.cpp` (Rechenlast je Stufe),
+  dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros
 
 ## Lizenz
 
