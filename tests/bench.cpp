@@ -1,5 +1,5 @@
 // Performance benchmark: CPU share per stage (one core, 48 kHz, 128-sample blocks).
-//   g++ -O2 -std=c++17 -ISource tests/bench.cpp -o bench && ./bench
+//   g++ -O2 -std=c++17 -pthread -ISource tests/bench.cpp -o bench && ./bench
 #include "../Source/LeslieRoomDSP.h"
 #include <cstdio>
 #include <chrono>

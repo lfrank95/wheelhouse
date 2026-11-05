@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "LeslieAmp.h"
 #include "OrganPreamp.h"
+#include "Workers.h"
 
 namespace leslie {
 
@@ -80,6 +81,7 @@ struct Perc { bool on = true, third = true, fast = true, soft = false; };
 struct Speakers { std::vector<double> az; std::vector<int> ch; int lfe = -1; bool stereo = false; };
 
 struct RoomInfo { double rt60[3] = {0, 0, 0}; double rc = 0; int paths = 0; };
+
 
 } // namespace leslie
 #include "MicRig.h"
@@ -155,6 +157,9 @@ public:
     void setRoom(const Room& r) { room = r; rebuildRoom(); }
     /** Precision of the reflections: false = fast (higher orders ramped per sub-block, direction buckets),
         true = exact per-sample rendering of every image up to room.order. Exact at order >= 4 is for offline rendering. */
+    /** Number of CPU threads used for the room rendering (1 = single-threaded). */
+    void setThreads(int n) { pool.setThreads(n); partials.resize((size_t) std::max(1, pool.getThreads())); }
+    int getThreads() const { return pool.getThreads(); }
     void setExactPaths(bool exact) { if (exact != exactPaths) { exactPaths = exact; rebuildRoom(); } }
     bool exactPathsEnabled() const { return exactPaths; }
     /** Direct access to the room for in-place edits; call roomChanged() afterwards. */
@@ -302,7 +307,17 @@ private:
     struct Pos { double x, y, tx, ty; } lesliePos{3, 6, 3, 6};
     struct ListenerPos { double x, y, tx, ty, yaw, tyaw, z; } listener{3, 2.5, 3, 2.5, 1.5707963, 1.5707963, 1.2};
     std::vector<Path> paths;
-    std::vector<FastPathRT> fastRT; std::vector<int> fastIdx;   // rebuilt every sub-block from `paths`
+    std::vector<FastPathRT> fastRT; std::vector<int> fastIdx, exactIdx;   // rebuilt every sub-block from `paths`
+    // ---- parallel room rendering: per-sample values of the sub-block and one partial sum per job ----
+    static constexpr int SUB = 64;
+    WorkerPool pool;
+    int blockN = 0, listenerJobs = 0; bool blockLisOn = true, blockMicsOn = false;
+    std::array<int, SUB> wiArr{};
+    std::array<double, SUB> chcA{}, chsA{}, cdcA{}, cdsA{}, hiA{}, loA{};
+    double micRaw[6][SUB] = {};
+    void renderListenerJob(int job);
+    void renderMicJob(int micIndex);
+    void renderJob(int job) { if (job < listenerJobs) renderListenerJob(job); else renderMicJob(job - listenerJobs); }
     int nRefl = 0;
     bool exactPaths = false;
     RoomInfo roomInfo;
@@ -317,6 +332,8 @@ private:
     std::vector<SpkS> spkSorted;
     double uniG = 1;
     static constexpr int NB = 24;
+    struct Partial { double acc[SUB][8]; float bucket[SUB][NB + 1]; double lfe[SUB]; };   // one per rendering job
+    std::vector<Partial> partials;
     std::vector<std::array<float, 8>> bucketG;
     std::array<float, NB + 1> bucket{};
 
@@ -391,6 +408,7 @@ inline void LeslieRoomDSP::init() {
     fdnBuf.assign(16, std::vector<float>(65536, 0.f)); apBuf.assign(6, std::vector<float>(4096, 0.f)); lapBuf.assign(16, std::vector<float>(2048, 0.f));
     for (int i = 0; i < 16; i++) { fdnModPh[i] = rnd(); fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs; }
     orgBuf.assign(4096, 0.f); events.reserve(4096);
+    pool.setJob([this](int job) { renderJob(job); }); partials.resize(1);
     for (int i = 0; i <= HORNK_N; i++) hornKTab[(size_t) i] = (float) hornKExact(-1 + 2.0 * i / HORNK_N);
     kLoBand = 1 - std::exp(-TWO_PI * 250 / fs); kHiBand = 1 - std::exp(-TWO_PI * 3500 / fs);
     preBuf.assign(8192, 0.f);
@@ -575,7 +593,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
     }
     if (old.size() == np.size()) for (size_t i = 0; i < np.size(); i++) { np[i].gPrev = old[i].gPrev; np[i].gNext = old[i].gNext; np[i].init = old[i].init; np[i].lp = old[i].lp; }
     paths = std::move(np);
-    fastRT.reserve(paths.size()); fastIdx.reserve(paths.size());
+    fastRT.reserve(paths.size()); fastIdx.reserve(paths.size()); exactIdx.reserve(paths.size());
     nRefl = 0; for (auto& p : paths) if (p.order > 0) nRefl++; nRefl /= 2;
 
     double V = tent && R.tentVolume > 0 ? R.tentVolume : R.Lx * R.Ly * R.Lz;
@@ -878,7 +896,6 @@ inline void LeslieRoomDSP::micBlock(double bt) {
 /** Host blocks are split into sub-blocks of at most SUB samples so that the per-block geometry (rotor angles,
     path distances, directivity) is updated often enough; the result no longer depends on the host buffer size. */
 inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
-    constexpr int SUB = 64;
     float* sub[16];
     const int nc = std::min(nCh, 16);
     for (int off = 0; off < N; off += SUB) {
@@ -957,11 +974,11 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     // Working set for the fast paths: linear ramps over this sub-block. The cabinet factor is folded into the
     // gain ramp (start and end products interpolated linearly, which is indistinguishable from the exact product
     // over <= 64 samples).
-    fastRT.clear(); fastIdx.clear();
+    fastRT.clear(); fastIdx.clear(); exactIdx.clear();
     {
         const float invN = 1.0f / (float) N; const double fsc = fs / C_SOUND;
         for (size_t q = 0; q < paths.size(); q++) {
-            const Path& p = paths[q]; if (!p.fast) continue;
+            const Path& p = paths[q]; if (!p.fast) { exactIdx.push_back((int) q); continue; }
             FastPathRT r;
             const double ds0 = p.d0 * fsc, ds1 = p.d1 * fsc;
             const float g0 = (float) (p.g0 * p.cab0), g1 = (float) (p.g1 * p.cab1);
@@ -1061,7 +1078,9 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     // ---------- 2) Organ preamp, spring reverb and Leslie power amp (circuit models with their own oversampling) ----------
     pre.process(orgBuf.data(), N); spring.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);
 
-    // ---------- 3) Crossover, rotors, room paths, microphones, FDN reverb and mixer (per sample) ----------
+    // ---------- 3a) Crossover and rotors (sequential): fill the rotor ring buffers and the per-sample angles ----------
+    // Every path only ever reads the past of the ring buffers, so the whole sub-block can be written first and the
+    // paths rendered afterwards, which is what allows splitting them across threads.
     for (int n = 0; n < N; n++) {
         double s = orgBuf[(size_t) n];
         double lo = drumRes.run(lp2.run(lp1.run(s))) * drumLevel;
@@ -1073,134 +1092,44 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         }
         const int wi = wIdx;
         bufH[wi] = (float) hi; bufD[wi] = (float) lo; bufC[wi] = (float) cabLp.run(hi);
-
         // Rotor angles. The wobble term (eccentric belt: speed varies once per revolution) uses the sine from the
         // previous sample, which saves four trig calls per sample at no audible cost.
         rh.ang += rh.hz / fs * TWO_PI * (1 + wob * rh.lastSin); if (rh.ang > TWO_PI) rh.ang -= TWO_PI;
         rd.ang += rd.hz / fs * TWO_PI * (1 + wob * (rd.lastSin * COS1 + rd.lastCos * SIN1)); if (rd.ang > TWO_PI) rd.ang -= TWO_PI;   // sin(ang + 1)
         const double chc = std::cos(rh.ang), chs = std::sin(rh.ang), cdc = std::cos(rd.ang), cds = std::sin(rd.ang);
         rh.lastSin = chs; rh.lastCos = chc; rd.lastSin = cds; rd.lastCos = cdc;
+        wiArr[(size_t) n] = wi; chcA[(size_t) n] = chc; chsA[(size_t) n] = chs; cdcA[(size_t) n] = cdc; cdsA[(size_t) n] = cds; hiA[(size_t) n] = hi; loA[(size_t) n] = lo;
+        wIdx = (wi + 1) & DM;
+    }
+
+    // ---------- 3b) Room paths and microphones, in parallel: each job renders a slice of the paths for the whole sub-block ----------
+    blockN = N; blockLisOn = lisOn; blockMicsOn = micsOn;
+    const int threads = pool.getThreads();
+    listenerJobs = lisOn ? std::max(1, std::min(threads, (int) (exactIdx.size() + fastRT.size() / 4 + 15) / 16)) : 0;
+    const int micJobs = micsOn ? 6 : 0;
+    if ((int) partials.size() < listenerJobs) partials.resize((size_t) listenerJobs);   // normally pre-sized by setThreads()
+    pool.run(listenerJobs + micJobs);
+
+    // ---------- 3c) Per sample (sequential): sum the partials, mic post-processing, FDN reverb, mixer, output ----------
+    for (int n = 0; n < N; n++) {
+        const double chc = chcA[(size_t) n], chs = chsA[(size_t) n], hi = hiA[(size_t) n], lo = loA[(size_t) n];
         const double tt = (n + 1.0) / N;
 
         acc.fill(0); bucket.fill(0);
         double lfeIn = 0;
-
-        // Listener rendering: every room path reads the rotor ring buffers with its own (Doppler) delay and directivity
-
-        if (lisOn) {
-            // Fast paths: float working set; the two type flags change only between long runs of paths
-            const float w1 = (float) tt, w0 = 1.0f - w1, kDrumLoF = (float) kDrumLo, kLoBandF = (float) kLoBand;
-            const float* bh = bufH.data(); const float* bd = bufD.data();
-            float lfeAcc = 0; float* bk = bucket.data(); float& bkOmni = bk[NB];
-            for (FastPathRT& r : fastRT) {
-                r.ds += r.dds; r.g += r.dg;
-                double rp = wi - r.ds; if (rp < 0) rp += DM + 1;
-                int i1 = (int) rp; float fr = (float) (rp - i1);
-                const float* buf = r.horn ? bh : bd;
-                float y1 = buf[i1 & DM];
-                float xin = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
-                if (!r.horn) { r.u += r.du; r.zd += kDrumLoF * (xin - r.zd); xin = r.zd * (0.85f + 0.15f * r.u) + (xin - r.zd) * (0.3f + 0.7f * r.u); }
-                if (r.trace) { r.zlo += kLoBandF * (xin - r.zlo); xin += (r.glr - 1.0f) * r.zlo; }
-                r.lp += r.kb * (xin - r.lp);
-                float v = r.lp * r.g;
-                if (!r.horn) lfeAcc += v;
-                float vh = v * r.hf;
-                bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; bkOmni += v - vh;
-            }
-            lfeIn += lfeAcc;
-        }
-        for (size_t q = 0; q < (lisOn ? np : 0); q++) {
-            Path& p = paths[q];
-            if (p.fast) continue;
-            bool horn = p.rotor == 0;
-            double ca = horn ? chc : cdc, sa = horn ? chs : cds, rr = horn ? rh.r : rd.r;
-            double dxp = p.sx * ca, dyp = p.sy * sa;
-            double vx = H.x - (p.icx + dxp * rr), vy = H.y - (p.icy + dyp * rr), vz = H.z - p.iz;
-            double dist = std::sqrt(vx * vx + vy * vy + vz * vz) + p.jit;
-            double cosE = (dxp * vx + dyp * vy) / dist, u = 0.5 + 0.5 * cosE;
-            double rp = wi - dist * fsc; if (rp < 0) rp += DM + 1;
-            int i1 = (int) rp; double fr = rp - i1;
-            const float* buf = horn ? bufH.data() : bufD.data();
-            double v;
-            if (p.lin) { double y1 = buf[i1 & DM]; v = y1 + (buf[(i1 + 1) & DM] - y1) * fr; }
-            else {
-                double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
-                double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
-                v = ((c3 * fr + c2) * fr + c1) * fr + y1;
-            }
-            double dirG, k;
-            if (horn) {
-                dirG = 0.3 + 0.7 * u;
-                k = hornK(cosE);
-                if (p.order == 0 || p.order == 1) {
-                    double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
-                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornBoxLevel / std::max(0.05, dirG); }
-                }
-            } else {
-                p.zd += kDrumLo * (v - p.zd);
-                v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
-                dirG = 1; k = p.kDrum;
-            }
-            if (p.kc < k) k = p.kc;
-            p.lp += k * (v - p.lp); v = p.lp;
-            v *= dirG * p.g * (p.cab0 + (p.cab1 - p.cab0) * tt);
-            v /= (dist > 0.3 ? dist : 0.3);
-            if (!horn) lfeIn += v;
-            for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) acc[c] += v * gg; }
+        for (int j = 0; j < listenerJobs; j++) {
+            const Partial& P = partials[(size_t) j];
+            for (int c = 0; c < nSp; c++) acc[c] += P.acc[n][c];
+            for (int k = 0; k <= NB; k++) bucket[k] += P.bucket[n][k];
+            lfeIn += P.lfe[n];
         }
         if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
 
-        // ---------- Microphones ----------
+        // ---------- Microphones: rendered paths plus wind noise (the noise generator stays on this thread) ----------
         if (micsOn) {
             for (int i = 0; i < 6; i++) {
                 MicRt& m = mic[i]; if (!micNeed(i)) { micSig[i] = 0; continue; }
-                double sum = 0;
-                for (auto& p : m.paths) {
-                    const bool horn = p.rotor == 0;
-                    const float* buf = horn ? bufH.data() : bufD.data();
-                    double v, b0, b1, b2;
-                    if (p.exact) {
-                        double ca = horn ? chc : cdc, sa = horn ? chs : cds, rr = horn ? rh.r : rd.r, hh = horn ? rh.h : rd.h;
-                        double dxp = p.sx * ca, dyp = p.sy * sa;
-                        double wx = m.x - (p.sx * L.x + p.ox + dxp * rr), wy = m.y - (p.sy * L.y + p.oy + dyp * rr), wz = m.z - (p.sz * hh + p.oz);
-                        double d = std::sqrt(wx * wx + wy * wy + wz * wz); if (d < 0.06) d = 0.06;
-                        double cosE = (dxp * wx + dyp * wy) / d, u = 0.5 + 0.5 * cosE;
-                        double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
-                        int i1 = (int) rp; double fr = rp - i1;
-                        double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
-                        double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
-                        v = ((c3 * fr + c2) * fr + c1) * fr + y1;
-                        double dirG, k;
-                        if (horn) {
-                            dirG = 0.3 + 0.7 * u;
-                            k = hornK(cosE);
-                            // when the horn points away, sound reaches the mic via the horn compartment (reflection inside the cabinet)
-                            double back = std::max(0.0, -cosE);
-                            if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
-                        } else {
-                            p.zd += kDrumLo * (v - p.zd);
-                            v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
-                            dirG = 1; k = p.kDrum;
-                        }
-                        if (p.kc < k) k = p.kc;
-                        p.lp += k * (v - p.lp);
-                        v = p.lp * dirG * p.g * p.cab / d;
-                        double cth = -(wx * m.ax + wy * m.ay + wz * m.az) / d;
-                        b0 = m.a[0] + (1 - m.a[0]) * cth; b1 = m.a[1] + (1 - m.a[1]) * cth; b2 = m.a[2] + (1 - m.a[2]) * cth;
-                    } else {
-                        double d = p.d0 + (p.d1 - p.d0) * tt, g = p.g0 + (p.g1 - p.g0) * tt;
-                        double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
-                        int i1 = (int) rp; double fr = rp - i1;
-                        double y1 = buf[i1 & DM];
-                        v = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
-                        p.lp += p.kb * (v - p.lp);
-                        v = p.lp * g;
-                        b0 = p.band[0]; b1 = p.band[1]; b2 = p.band[2];
-                    }
-                    // Polar pattern per band (low < 400 Hz, mid, high > 3.5 kHz)
-                    p.zlo += kBandLo * (v - p.zlo); p.zhi += kBandHi * (v - p.zhi);
-                    sum += p.zlo * b0 + (p.zhi - p.zlo) * b1 + (v - p.zhi) * b2;
-                }
+                double sum = micRaw[i][n];
                 // Wind: the horn blows past the mic (proportional to speed squared, only while the horn mouth faces the mic)
                 if (m.windAmt > 0 && rh.hz > 0.5) {
                     double c = chc * m.windC + chs * m.windS;
@@ -1281,7 +1210,6 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             double x = ((c < 8 ? acc[c] * lisG : 0) + (micsOn ? micOut[(size_t) c] : 0)) * master;
             out[c][n] = (float) (x > 0.9 ? 0.9 + 0.1 * std::tanh((x - 0.9) * 10) : x < -0.9 ? -0.9 + 0.1 * std::tanh((x + 0.9) * 10) : x);
         }
-        wIdx = (wi + 1) & DM;
     }
     for (size_t i = 0; i < fastRT.size(); i++) { Path& p = paths[(size_t) fastIdx[i]]; const FastPathRT& r = fastRT[i]; p.zd = r.zd; p.lp = r.lp; p.zlo = r.zlo; }
     if (micsOn) {
@@ -1289,5 +1217,146 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         if (micMeterN >= 2048) { for (int c = 0; c < MIC_CH; c++) { micMeterVal[c] = (float) std::sqrt(micMeterAcc[c] / micMeterN) * (float) master; micMeterAcc[c] = 0; } micMeterN = 0; }
     }
 }
+
+
+// ---------------- Parallel room rendering jobs (called from WorkerPool::run, one slice of paths per job) ----------------
+inline void LeslieRoomDSP::renderListenerJob(int job) {
+    const int N = blockN, nSp = 8;
+    Partial& P = partials[(size_t) job];
+    for (int n = 0; n < N; n++) { for (int c = 0; c < 8; c++) P.acc[n][c] = 0; for (int k = 0; k <= NB; k++) P.bucket[n][k] = 0; P.lfe[n] = 0; }
+    const double fsc = fs / C_SOUND, kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs);
+    const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
+    const auto& H = listener; const auto& L = lesliePos;
+    const Rotor& rh = rot[0]; const Rotor& rd = rot[1];
+    // slice of the exact paths
+    const size_t ne = exactIdx.size(), e0 = ne * (size_t) job / (size_t) listenerJobs, e1 = ne * (size_t) (job + 1) / (size_t) listenerJobs;
+    for (size_t qi = e0; qi < e1; qi++) {
+        Path& p = paths[(size_t) exactIdx[qi]];
+        const bool horn = p.rotor == 0;
+        const double rr = horn ? rh.r : rd.r;
+        const float* buf = horn ? bufH.data() : bufD.data();
+        for (int n = 0; n < N; n++) {
+            const int wi = wiArr[(size_t) n];
+            const double ca = horn ? chcA[(size_t) n] : cdcA[(size_t) n], sa = horn ? chsA[(size_t) n] : cdsA[(size_t) n];
+            const double tt = (n + 1.0) / N;
+            double dxp = p.sx * ca, dyp = p.sy * sa;
+            double vx = H.x - (p.icx + dxp * rr), vy = H.y - (p.icy + dyp * rr), vz = H.z - p.iz;
+            double dist = std::sqrt(vx * vx + vy * vy + vz * vz) + p.jit;
+            double cosE = (dxp * vx + dyp * vy) / dist, u = 0.5 + 0.5 * cosE;
+            double rp = wi - dist * fsc; if (rp < 0) rp += DM + 1;
+            int i1 = (int) rp; double fr = rp - i1;
+            double v;
+            if (p.lin) { double y1 = buf[i1 & DM]; v = y1 + (buf[(i1 + 1) & DM] - y1) * fr; }
+            else {
+                double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
+                double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+                v = ((c3 * fr + c2) * fr + c1) * fr + y1;
+            }
+            double dirG, k;
+            if (horn) {
+                dirG = 0.3 + 0.7 * u;
+                k = hornK(cosE);
+                if (p.order == 0 || p.order == 1) {
+                    double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
+                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornBoxLevel / std::max(0.05, dirG); }
+                }
+            } else {
+                p.zd += kDrumLo * (v - p.zd);
+                v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
+                dirG = 1; k = p.kDrum;
+            }
+            if (p.kc < k) k = p.kc;
+            p.lp += k * (v - p.lp); v = p.lp;
+            v *= dirG * p.g * (p.cab0 + (p.cab1 - p.cab0) * tt);
+            v /= (dist > 0.3 ? dist : 0.3);
+            if (!horn) P.lfe[n] += v;
+            for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) P.acc[n][c] += v * gg; }
+        }
+    }
+    // slice of the fast paths (float working set, see FastPathRT)
+    const size_t nf = fastRT.size(), f0 = nf * (size_t) job / (size_t) listenerJobs, f1 = nf * (size_t) (job + 1) / (size_t) listenerJobs;
+    const float kDrumLoF = (float) kDrumLo, kLoBandF = (float) kLoBand;
+    const float* bh = bufH.data(); const float* bd = bufD.data();
+    for (size_t qi = f0; qi < f1; qi++) {
+        FastPathRT& r = fastRT[qi];
+        const float* buf = r.horn ? bh : bd;
+        for (int n = 0; n < N; n++) {
+            const float w1 = (float) ((n + 1.0) / N), w0 = 1.0f - w1;
+            r.ds += r.dds; r.g += r.dg;
+            double rp = wiArr[(size_t) n] - r.ds; if (rp < 0) rp += DM + 1;
+            int i1 = (int) rp; float fr = (float) (rp - i1);
+            float y1 = buf[i1 & DM];
+            float xin = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
+            if (!r.horn) { r.u += r.du; r.zd += kDrumLoF * (xin - r.zd); xin = r.zd * (0.85f + 0.15f * r.u) + (xin - r.zd) * (0.3f + 0.7f * r.u); }
+            if (r.trace) { r.zlo += kLoBandF * (xin - r.zlo); xin += (r.glr - 1.0f) * r.zlo; }
+            r.lp += r.kb * (xin - r.lp);
+            float v = r.lp * r.g;
+            if (!r.horn) P.lfe[n] += v;
+            float vh = v * r.hf;
+            float* bk = P.bucket[n];
+            bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; bk[NB] += v - vh;
+        }
+    }
+}
+
+inline void LeslieRoomDSP::renderMicJob(int i) {
+    const int N = blockN;
+    MicRt& m = mic[i];
+    double* out = micRaw[i];
+    if (!micNeed(i)) { for (int n = 0; n < N; n++) out[n] = 0; return; }
+    for (int n = 0; n < N; n++) out[n] = 0;
+    const double fsc = fs / C_SOUND, kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs);
+    const auto& L = lesliePos; const Rotor& rh = rot[0]; const Rotor& rd = rot[1];
+    for (auto& p : m.paths) {
+        const bool horn = p.rotor == 0;
+        const float* buf = horn ? bufH.data() : bufD.data();
+        for (int n = 0; n < N; n++) {
+            const int wi = wiArr[(size_t) n]; const double tt = (n + 1.0) / N;
+            double v, b0, b1, b2;
+            if (p.exact) {
+                const double ca = horn ? chcA[(size_t) n] : cdcA[(size_t) n], sa = horn ? chsA[(size_t) n] : cdsA[(size_t) n], rr = horn ? rh.r : rd.r, hh = horn ? rh.h : rd.h;
+                double dxp = p.sx * ca, dyp = p.sy * sa;
+                double wx = m.x - (p.sx * L.x + p.ox + dxp * rr), wy = m.y - (p.sy * L.y + p.oy + dyp * rr), wz = m.z - (p.sz * hh + p.oz);
+                double d = std::sqrt(wx * wx + wy * wy + wz * wz); if (d < 0.06) d = 0.06;
+                double cosE = (dxp * wx + dyp * wy) / d, u = 0.5 + 0.5 * cosE;
+                double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
+                int i1 = (int) rp; double fr = rp - i1;
+                double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
+                double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+                v = ((c3 * fr + c2) * fr + c1) * fr + y1;
+                double dirG, k;
+                if (horn) {
+                    dirG = 0.3 + 0.7 * u;
+                    k = hornK(cosE);
+                    // when the horn points away, sound reaches the mic via the horn compartment (reflection inside the cabinet)
+                    double back = std::max(0.0, -cosE);
+                    if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
+                } else {
+                    p.zd += kDrumLo * (v - p.zd);
+                    v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);
+                    dirG = 1; k = p.kDrum;
+                }
+                if (p.kc < k) k = p.kc;
+                p.lp += k * (v - p.lp);
+                v = p.lp * dirG * p.g * p.cab / d;
+                double cth = -(wx * m.ax + wy * m.ay + wz * m.az) / d;
+                b0 = m.a[0] + (1 - m.a[0]) * cth; b1 = m.a[1] + (1 - m.a[1]) * cth; b2 = m.a[2] + (1 - m.a[2]) * cth;
+            } else {
+                double d = p.d0 + (p.d1 - p.d0) * tt, g = p.g0 + (p.g1 - p.g0) * tt;
+                double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
+                int i1 = (int) rp; double fr = rp - i1;
+                double y1 = buf[i1 & DM];
+                v = y1 + (buf[(i1 + 1) & DM] - y1) * fr;
+                p.lp += p.kb * (v - p.lp);
+                v = p.lp * g;
+                b0 = p.band[0]; b1 = p.band[1]; b2 = p.band[2];
+            }
+            // Polar pattern per band (low < 400 Hz, mid, high > 3.5 kHz)
+            p.zlo += kBandLo * (v - p.zlo); p.zhi += kBandHi * (v - p.zhi);
+            out[n] += p.zlo * b0 + (p.zhi - p.zlo) * b1 + (v - p.zhi) * b2;
+        }
+    }
+}
+
 
 } // namespace leslie

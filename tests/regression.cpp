@@ -1,6 +1,6 @@
 // Regression harness: renders fixed scenarios and compares them against a stored reference.
 //
-//   g++ -O2 -std=c++17 -ISource tests/regression.cpp -o regression
+//   g++ -O2 -std=c++17 -pthread -ISource tests/regression.cpp -o regression
 //   ./regression record <dir>     # write reference files
 //   ./regression compare <dir>    # compare current build against the reference
 //

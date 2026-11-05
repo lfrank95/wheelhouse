@@ -60,7 +60,8 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.
 * **MIDI**: Kanäle für Ober (oder Omni), Unter und Pedal, Controller für Leslie und Schweller. Alle MIDI-Eingänge sind aktiv.
-* **Audio**: Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
+* **Audio**: Kerne (Auto = halbe Kernzahl, höchstens 8, oder 1–16): Raum und Mikros rechnen auf mehreren Threads,
+  jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
 * PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
 
@@ -99,10 +100,12 @@ Abel (2010) und Parker (2011). Regler: Hall (vorne), in der Karte Orgel Anteil, 
 * `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
 * `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
+* `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
-  `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `bench.cpp` (Rechenlast je Stufe),
+  `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
+  `bench.cpp` (Rechenlast je Stufe); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros
 
 ## Lizenz

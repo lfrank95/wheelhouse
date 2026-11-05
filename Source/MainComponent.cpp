@@ -6,6 +6,8 @@ using namespace juce;
 static double numProp(const var& v, const char* name, double def) { auto x = v.getProperty(name, var()); return x.isVoid() ? def : (double) x; }
 static bool hasProp(const var& v, const char* name) { return v.hasProperty(name); }
 // UI state (drawbars, room, Leslie, MIDI channels, ...) persisted between two program starts
+// Default thread count for the room rendering: leave headroom for the UI, the driver and the DAW
+static int autoThreads() { int hw = (int) std::thread::hardware_concurrency(); return jlimit(1, 8, hw / 2); }
 static File uiStateFile() { return File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile("Wheelhouse").getChildFile("ui-state.json"); }
 
 MainComponent::MainComponent() {
@@ -95,7 +97,9 @@ void MainComponent::audioDeviceAboutToStart(AudioIODevice* device) {
     std::lock_guard<std::mutex> lock(dspLock);
     if (std::abs(dsp->fs - currentSampleRate) > 0.5) {
         // Rebuild the DSP core at the new sample rate (its state is lost; the UI re-sends all settings on the "resend" event)
+        int threads = dsp->getThreads();
         dsp = std::make_unique<leslie::LeslieRoomDSP>(currentSampleRate);
+        dsp->setThreads(threads);
         MessageManager::callAsync([this] { if (web) web->emitEventIfBrowserIsVisible("resend", var()); });
     }
     for (auto& s : scratch) s.assign((size_t) device->getCurrentBufferSizeSamples() + 16, 0.f);
@@ -257,6 +261,7 @@ void MainComponent::handleDspMessage(const var& m) {
         else if (type == "amp") { ampRequest = { (int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5) }; d.setAmpSag(ampRequest.sag); }
         else if (type == "rotor") d.setRotor((int) numProp(m, "r", 0), numProp(m, "slow", 0.75), numProp(m, "fast", 6.8), numProp(m, "up", 0.8), numProp(m, "down", 1.4));
         else if (type == "spring") d.setSpring(numProp(m, "mix", 0) > 0.001, numProp(m, "mix", 0.2), numProp(m, "decay", 2.8), numProp(m, "tone", 0.5), numProp(m, "drive", 0.3), (int) numProp(m, "springs", 3));
+        else if (type == "threads") { int n = (int) numProp(m, "n", 0); if (n <= 0) n = autoThreads(); d.setThreads(n); }
         else if (type == "precision") d.setExactPaths((bool) m.getProperty("exact", false));
         else if (type == "springKick") d.kickSpring(numProp(m, "v", 1));
         else if (type == "preamp") d.setPreamp((bool) m.getProperty("on", true), numProp(m, "gain", 0.5));
