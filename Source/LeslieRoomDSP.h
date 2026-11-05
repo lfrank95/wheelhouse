@@ -50,7 +50,7 @@ struct Path {
     double sx = 1, sy = 1, sz = 1, ox = 0, oy = 0, oz = 0, g = 1;
     double kOn = 1, kOff = 1, kAir = 1, kDrum = 1, kc = 1, kb = 1, lp = 0, zd = 0, zlo = 0;
     double icx = 0, icy = 0, iz = 0, jit = 0;
-    double d0 = 0, d1 = 0, g0 = 0, g1 = 0, dl0 = 0, dl1 = 0, cab0 = 0, cab1 = 0, hf = 1;
+    double d0 = 0, d1 = 0, g0 = 0, g1 = 0, dl0 = 0, dl1 = 0, cab0 = 0, cab1 = 0, hf = 1, hfPrev = 1;
     int bP = 0, bN = 0;
     std::array<float, 8> gPrev{}, gNext{};
     // Fields used only by ray-traced taps (tent shape): fixed distance, departure direction, arrival azimuth/elevation
@@ -411,6 +411,25 @@ private:
     std::vector<Partial> partials;
     std::vector<std::array<float, 8>> bucketG;
     std::array<float, 2 * NB> bucket{};
+    // Diffuser for the wide (scattered / elevated) sound: two allpasses per azimuth bucket. Real floor and ceiling
+    // bounces reach the ears from other elevations than the direct sound and do not comb-filter it; mixed into the
+    // same loudspeaker channel they would, so they are decorrelated here first (energy preserved).
+    static constexpr int DIFF_LEN = 512, DIFF_ST = 4;
+    std::vector<float> diffBuf;                      // NB buckets x DIFF_ST stages x DIFF_LEN
+    std::array<int, DIFF_ST * NB> diffLen{}; int diffIdx = 0;
+    std::array<int, NB> diffActive{};                // samples left until a silent bucket's diffuser can be skipped
+    inline float diffuse(int k, float x) {           // four allpasses in series (g 0.6): the coherent remainder is 0.6^4
+        int& act = diffActive[(size_t) k];
+        if (x != 0) act = 24 * DIFF_LEN;
+        else if (act > 0) { if (--act == 0) std::fill_n(diffBuf.data() + (size_t) (DIFF_ST * k) * DIFF_LEN, DIFF_ST * DIFF_LEN, 0.f); }
+        else return 0;                               // bucket has been silent for a while: nothing rings any more
+        float* b = diffBuf.data() + (size_t) (DIFF_ST * k) * DIFF_LEN;
+        for (int st = 0; st < DIFF_ST; st++, b += DIFF_LEN) {
+            const float d = b[(diffIdx - diffLen[(size_t) (DIFF_ST * k + st)]) & (DIFF_LEN - 1)], y = d - 0.6f * x;
+            b[diffIdx] = x + 0.6f * y; x = y;
+        }
+        return x;
+    }
 
     // ---------------- FDN reverb (16 modulated delay lines, 6 input allpasses, 16 per-line allpasses, 3-band decay) ----------------
     static constexpr int FM = 65535;
@@ -702,9 +721,11 @@ inline void LeslieRoomDSP::rebuildRoom() {
     double mat[3] = {1.35, 1.0, 0.8};
     // scattering coefficient (ISO 17497): how much of a reflection the surface spreads instead of mirroring.
     // Real walls are not mirrors - furniture, doors, panelling, plaster texture scatter a good part of the mid/high range.
-    double scatter = 0.35;
-    if (R.material == "tent") { mat[0] = 1.9; mat[2] = 0.75; scatter = 0.5; } else if (R.material == "concrete") { mat[0] = 0.55; mat[2] = 1.1; scatter = 0.2; }
-    else if (R.material == "stone") { mat[0] = 0.6; mat[2] = 1.35; scatter = 0.3; } else if (R.material == "glass") { mat[0] = 0.9; mat[2] = 1.6; scatter = 0.1; }
+    // Values for furnished rooms, not bare test walls: wood panelling / drywall with furniture ~0.5, stone 0.35,
+    // bare concrete 0.25, glass and tiles 0.15, tent canvas (slack, creased) 0.6.
+    double scatter = 0.5;
+    if (R.material == "tent") { mat[0] = 1.9; mat[2] = 0.75; scatter = 0.6; } else if (R.material == "concrete") { mat[0] = 0.55; mat[2] = 1.1; scatter = 0.25; }
+    else if (R.material == "stone") { mat[0] = 0.6; mat[2] = 1.35; scatter = 0.35; } else if (R.material == "glass") { mat[0] = 0.9; mat[2] = 1.6; scatter = 0.15; }
     roomScatter = scatter;
     double ab[3];
     for (int i = 0; i < 3; i++) ab[i] = R.hasAbsBands ? clampd(R.absBands[i], 0.03, 0.97) : clampd(R.absorb * mat[i], 0.03, 0.95);
@@ -744,7 +765,7 @@ inline void LeslieRoomDSP::rebuildRoom() {
                         p.sx = 1 - 2 * px; p.sy = 1 - 2 * py; p.sz = 1 - 2 * pz;
                         p.ox = 2 * nx * R.Lx; p.oy = 2 * ny * R.Ly; p.oz = 2 * nz * R.Lz;
                         p.g = std::pow(reflG, order) * (order > 0 ? 0.9 : 1);
-                        p.kOn = kOf(std::min(20000.0, (r == 0 ? 14000 : 18000) * hf)); p.kOff = kOf(1500 * hf); p.kDrum = kOf(std::min(20000.0, 6000 * hf * 3));
+                        p.kOn = kOf(std::min(20000.0, (order == 0 ? 20000.0 : (r == 0 ? 9000.0 : 18000.0)) * hf));   // each bounce dulls the horn's beam p.kOff = kOf(1500 * hf); p.kDrum = kOf(std::min(20000.0, 6000 * hf * 3));
                         // exact mode: every image is rendered per sample (position, Doppler, directivity, panning);
                         // fast mode: order >= 2 uses the block-ramped float path with direction buckets
                         p.lin = order > 1 && !exactPaths; p.fast = order > 1 && !exactPaths;
@@ -831,6 +852,13 @@ inline void LeslieRoomDSP::prepSpeakers() {
     }
     centerCh = centerL = centerR = -1;
     if (!spk.stereo && n >= 3) for (int i = 0; i < n; i++) if (std::fabs(spkSorted[(size_t) i].a) < 1e-6) { centerCh = spkSorted[(size_t) i].ch; centerL = spkSorted[(size_t) ((i + 1) % n)].ch; centerR = spkSorted[(size_t) ((i - 1 + n) % n)].ch; }
+    diffBuf.assign((size_t) DIFF_ST * NB * DIFF_LEN, 0.f);
+    {   // delays 0.5 .. 6 ms, a different prime set per bucket and stage
+        static const int pr[] = {23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293};
+        const double sc = fs / 48000, stMul[DIFF_ST] = {0.45, 0.8, 1.0, 0.65};
+        for (int k = 0; k < NB; k++) for (int st = 0; st < DIFF_ST; st++)
+            diffLen[(size_t) (DIFF_ST * k + st)] = std::max(1, std::min(DIFF_LEN - 1, (int) std::lround(pr[(k * 11 + st * 17) % 54] * sc * stMul[st])));
+    }
     bucketG.assign(2 * NB, {});
     for (int k = 0; k < NB; k++) { panGains(k * TWO_PI / NB, 1, bucketG[k].data()); panGains(k * TWO_PI / NB, 0, bucketG[NB + k].data()); }
 }
@@ -1122,7 +1150,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             double cg, cfc; cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
             p.cab0 = p.init ? p.cab1 : cg; p.cab1 = cg; p.kb = std::min(p.kb, kOf(cfc));
             int k = (int) std::lround((p.azRoom - H.yaw) / TWO_PI * NB) % NB; if (k < 0) k += NB;
-            p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::sqrt(std::max(0.0, 1 - p.el * p.el)) * 1.15) * std::pow(1 - roomScatter, p.order); p.init = true;
+            p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::max(0.0, 1 - p.el * p.el) * 1.3) * std::pow(1 - roomScatter, p.order); p.init = true;
             continue;
         }
         p.icx = p.sx * L.x + p.ox; p.icy = p.sy * L.y + p.oy; p.iz = p.sz * r.h + p.oz;
@@ -1154,9 +1182,16 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         double az = std::atan2(vy, vx) - H.yaw;
         // sharp (pin-point) fraction: horizontal and still specular after p.order bounces; the rest is spread wide
         // around the same azimuth (floor/ceiling images, scattered reflections)
-        double hfr = std::min(1.0, hd / std::max(dist, 1e-6) * 1.15) * std::pow(1 - roomScatter, p.order);
-        if (p.fast) { int k = (int) std::lround(az / TWO_PI * NB) % NB; if (k < 0) k += NB; p.bP = p.init ? p.bN : k; p.bN = k; p.hf = hfr; p.init = true; }
-        else { panGains(az, hfr, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; } }
+        // (cos^2 of the elevation: a bounce arriving steeply from below or above reaches the ears so differently from
+        // the direct sound that it does not comb-filter it; mixed into the same channel it would, so it goes wide + diffused)
+        const double ce = hd / std::max(dist, 1e-6);
+        double hfr = std::min(1.0, ce * ce * 1.3) * std::pow(1 - roomScatter, p.order);
+        { int k = (int) std::lround(az / TWO_PI * NB) % NB; if (k < 0) k += NB; p.bP = p.init ? p.bN : k; p.bN = k; }
+        if (p.fast) { p.hf = hfr; p.init = true; }
+        else {   // sharp part: pairwise gains; the wide part goes through the diffuser with the scattered sound (see 3c)
+            p.hfPrev = p.init ? p.hf : hfr; p.hf = hfr;
+            panGains(az, 1, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; }
+        }
     }
     for (int c = 0; c < nCh; c++) std::fill(out[c], out[c] + N, 0.f);
     // Working set for the fast paths: linear ramps over this sub-block. The cabinet factor is folded into the
@@ -1357,7 +1392,11 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             for (int k = 0; k < 2 * NB; k++) bucket[k] += P.bucket[n][k];
             lfeIn += P.lfe[n];
         }
-        if (lisOn) for (int k = 0; k < 2 * NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+        if (lisOn) {
+            for (int k = 0; k < NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+            for (int k = 0; k < NB; k++) { double bv = diffuse(k, bucket[NB + k]); if (bv == 0) continue; const auto& bg = bucketG[NB + k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+            diffIdx = (diffIdx + 1) & (DIFF_LEN - 1);
+        }
         // static sources at the listener: the cabinet body (panels, motors) and the organ console
         if (lisOn) {
             const int wi = wiArr[(size_t) n];
@@ -1586,7 +1625,9 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
             v *= dirG * p.g * (p.cab0 + (p.cab1 - p.cab0) * tt);
             v /= (dist > 0.3 ? dist : 0.3);
             if (!horn) P.lfe[n] += v;
-            for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) P.acc[n][c] += v * gg; }
+            const double hf = p.hfPrev + (p.hf - p.hfPrev) * tt, vs = v * hf;
+            for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) P.acc[n][c] += vs * gg; }
+            if (hf < 1) { const float ve = (float) (v - vs); P.bucket[n][NB + p.bP] += ve * (float) (1 - tt); P.bucket[n][NB + p.bN] += ve * (float) tt; }
         }
     }
     // slice of the fast paths (float working set, see FastPathRT)

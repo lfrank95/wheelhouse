@@ -74,10 +74,13 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest. Abhöre (Quad/5.1): Trimm für
   die hinteren Kanäle und den Center, Center-Breite (Quelle vor dir zusätzlich als Phantom auf L/R).
-* **Abbildung**: Direktschall und Reflexionen werden leistungskonstant zwischen den zwei nächsten Lautsprechern
-  gelegt; Boden-/Deckenreflexionen bleiben in ihrer Richtung, nur breiter gestreut. Wände streuen einen Teil jeder
-  Reflexion (Streugrad je Material, ISO 17497), ab der 2. Ordnung ist das meiste diffus. Der Nachhall ist auf die
-  Summe aller Lautsprecher normiert, damit Stereo, Quad und 5.1 gleich viel Raum haben.
+* **Abbildung**: Direktschall und der spiegelnde Teil jeder Reflexion werden leistungskonstant zwischen den zwei
+  nächsten Lautsprechern gelegt. Der Rest – was die Wand streut (Streugrad je Material, ISO 17497, Holz/Trockenbau
+  möbliert 0,5) und was steil von Boden oder Decke kommt – bleibt in seiner Richtung, wird aber breit verteilt und
+  vorher dekorreliert (vier Allpässe je Richtung). Grund: im echten Raum treffen Direktschall und Bodenreflexion aus
+  verschiedenen Richtungen auf die Ohren und löschen sich nicht aus; im selben Lautsprecherkanal elektrisch summiert
+  würden sie kammfiltern und die Drehung vorne verschmieren. Jeder Wandkontakt nimmt dem Hornstrahl Höhen. Der
+  Nachhall ist auf die Summe aller Lautsprecher normiert, damit Stereo, Quad und 5.1 gleich viel Raum haben.
 * **MIDI**: Kanäle für Ober (oder Omni), Unter und Pedal, Controller für Leslie und Schweller. Alle MIDI-Eingänge sind aktiv.
 * **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Unter | Ober, „3“ = Pedal | Unter | Ober, auf dem
   Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
