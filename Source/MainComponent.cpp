@@ -160,8 +160,8 @@ void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) 
         std::lock_guard<std::mutex> lock(dspLock);
         if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
             int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
-            if (m.isNoteOn()) { dsp->noteOn(key, man); noteEvent("noteOn", key); }
-            else { dsp->noteOff(key, man); noteEvent("noteOff", key); }
+            if (m.isNoteOn()) { dsp->noteOn(key, man, m.getVelocity()); noteEvent("noteOn", key); }
+            else { dsp->noteOff(key, man, m.getVelocity()); noteEvent("noteOff", key); }
         }
         else if (m.isController()) {
             int cc = m.getControllerNumber(), v = m.getControllerValue();
@@ -253,8 +253,8 @@ void MainComponent::handleDspMessage(const var& m) {
         std::lock_guard<std::mutex> lock(dspLock);
         auto& d = *dsp;
         const int man = (int) m.getProperty("man", 0);
-        if (type == "noteOn") d.noteOn((int) m.getProperty("key", 0), man);
-        else if (type == "noteOff") d.noteOff((int) m.getProperty("key", 0), man);
+        if (type == "noteOn") d.noteOn((int) m.getProperty("key", 0), man, (int) numProp(m, "vel", 100));
+        else if (type == "noteOff") d.noteOff((int) m.getProperty("key", 0), man, (int) numProp(m, "vel", 64));
         else if (type == "panic") d.panic();
         else if (type == "drawbars") { int v[9] = {0}; if (auto* a = m.getProperty("v", var()).getArray()) for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i]; d.setDrawbars(v, man); }
         else if (type == "perc") {
@@ -318,6 +318,8 @@ void MainComponent::handleDspMessage(const var& m) {
             if (hasProp(v, "absBands")) { auto ab = v.getProperty("absBands", var()); if (auto* a = ab.getArray(); a && a->size() >= 3) { r.hasAbsBands = true; for (int i = 0; i < 3; i++) r.absBands[i] = (double) (*a)[i]; } else r.hasAbsBands = false; }
             d.roomChanged(); roomInfoChanged = true;
         }
+        else if (type == "mains") d.setMains(numProp(m, "hz", 50));
+        else if (type == "velocityClick") d.setVelocityClick((bool) m.getProperty("v", true));
         else if (type == "character") {
             leslie::Character c; auto v = m.getProperty("v", var());
             c.cond = numProp(v, "cond", 0.5); c.leak = numProp(v, "leak", 0.5); c.contact = numProp(v, "contact", 0.5); c.motor = numProp(v, "motor", 0.4);

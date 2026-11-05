@@ -44,7 +44,15 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Spielen**: 9 Zugriegel Ober, 2 Pedal (16′/8′), 9 Unter; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
   Zugriegel und Knöpfe ziehen oder Mausrad, Umschalt = fein, Doppelklick = Standardwert.
 * **Orgel**: Zustand (auch Pegelstreuung und Schlag der Tonräder: jedes Rad eiert mit eigener Stärke und Richtung,
-  0,2 % neu bis etwa 4 % abgenutzt, obere Räder stärker), Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
+  0,2 % neu bis etwa 4 % abgenutzt, obere Räder stärker), Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten,
+  Netzfrequenz 50/60 Hz (Brumm aus dem Netzteil, steigt mit dem Zustand), Key-Click fest oder nach Anschlag.
+* **Generator**: Übersprechen wie im echten Tonradgenerator: je Kammer vier Räder im Oktavabstand (gleiche Seite
+  4 Oktaven, etwa −39 dB; Nachbarseite etwa −47 dB) plus schwaches Übersprechen der Nachbarleitungen im Kabelbaum.
+  Jedes Rad hat leichte 2. und 3. Harmonische (eigene Streuung), die oberen Räder werden von den Tonradfiltern bedämpft.
+* **Vibrato/Chorus**: Scanner als 16-stufige LC-Laufzeitkette, der Abtaster gleitet über die Abgriffe;
+  mit höherer Stufe mehr Laufzeit und etwas mehr Höhenverlust.
+* **Anschlag**: MIDI-Velocity steuert Key-Click (Kontakte schließen schneller und härter, mehr Prellen) beim Drücken und
+  Loslassen. Mit der Maus: Klick vorne auf der Taste = hart, hinten = weich.
 * **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Balance, Hornfach, Ausrichtung.
 * **Modus Hörer / Mikros** (Kopfleiste): Hörer = du stehst im Raum; Mikros = Nahmikros und Raumpaar über das Pult.
@@ -106,7 +114,7 @@ Abel (2010) und Parker (2011). Regler: Hall (vorne), in der Karte Orgel Anteil, 
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
-  `bench.cpp` (Rechenlast je Stufe); Tests mit `-pthread` bauen,
+  `bench.cpp` (Rechenlast je Stufe), `organ_features_test.cpp` (Click nach Anschlag, Scanner); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros
 
 ## Lizenz

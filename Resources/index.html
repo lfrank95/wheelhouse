@@ -573,6 +573,7 @@ self.onmessage = (e) => {
     perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
     vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
     organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
+    mains: 50, velClick: true,
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
     brake: true, cab: { hornBox: 0.45, wobble: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
@@ -749,6 +750,7 @@ self.onmessage = (e) => {
   const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
   const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
+  const sendMains = () => { send({ type: 'mains', hz: S.mains }); send({ type: 'velocityClick', v: S.velClick }); };
   const sendSpring = () => send(Object.assign({ type: 'spring' }, S.spring));
   const sendPrecision = () => send({ type: 'precision', exact: S.exact });
   const sendThreads = () => send({ type: 'threads', n: S.threads });
@@ -982,14 +984,16 @@ self.onmessage = (e) => {
       rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
       rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
       rowSeg('Tiefe Räder', [[true, 'komplex'], [false, 'Sinus']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
-      rowVal('Tonräder', () => '91, Zahnradstimmung'),
-    ], 'Die Sammelschiene lässt viele gleichzeitige Töne etwas einsacken – wie bei der echten Matching-Transformer-Last.'));
+      rowSeg('Netz', [[50, '50 Hz'], [60, '60 Hz']], () => S.mains, v => { S.mains = v; sendMains(); }, 50),
+    ], 'Übersprechen wie im echten Generator: vor allem zwischen den vier Rädern einer Kammer (Oktaven), schwächer über Filterplatten und Kabelbaum. Netz bestimmt nur das Brummen.'));
     p.appendChild(sec('Percussion · Vibrato · Click', [
       knob({ label: 'Key-Click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
       knob({ label: 'Perc-Pegel', min: 0, max: 1.5, def: 1, fmt: pct, get: () => S.organ.percLevel, set: v => { S.organ.percLevel = v; sendOrgan(); } }),
       knob({ label: 'Abkl. kurz', min: 0.1, max: 0.6, def: 0.2, step: 0.01, fmt: v => de(v, 2) + ' s', get: () => S.organ.percShort, set: v => { S.organ.percShort = v; sendOrgan(); } }),
       knob({ label: 'Abkl. lang', min: 0.5, max: 2.5, def: 1.0, step: 0.05, fmt: v => de(v, 1) + ' s', get: () => S.organ.percLong, set: v => { S.organ.percLong = v; sendOrgan(); } }),
-    ], [rowSeg('Vibrato', VIB, () => S.vib, v => { S.vib = v; send({ type: 'vib', v }); syncAll(); }, 'c3')]));
+    ], [rowSeg('Vibrato', VIB, () => S.vib, v => { S.vib = v; send({ type: 'vib', v }); syncAll(); }, 'c3'),
+        rowSeg('Click folgt', [[true, 'Anschlag'], [false, 'fest']], () => S.velClick, v => { S.velClick = v; sendMains(); }, true)],
+      'Anschlag: schneller Tastendruck schließt die neun Kontakte fast gleichzeitig und hart, langsamer Druck nacheinander und weicher.'));
     p.appendChild(sec('Vorverstärker AO-28', [
       knob({ label: 'Vorstufe', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.pre.gain, set: v => { S.pre.gain = v; sendPre(); } }),
     ], [
@@ -1533,11 +1537,14 @@ self.onmessage = (e) => {
   }
   function attachGliss(container, man, pick) {
     const ptr = new Map();
-    container.addEventListener('pointerdown', (e) => { const k = pick(e.target); if (!k) return; container.setPointerCapture(e.pointerId); const n = +k.dataset.k; ptr.set(e.pointerId, n); noteOn(n, man); e.preventDefault(); });
+    // Mouse velocity from where the key is hit: near the front edge = fast stroke (127), near the back = slow (35)
+    const velOf = (e, el) => { const r = el.getBoundingClientRect(); return Math.round(35 + 92 * Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))); };
+    const vel = new Map();
+    container.addEventListener('pointerdown', (e) => { const k = pick(e.target); if (!k) return; container.setPointerCapture(e.pointerId); const n = +k.dataset.k; const v = velOf(e, k); vel.set(e.pointerId, v); ptr.set(e.pointerId, n); noteOn(n, man, v); e.preventDefault(); });
     container.addEventListener('pointermove', (e) => {
       if (!ptr.has(e.pointerId)) return;
       const el = document.elementFromPoint(e.clientX, e.clientY), k = el && pick(el), nk = k && container.contains(k) ? +k.dataset.k : -1, ok = ptr.get(e.pointerId);
-      if (nk !== ok) { if (ok >= 0) noteOff(ok, man); if (nk >= 0) noteOn(nk, man); ptr.set(e.pointerId, nk); }
+      if (nk !== ok) { if (ok >= 0) noteOff(ok, man); if (nk >= 0) noteOn(nk, man, vel.get(e.pointerId) || 100); ptr.set(e.pointerId, nk); }
     });
     const up = (e) => { if (ptr.has(e.pointerId)) { const k = ptr.get(e.pointerId); if (k >= 0) noteOff(k, man); ptr.delete(e.pointerId); } };
     container.addEventListener('pointerup', up); container.addEventListener('pointercancel', up);
@@ -1576,7 +1583,7 @@ self.onmessage = (e) => {
     if (e.nat) { body.setAttribute('fill', on ? 'url(#pedOn)' : 'url(#pedWood)'); body.setAttribute('y', on ? 9 : 7); face.setAttribute('y', on ? 83 : 81); face.setAttribute('fill', on ? '#8a5a1c' : '#6e5636'); }
     else { body.setAttribute('fill', on ? 'url(#pedSharpOn)' : 'url(#pedSharp)'); }
   }
-  function noteOn(k, man) { const max = man === 2 ? 24 : 60; if (k < 0 || k > max || active[man].has(k)) return; active[man].add(k); send({ type: 'noteOn', key: k, man }); keyEl(man, k, true); }
+  function noteOn(k, man, vel = 100) { const max = man === 2 ? 24 : 60; if (k < 0 || k > max || active[man].has(k)) return; active[man].add(k); send({ type: 'noteOn', key: k, man, vel }); keyEl(man, k, true); }
   function noteOff(k, man) { if (!active[man].has(k)) return; active[man].delete(k); send({ type: 'noteOff', key: k, man }); keyEl(man, k, false); }
   function panic() { [0, 1, 2].forEach(m => [...active[m]].forEach(k => noteOff(k, m))); send({ type: 'panic' }); }
   $('panic').onclick = panic;
@@ -1634,7 +1641,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendSpring(); sendPrecision(); sendThreads(); sendMics();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics();
     applyMode();
   }
 

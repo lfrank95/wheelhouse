@@ -95,9 +95,9 @@ public:
     // ---------------- Control API (mirrors the messages of the original audio worklet) ----------------
     // Manuals: 0 = upper (swell), 1 = lower (great), 2 = pedal
     /** Key down. k = key index (0..60 for manuals, 0..24 for pedals), man = manual (0/1/2). */
-    void noteOn(int k, int man = 0);
+    void noteOn(int k, int man = 0, int velocity = 100);
     /** Key up. Same arguments as noteOn(). */
-    void noteOff(int k, int man = 0);
+    void noteOff(int k, int man = 0, int velocity = 64);
     /** All notes off: clears held keys, pending contact events, tonewheel targets and percussion. */
     void panic() {
         for (int m = 0; m < 3; m++) { std::fill(keys[m].begin(), keys[m].end(), 0); std::fill(target[m].begin(), target[m].end(), 0.f); }
@@ -110,7 +110,11 @@ public:
     /** Routes the scanner vibrato to the upper and/or lower manual (the vibrato tabs on the console). */
     void setVibRouting(bool upper, bool lower) { vibUpper = upper; vibLower = lower; }
     /** Vibrato/chorus knob position: "v1".."v3" (vibrato) or "c1".."c3" (chorus); anything else = off. */
-    void setVib(const std::string& v) { vibMode = v; vibDepthSec = (v == "v1" || v == "c1") ? 0.00022 : (v == "v2" || v == "c2") ? 0.00045 : (v == "v3" || v == "c3") ? 0.0008 : 0.0; vibChorusMode = !v.empty() && v[0] == 'c'; }
+    void setVib(const std::string& v) { vibMode = v; vibDepthSec = (v == "v1" || v == "c1") ? 0.00022 : (v == "v2" || v == "c2") ? 0.00045 : (v == "v3" || v == "c3") ? 0.0008 : 0.0; vibChorusMode = !v.empty() && v[0] == 'c'; configureScanner(); }
+    /** Mains frequency (50 or 60 Hz): only the hum changes; the synchronous motor is geared for 20 Hz main-shaft speed either way. */
+    void setMains(double hz) { mainsHz = hz >= 55 ? 60 : 50; }
+    /** Key click follows the key velocity (how fast the key closes the nine contacts). Off = fixed medium velocity. */
+    void setVelocityClick(bool on) { velocityClick = on; }
     /** Leslie amplifier drive, 0..1 (also forwarded to the amp model). */
     void setDrive(double v) { drive = v; amp.setDrive(v); }
     /** Amplifier model index, simulation quality level, and power-supply sag amount 0..1. */
@@ -264,6 +268,22 @@ private:
     // direction (phase) are random per wheel and fixed for this organ; fine-toothed upper wheels react more.
     std::array<double, 92> runPh{}, runInc{}, runA1{}, runA2{}, runP1{}, runP2{}, runF{}, runDF{};
     double runScale = 0;
+    // Crosstalk partners per wheel (generator bins, filter panels / loom), recomputed by applyCharacter()
+    struct Xtalk { int w; float g; };
+    std::array<std::array<Xtalk, 8>, 92> xtalk{}; std::array<int, 92> xtalkN{};
+    std::array<float, 92> xtVar{};                      // per-organ scatter of the loom/filter-panel crosstalk
+    // Harmonics of the raw tonewheel signal (pickup gap, tooth profile) after the tonewheel filters
+    std::array<float, 92> harm2{}, harm3{}, harm2Raw{}, harm3Raw{};
+    // Mains hum
+    double mainsHz = 50, mainsPh = 0, humLevel = 0;
+    // Key velocity
+    bool velocityClick = true;
+    float curRamp = 1;   // ramp speed of the events being scheduled right now (set by noteOn/noteOff)
+    // Scanner vibrato: delay line with 16 taps, each tap has the treble loss of the LC sections before it
+    static constexpr int SCAN_TAPS = 16;
+    std::array<double, SCAN_TAPS> scanDelay{}, scanK{}, scanLp{}, scanGain{};
+    std::array<uint8_t, SCAN_TAPS> scanActive{}; double scanStray = 0;
+    void configureScanner();
     std::array<float, 92> gain[3]{}, target[3]{};
     std::array<uint8_t, 61> keys[3]{};
     int numKeysUpper = 0;
@@ -277,14 +297,15 @@ private:
     std::vector<float> orgBuf;
     Perc perc;
     double percEnv = 0, click = 0.5, clickEnv = 0, organGain = 0.05;
-    struct Event { double t; int m; int w; double d; };
+    struct Event { double t; int m; int w; double d; float ramp; };   // ramp: contact closing speed (1 = nominal)
+    std::array<float, 92> rampMul[3]{};                                // per manual and wheel: speed of the current gain transition
     std::vector<Event> events;
     double sampleClock = 0;
     Lcg fastRand{777};
 
     // ---------------- Instrument character: crosstalk/leakage, key-contact behaviour, bus-bar compression, motor ----------------
     Character chr;
-    double leakAdj = 0, leakAdj2 = 0, leakBank = 0, leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
+    double leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
 
     // ---------------- Scanner vibrato (delay-line based, 2048-sample buffer) ----------------
     std::string vibMode = "c3"; double vibDepthSec = 0.0008; bool vibChorusMode = true;
@@ -379,6 +400,7 @@ private:
     bool micNeed(int i) const { return mic[i].want || (i % 2 == 1 && std::fabs(mixC[i / 2][2]) + std::fabs(mixC[i / 2][3]) > 1e-5); }
     void micBlock(double bt);
     void micFdnRows();
+    void schedule(int m, int w, double d, double baseDelay, double spreadScale, double bounceScale);
 };
 
 // =====================================================================================
@@ -411,7 +433,15 @@ inline void LeslieRoomDSP::init() {
             runP1[w] = rr(); runP2[w] = rr(); runPh[w] = rr();
             runF[w] = 1;
         }
+        Lcg rh(0xA7B3u);
+        for (int w = 1; w <= 91; w++) {
+            // raw harmonic content of each pickup: 2nd -45..-30 dB, 3rd -50..-36 dB (gap and tooth shape vary per wheel)
+            harm2Raw[w] = (float) std::pow(10.0, -(30 + 15 * rh()) / 20);
+            harm3Raw[w] = (float) std::pow(10.0, -(36 + 14 * rh()) / 20);
+            xtVar[w] = (float) std::pow(10.0, (rh() * 2 - 1) * 6 / 20);   // +-6 dB per organ
+        }
     }
+    configureScanner();
     applyCharacter();
     vibBuf.assign(2048, 0.f);
     expLp.set("lp", 180, 0.7, fs);
@@ -430,6 +460,7 @@ inline void LeslieRoomDSP::init() {
     fdnBuf.assign(16, std::vector<float>(65536, 0.f)); apBuf.assign(6, std::vector<float>(4096, 0.f)); lapBuf.assign(16, std::vector<float>(2048, 0.f));
     for (int i = 0; i < 16; i++) { fdnModPh[i] = rnd(); fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs; }
     orgBuf.assign(4096, 0.f); events.reserve(4096);
+    for (auto& r : rampMul) r.fill(1.f);
     pool.setJob([this](int job) { renderJob(job); }); partials.resize(1);
     for (int i = 0; i <= HORNK_N; i++) hornKTab[(size_t) i] = (float) hornKExact(-1 + 2.0 * i / HORNK_N);
     kLoBand = 1 - std::exp(-TWO_PI * 250 / fs); kHiBand = 1 - std::exp(-TWO_PI * 3500 / fs);
@@ -447,8 +478,38 @@ inline void LeslieRoomDSP::applyCharacter() {
     for (int w = 1; w <= 91; w++) wheelG[w] = (float) (wheelLvl[w] * std::pow(10.0, wheelVar[w] * 1.5 * c.cond / 20));
     // runout depth of the worst (top) wheels: ~0.2 % when new, ~1.6 % for a well-kept 60s organ (cond 0.45), ~4 % worn out
     runScale = 0.002 + 0.045 * std::pow(c.cond, 1.5);
-    leakAdj = std::pow(10.0, -(52 - 14 * c.leak) / 20); leakAdj2 = leakAdj * 0.45;
-    leakBank = std::pow(10.0, -(50 - 12 * c.leak) / 20); leakHum = std::pow(10.0, -(78 - 16 * c.leak) / 20);
+    // ---- Generator crosstalk, following the real layout ----
+    // 24 shielded bins, each holding the same note in four octaves: wheels b, b+12, b+48, b+60 (b = 1..12 and 25..36);
+    // positions above 91 are balance discs without pickups. The two wheels on the same side of the drive shaft
+    // (b and b+48, b+12 and b+60) are the closest magnetically. Weaker, non-harmonic crosstalk comes from the
+    // filter panels and the wiring loom: neighbours on the terminal strip (chromatic), scattered per organ.
+    {
+        const double sameSide = std::pow(10.0, -(46 - 14 * c.leak) / 20), crossBin = std::pow(10.0, -(54 - 14 * c.leak) / 20);
+        const double loom1 = std::pow(10.0, -(64 - 14 * c.leak) / 20), loom2 = loom1 * 0.5;
+        for (int w = 1; w <= 91; w++) {
+            int n = 0; auto& L = xtalk[(size_t) w];
+            auto add = [&](int t, double g) { if (t >= 1 && t <= 91 && t != w && n < 8) L[(size_t) n++] = { t, (float) g }; };
+            const int oct = (w - 1) / 12;                                           // 0..7
+            const bool groupA = oct == 0 || oct == 1 || oct == 4 || oct == 5;       // bins b = 1..12 hold octaves 0, 1, 4, 5
+            const int base = (w - 1) % 12 + (groupA ? 1 : 25);
+            const int members[4] = { base, base + 12, base + 48, base + 60 };
+            for (int t : members) if (t != w) add(t, std::abs(t - w) == 48 ? sameSide : crossBin);   // 48 apart = same side of the shaft
+            add(w - 1, loom1 * xtVar[(size_t) w]); add(w + 1, loom1 * xtVar[(size_t) w]);
+            add(w - 2, loom2 * xtVar[(size_t) w]); add(w + 2, loom2 * xtVar[(size_t) w]);
+            xtalkN[(size_t) w] = n;
+        }
+    }
+    // ---- Tonewheel harmonics: grow a little with age (magnets drift closer, pole pieces wear); the tonewheel filters
+    //      on the upper wheels take most of it out again (up to -12 dB at the top) ----
+    for (int w = 1; w <= 91; w++) {
+        double filt = w <= 43 ? 1.0 : std::pow(10.0, -12.0 * (w - 43) / 48.0 / 20);
+        double age = 1 + 0.6 * c.cond;
+        harm2[(size_t) w] = (float) (harm2Raw[(size_t) w] * filt * age);
+        harm3[(size_t) w] = (float) (harm3Raw[(size_t) w] * filt * age);
+    }
+    // ---- Mains hum (power supply ripple and heater/transformer fields): ~-74 dB new, ~-60 dB worn ----
+    humLevel = 0.3 * std::pow(10.0, -(74 - 14 * c.leak) / 20);
+    leakHum = std::pow(10.0, -(78 - 16 * c.leak) / 20);
     staggerS = (0.0008 + 0.0045 * c.contact) * fs; bounceP = 0.15 + 0.7 * c.contact;
     gainStep = 1 / ((0.0003 + 0.0004 * (1 - c.contact)) * fs);
     busK = c.busComp ? 0.035 + 0.05 * c.cond : 0;
@@ -482,39 +543,61 @@ inline void LeslieRoomDSP::drawbarAmps(int man, double* amps) const {
 
 // Schedules a gain change (key contact closing/opening) for tonewheel w on manual m. The contacts of the nine
 // bus bars close at slightly different times (stagger) and may bounce, producing the characteristic key click.
-inline void LeslieRoomDSP::schedule(int m, int w, double d, double baseDelay) {
-    double t0 = sampleClock + baseDelay + fastRand() * staggerS * (m == 2 ? 1.6 : 1.0);
-    events.push_back({t0, m, w, d});
-    if (fastRand() < bounceP) {
+inline void LeslieRoomDSP::schedule(int m, int w, double d, double baseDelay, double spreadScale, double bounceScale) {
+    double t0 = sampleClock + baseDelay + fastRand() * staggerS * spreadScale * (m == 2 ? 1.6 : 1.0);
+    events.push_back({t0, m, w, d, curRamp});
+    if (fastRand() < std::min(0.95, bounceP * bounceScale)) {
         int n = fastRand() < 0.4 ? 2 : 1; double t = t0;
         for (int b = 0; b < n; b++) {
             double dt = (0.00015 + 0.0006 * fastRand()) * fs;
-            events.push_back({t + dt, m, w, -d});
-            events.push_back({t + dt + (0.0001 + 0.0004 * fastRand()) * fs, m, w, d});
+            events.push_back({t + dt, m, w, -d, curRamp});
+            events.push_back({t + dt + (0.0001 + 0.0004 * fastRand()) * fs, m, w, d, curRamp});
             t += dt * 2;
         }
     }
 }
 
-inline void LeslieRoomDSP::noteOn(int k, int man) {
+// Key velocity -> contact behaviour. A Hammond has no velocity sensing, but how fast the key travels decides how
+// the nine contact springs meet the bus bars: a fast stroke closes them almost together and hard (sharp click,
+// more bounce), a slow press lets them close one after another and scrape (spread-out, softer click).
+inline void LeslieRoomDSP::noteOn(int k, int man, int velocity) {
     int maxK = man == 2 ? 24 : 60;
     if (man < 0 || man > 2 || k < 0 || k > maxK || keys[man][k]) return;
     keys[man][k] = 1;
     if (man == 0) { bool wasEmpty = numKeysUpper == 0; numKeysUpper++; if (perc.on && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0; }
-    clickEnv = std::max(clickEnv, man == 2 ? 0.6 : 1.0);
+    const double v = velocityClick ? std::max(1, std::min(127, velocity)) / 127.0 : 100 / 127.0;
+    const double spread = 0.35 + 1.4 * std::pow(1 - v, 1.5), bounce = 0.55 + 0.6 * v;
+    curRamp = (float) (0.35 + 2.2 * std::pow(v, 1.5));   // hard stroke: contacts snap on (sharp edge); slow press: they wipe on
+    clickEnv = std::max(clickEnv, (man == 2 ? 0.6 : 1.0) * (0.35 + 0.83 * v));
     double amps[9]; drawbarAmps(man, amps);
-    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0); });
+    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0, spread, bounce); });
     if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
 }
-inline void LeslieRoomDSP::noteOff(int k, int man) {
+inline void LeslieRoomDSP::noteOff(int k, int man, int velocity) {
     int maxK = man == 2 ? 24 : 60;
     if (man < 0 || man > 2 || k < 0 || k > maxK || !keys[man][k]) return;
     keys[man][k] = 0;
     if (man == 0) numKeysUpper--;
-    clickEnv = std::max(clickEnv, 0.35);
+    // release velocity: many keyboards send none (0 or 64) -> medium
+    const double v = (velocityClick && velocity > 0) ? std::min(127, velocity) / 127.0 : 0.5;
+    clickEnv = std::max(clickEnv, 0.35 * (0.5 + v));
+    curRamp = (float) (0.5 + 1.2 * v);
     double amps[9]; drawbarAmps(man, amps);
-    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0); });
+    forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0, 0.5 + 1.0 * (1 - v), 0.6 + 0.5 * v); });
     if (man == 0 && perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
+}
+// Scanner taps for the current vibrato depth: V1/V2/V3 scan a shorter or longer part of the same LC line, so
+// the deeper settings also reach taps with more treble loss (about -0.5 dB per section above a few kHz).
+inline void LeslieRoomDSP::configureScanner() {
+    const double depth = vibDepthSec > 0 ? vibDepthSec : 0.0008;
+    const double sectionsMax = 18 * depth / 0.0008;                 // line sections reached at the far end of the sweep
+    for (int k = 0; k < SCAN_TAPS; k++) {
+        double frac = k / (double) (SCAN_TAPS - 1);
+        scanDelay[(size_t) k] = 20 + frac * 2 * depth * fs;
+        double sections = frac * sectionsMax;
+        scanK[(size_t) k] = kOf(16000 * std::pow(0.94, sections));
+        scanGain[(size_t) k] = std::pow(10.0, -0.08 * sections / 20);   // slight level loss along the line
+    }
 }
 // Recomputes all tonewheel target gains from the currently held keys (after drawbar or percussion changes).
 inline void LeslieRoomDSP::retarget() {
@@ -530,18 +613,12 @@ inline void LeslieRoomDSP::retarget() {
         }
     }
 }
-// Adds d to the target gain of wheel w and spreads crosstalk to the neighbouring wheels (adjacent on the
-// generator shaft, +-1 and +-2) and to the wheel 48 positions away that shares the same magnet/bank wiring.
+// Adds d to the target gain of wheel w and spreads crosstalk to its partners (same bin, filter panel, loom).
 inline void LeslieRoomDSP::applyDelta(int m, int w, double d) {
     auto& t = target[m];
     t[w] += (float) d;
-    float la = (float) (d * leakAdj), lb = (float) (d * leakAdj2), lc = (float) (d * leakBank);
-    if (w > 1) t[w - 1] += la;
-    if (w < 91) t[w + 1] += la;
-    if (w > 2) t[w - 2] += lb;
-    if (w < 90) t[w + 2] += lb;
-    if (w > 48) t[w - 48] += lc;
-    if (w <= 43) t[w + 48] += lc;
+    const auto& L = xtalk[(size_t) w];
+    for (int i = 0; i < xtalkN[(size_t) w]; i++) t[(size_t) L[(size_t) i].w] += (float) (d * L[(size_t) i].g);
 }
 
 inline void LeslieRoomDSP::setPos(bool hasLes, double lx, double ly, bool hasLis, double hx, double hy, bool hasYaw, double yaw, bool jump) {
@@ -1059,7 +1136,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     for (int n = 0; n < N; n++) {
         if (!events.empty()) {
             double now = sampleClock;
-            for (size_t i = 0; i < events.size();) { if (events[i].t <= now) { applyDelta(events[i].m, events[i].w, events[i].d); events[i] = events.back(); events.pop_back(); } else i++; }
+            for (size_t i = 0; i < events.size();) { if (events[i].t <= now) { applyDelta(events[i].m, events[i].w, events[i].d); rampMul[events[i].m][(size_t) events[i].w] = events[i].ramp; events[i] = events.back(); events.pop_back(); } else i++; }
         }
         sampleClock++;
 
@@ -1068,16 +1145,26 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             double ph = phase[w] + inc[w]; if (ph >= 1) ph -= 1; phase[w] = ph;
             float g0 = gain[0][w], g1 = gain[1][w], g2 = gain[2][w];
             const float t0 = target[0][w], t1 = target[1][w], t2 = target[2][w];
-            if (g0 != t0) { g0 = g0 < t0 ? std::min(t0, (float) (g0 + gs)) : std::max(t0, (float) (g0 - gs)); gain[0][w] = g0; }
-            if (g1 != t1) { g1 = g1 < t1 ? std::min(t1, (float) (g1 + gs)) : std::max(t1, (float) (g1 - gs)); gain[1][w] = g1; }
-            if (g2 != t2) { g2 = g2 < t2 ? std::min(t2, (float) (g2 + gs * 0.6)) : std::max(t2, (float) (g2 - gs * 0.6)); gain[2][w] = g2; }
+            if (g0 != t0) { const float st = (float) (gs * rampMul[0][w]); g0 = g0 < t0 ? std::min(t0, g0 + st) : std::max(t0, g0 - st); gain[0][w] = g0; }
+            if (g1 != t1) { const float st = (float) (gs * rampMul[1][w]); g1 = g1 < t1 ? std::min(t1, g1 + st) : std::max(t1, g1 - st); gain[1][w] = g1; }
+            if (g2 != t2) { const float st = (float) (gs * 0.6 * rampMul[2][w]); g2 = g2 < t2 ? std::min(t2, g2 + st) : std::max(t2, g2 - st); gain[2][w] = g2; }
             const float pg = percG[w];
             const double gsum = (double) g0 + g1 + g2;
             if (gsum + leakHum > 1e-6 || pg > 0) {
                 double x = ph * TAB; int i = (int) x; double f = x - i;
                 const float* tab = (w <= 12 && complexLow) ? complexWave.data() : sine.data();
                 double v = (tab[i] + (tab[i + 1] - tab[i]) * f) * wheelG[w] * (runF[w] + runDF[w] * (n + 1));
-                sU += v * g0; sL += v * g1; sP += v * g2; ps += v * pg; hum += v; load += gsum;
+                hum += v;
+                if (gsum > 1e-6 || pg > 0) {
+                    if (gsum > 0.03 || pg > 0) {   // harmonics only where a drawbar really feeds the wheel (crosstalk alone is < -38 dB)
+                    // keyed wheel: add its 2nd and 3rd harmonic (phase-locked, read from the same sine table)
+                    double p2 = ph * 2; p2 -= (int) p2; double p3 = ph * 3; p3 -= (int) p3;
+                    double x2 = p2 * TAB, x3 = p3 * TAB; int i2 = (int) x2, i3 = (int) x3;
+                    const float* sn = sine.data();
+                    v += ((sn[i2] + (sn[i2 + 1] - sn[i2]) * (x2 - i2)) * harm2[w] + (sn[i3] + (sn[i3 + 1] - sn[i3]) * (x3 - i3)) * harm3[w]) * wheelG[w];
+                    }
+                    sU += v * g0; sL += v * g1; sP += v * g2; ps += v * pg; load += gsum;
+                }
             }
         }
         double comp = 1 / (1 + busK * load);
@@ -1091,17 +1178,45 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
 
         double s = sDry;
         if (vibDepth > 0) {
+            // ---- Scanner vibrato: delay line with 16 taps; a rotating capacitor sweeps tap 1 -> 16 -> 1 (triangle).
+            //      Each stator plate couples to the rotor over ~1.3 plate widths (smooth but audibly stepped
+            //      crossfade), stray capacitance lets every plate leak in a little, and each tap carries the treble
+            //      loss of the LC sections in front of it. ----
             vibBuf[vibW] = (float) sVib;
             vibPh += vibInc; if (vibPh >= 1) vibPh -= 1;
-            double tri = 1 - std::fabs(2 * vibPh - 1), stepped = std::round(tri * 16) / 16;
-            double d = 20 + vibDepth * 2 * (0.75 * tri + 0.25 * stepped);
-            double rp = vibW - d; while (rp < 0) rp += 2048;
-            int ri = (int) rp; double rf = rp - ri;
-            double wet = vibBuf[ri] + (vibBuf[(ri + 1) & 2047] - vibBuf[ri]) * rf;
+            const double pos = (1 - std::fabs(2 * vibPh - 1)) * (SCAN_TAPS - 1);
+            double wet = 0, wsum = 0;
+            // only the 2-3 plates under the rotor need their own tap; a tap that comes into reach starts its filter
+            // from the current input (its weight starts at zero, so this is seamless)
+            const int k0 = std::max(0, (int) std::ceil(pos - 1.3)), k1 = std::min(SCAN_TAPS - 1, (int) std::floor(pos + 1.3));
+            for (int k = k0; k <= k1; k++) {
+                double rp = vibW - scanDelay[(size_t) k]; if (rp < 0) rp += 2048;
+                int ri = (int) rp; double rf = rp - ri;
+                double x = vibBuf[(size_t) ri] + (vibBuf[(size_t) ((ri + 1) & 2047)] - vibBuf[(size_t) ri]) * rf;
+                if (!scanActive[(size_t) k]) { scanLp[(size_t) k] = x; scanActive[(size_t) k] = 1; }
+                scanLp[(size_t) k] += scanK[(size_t) k] * (x - scanLp[(size_t) k]);
+                double u = std::fabs(pos - k), c = u < 1.3 ? std::cos(0.5 * 3.14159265358979 * u / 1.3) : 0, wgt = c * c;
+                wet += wgt * scanLp[(size_t) k] * scanGain[(size_t) k]; wsum += wgt;
+            }
+            for (int k = 0; k < SCAN_TAPS; k++) if (k < k0 || k > k1) scanActive[(size_t) k] = 0;
+            // stray capacitance: every plate leaks in a little (about -40 dB each); summed, that is roughly the
+            // middle of the line with its treble loss
+            {
+                double rp = vibW - scanDelay[SCAN_TAPS / 2]; if (rp < 0) rp += 2048;
+                int ri = (int) rp; double rf = rp - ri;
+                double x = vibBuf[(size_t) ri] + (vibBuf[(size_t) ((ri + 1) & 2047)] - vibBuf[(size_t) ri]) * rf;
+                scanStray += scanK[SCAN_TAPS / 2] * (x - scanStray);
+                const double ws = 0.008 * SCAN_TAPS;
+                wet += ws * scanStray * scanGain[SCAN_TAPS / 2]; wsum += ws;
+            }
+            wet /= wsum;
             vibW = (vibW + 1) & 2047;
             s += vibChorus ? 0.6 * sVib + 0.6 * wet : wet;
         } else s += sVib;
         s = (s + expLp.run(s) * expBass) * expGain;
+        // mains hum enters after the expression pedal (preamp heaters, supply): audible even with the swell closed
+        mainsPh += mainsHz / fs; if (mainsPh >= 1) mainsPh -= 1;
+        { const double a = TWO_PI * mainsPh; s += humLevel * (0.5 * std::sin(a) + std::sin(2 * a) + 0.3 * std::sin(3 * a) + 0.15 * std::sin(4 * a)); }
         orgBuf[(size_t) n] = (float) s;
     }
 
