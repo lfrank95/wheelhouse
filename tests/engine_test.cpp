@@ -79,6 +79,21 @@ int main() {
         e.setNonRealtime(false); e.restoreRealtimeQuality(); double b = rms(e, 50);
         CHECK(std::isfinite(a) && std::isfinite(b), "bounce quality switch runs");
     }
+    // 6) keyboard split and octave shift; a note-off goes where its note-on went
+    {
+        WheelhouseEngine e(false);
+        e.handleMessage(msg("{\"type\":\"keyMap\",\"mode\":2,\"hi\":60,\"lo\":48,\"oct\":[0,1,-1]}"));
+        auto on = [&](int note) { return e.midiFromDevice(MidiMessage::noteOn(1, note, (uint8) 100)); };
+        var a = on(72), b = on(50), c = on(40);
+        CHECK((int) a["man"] == 0 && (int) a["key"] == 36, "split: C5 plays the upper manual");
+        CHECK((int) b["man"] == 1 && (int) b["key"] == 26, "split: D3 plays the lower manual, one octave up");
+        CHECK((int) c["man"] == 2 && (int) c["key"] == 4, "split: E2 plays the pedal, one octave down");
+        e.handleMessage(msg("{\"type\":\"keyMap\",\"mode\":0,\"hi\":60,\"lo\":48,\"oct\":[0,0,0]}"));
+        var off = e.midiFromDevice(MidiMessage::noteOff(1, 50));
+        CHECK((int) off["man"] == 1 && (int) off["key"] == 26, "note-off after a split change releases the same key");
+        var d = on(50);
+        CHECK((int) d["man"] == 0 && (int) d["key"] == 14, "split off: D3 plays the upper manual again");
+    }
     printf("%s\n", fails ? "SOME CHECKS FAILED" : "all checks passed");
     return fails;
 }

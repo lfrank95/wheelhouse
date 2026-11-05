@@ -184,6 +184,24 @@ select option { background: #1a1511; color: #e8dcc4; }
 .pcseg { display: flex; gap: 2px; background: #2a170a; border: 1px solid #6b4426; border-radius: 5px; padding: 1px; }
 .pcseg button { border: none; background: transparent; color: #e3cfae; font-size: 12.5px; padding: 1px 7px; border-radius: 3px; }
 .pcseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
+/* Octave shift per manual (right of each manual) and keyboard split (strip and MIDI card) */
+.octv { width: 22px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.octv button { width: 22px; height: 22px; border-radius: 5px; border: 1px solid #6b4426; background: #2a170a; color: #e3cfae; padding: 0; font-size: 13px; line-height: 1; }
+.octv .ov { font-size: 12.5px; font-weight: 700; color: #e3cfae; min-height: 15px; font-variant-numeric: tabular-nums; }
+.octv .ov.hi { color: #f2a33a; }
+.octv .ol { font-size: 9px; letter-spacing: 1px; color: #a8977c; }
+.splitg { display: flex; align-items: center; gap: 8px; }
+.spt { display: flex; align-items: center; gap: 1px; background: #2a170a; border: 1px solid #6b4426; border-radius: 5px; padding: 1px 2px 1px 7px; font-size: 12.5px; color: #e3cfae; white-space: nowrap; }
+#card .spt { background: #1a1511; border-color: #3a2f25; }
+.spt b { color: #f2c879; font-weight: 700; min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; }
+.spt button { border: none; background: transparent; color: #e3cfae; padding: 1px 5px; border-radius: 3px; font-size: 12.5px; }
+.spt button.learn { color: #a8977c; }
+.spt button.learn.on { background: #f2a33a; color: #1a1206; animation: learnPulse 1s ease-in-out infinite; }
+@keyframes learnPulse { 50% { background: #8a5a1c; } }
+.kw.out { filter: brightness(.48) saturate(.55); }
+.kk.out { filter: brightness(.55); }
+.kw.edgeL { box-shadow: inset 3px 0 0 #f2a33a, inset 0 -5px 0 rgba(0,0,0,.10), 0 3px 4px rgba(0,0,0,.35); }
+.kw.edgeR { box-shadow: inset -3px 0 0 #f2a33a, inset 0 -5px 0 rgba(0,0,0,.10), 0 3px 4px rgba(0,0,0,.35); }
 .manual { height: 122px; flex: none; display: flex; flex-direction: column; }
 .manual .felt { height: 4px; flex: none; margin: 0 48px; background: #7a1c16; }
 .mrow { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: stretch; gap: 10px; }
@@ -333,6 +351,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     <div class="kstrip">
       <span style="display: flex; align-items: center; gap: 8px">Schweller <span class="swbar"><i id="swBar"></i></span></span>
       <span id="chanInfo"></span>
+      <span class="splitg" id="splitG"></span>
       <div style="flex: 1"></div>
       <span id="midiInfo">MIDI –</span>
       <span style="display: flex; align-items: center; gap: 8px">PC-Tastatur <span class="pcseg" id="pcSeg"></span></span>
@@ -342,8 +361,8 @@ select option { background: #1a1511; color: #e8dcc4; }
         <button type="button" class="octb" id="octUp" aria-label="Oktave höher">+</button>
       </span>
     </div>
-    <div class="manual"><div class="felt"></div><div class="mrow"><span class="vlab">Ober</span><div class="kbd" id="kbd0"></div><span style="width: 22px; flex: none"></span></div></div>
-    <div class="manual" style="margin-top: 6px"><div class="felt"></div><div class="mrow"><span class="vlab">Unter</span><div class="kbd" id="kbd1"></div><span style="width: 22px; flex: none"></span></div></div>
+    <div class="manual"><div class="felt"></div><div class="mrow"><span class="vlab">Ober</span><div class="kbd" id="kbd0"></div><div class="octv" id="ov0"></div></div></div>
+    <div class="manual" style="margin-top: 6px"><div class="felt"></div><div class="mrow"><span class="vlab">Unter</span><div class="kbd" id="kbd1"></div><div class="octv" id="ov1"></div></div></div>
     <div class="pedrow">
       <span class="vlab">Pedal</span>
       <svg id="pedSvg" width="710" height="86" viewBox="0 0 760 92" role="img" aria-label="Pedal mit 25 Tönen">
@@ -367,6 +386,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         <rect x="58" y="18" width="4" height="62" rx="2" fill="#120f0c"/>
         <rect id="swFill" x="58" y="34" width="4" height="46" rx="2" fill="#f2a33a"/>
       </svg>
+      <div class="octv" id="ov2"></div>
       <span style="width: 22px; flex: none"></span>
     </div>
   </section>
@@ -430,6 +450,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       grp: [{ gain: 0 }, { gain: 0 }, { gain: -6 }].map(c => Object.assign({ pan: 0, width: 1, delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
     out: { masterDb: 0, lfeHz: 100 }, chmap: { stereo: null, quad: null, s51: null },
     midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
+    split: { mode: 0, hi: 60, lo: 48, oct: [0, 0, 0], kb: 61 },
     leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -606,6 +627,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const sendOffline = () => send({ type: 'offlineMax', v: S.offlineMax });
   const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
+  const sendKeyMap = () => send({ type: 'keyMap', mode: S.split.mode, hi: S.split.hi, lo: S.split.lo, oct: S.split.oct });
   const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
   const sendMains = () => { send({ type: 'mains', hz: S.mains }); send({ type: 'velocityClick', v: S.velClick }); };
   const sendSpring = () => send(Object.assign({ type: 'spring' }, S.spring));
@@ -1109,6 +1131,17 @@ select option { background: #1a1511; color: #e8dcc4; }
     const chRow = (label, k, def, omni) => rowSel(label, chOpts(omni), () => S.midi[k], v => { S.midi[k] = +v; sendMidi(); syncAll(); }, def);
     p.appendChild(sec('Kanäle', [], [chRow('Obermanual', 'upper', 1, true), chRow('Untermanual', 'lower', 2, false), chRow('Pedal', 'pedal', 3, false)],
       'Ober auf „Omni“: alles, was nicht auf dem Unter- oder Pedalkanal kommt, spielt oben.'));
+    const chipRow = (label, k, name) => { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); r.appendChild(splitChip(k, name)); return { el: r }; };
+    const hiRow = chipRow('Trennpunkt', 'hi', 'Ober'), loRow = chipRow('', 'lo', 'Unter');
+    reg({ sync() { hiRow.el.style.display = S.split.mode >= 1 ? '' : 'none'; loRow.el.style.display = S.split.mode === 2 ? '' : 'none'; } });
+    const OCT = [-3, -2, -1, 0, 1, 2, 3].map(v => [v, v > 0 ? '+' + v : v < 0 ? '−' + -v : '0']);
+    const octRow = (label, man) => rowSeg(label, OCT, () => S.split.oct[man], v => { S.split.oct[man] = v; sendKeyMap(); syncAll(); }, 0);
+    p.appendChild(sec('Split · Oktaven', [], [
+      rowSeg('Split', [[0, 'aus'], [1, '2 Zonen'], [2, '3 Zonen']], () => S.split.mode, v => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }, 0),
+      hiRow, loRow,
+      rowSel('Keyboard', [[49, '49 Tasten'], [61, '61 Tasten'], [73, '73 Tasten'], [76, '76 Tasten'], [88, '88 Tasten']], () => S.split.kb, v => { S.split.kb = +v; syncAll(); if (ready) scheduleSave(); }, 61),
+      octRow('Oktave Ober', 0), octRow('Oktave Unter', 1), octRow('Oktave Pedal', 2),
+    ], 'Split auf dem Ober-Kanal · ● lernt von der nächsten Taste.'));
     p.appendChild(sec('Controller', [], [
       rowSel('Leslie', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
       rowSel('Schweller', [[11, 'CC 11 Expression'], [7, 'CC 7 Volume'], [4, 'CC 4 Fußcontroller']], () => S.midi.swellCC, v => { S.midi.swellCC = +v; sendMidi(); syncAll(); }, 11),
@@ -1484,6 +1517,79 @@ select option { background: #1a1511; color: #e8dcc4; }
     sv.addEventListener('pointerup', () => drag = false); sv.addEventListener('pointercancel', () => drag = false);
     sv.addEventListener('wheel', (e) => { e.preventDefault(); S.volume = clamp(S.volume + (e.deltaY < 0 ? 0.03 : -0.03), 0, 1); send({ type: 'volume', v: S.volume }); syncAll(); }, { passive: false });
   })();
+  // ---------------- Keyboard split and octave shift per manual ----------------
+  // One keyboard on the upper channel can play pedal | lower | upper; every manual can be shifted by octaves.
+  // The manuals show which of their keys the keyboard reaches (the rest is dimmed, the edges marked in gold).
+  const NOTE_N = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'B', 'H'];
+  const noteName = (n) => NOTE_N[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+  const KB_RANGE = { 49: [36, 84], 61: [36, 96], 73: [28, 100], 76: [28, 103], 88: [21, 108] };
+  const MAN_NAME = ['Obermanual', 'Untermanual', 'Pedal'];
+  let learnTarget = null;   // 'hi' | 'lo' while waiting for a key on the MIDI keyboard
+  function setManOct(man, d) { const o = S.split.oct; o[man] = clamp(o[man] + d, -3, 3); sendKeyMap(); syncAll(); }
+  function setSplit(k, v) {
+    const sp = S.split; sp[k] = clamp(Math.round(v), 1, 126);
+    if (sp.lo >= sp.hi) { if (k === 'hi') sp.lo = Math.max(0, sp.hi - 1); else sp.hi = Math.min(127, sp.lo + 1); }
+    sendKeyMap(); syncAll();
+  }
+  // reachable key window of a manual: [first, last] key, or null (not fed by the split keyboard: nothing dimmed)
+  function reach(man) {
+    const sp = S.split, [a, b] = KB_RANGE[sp.kb] || KB_RANGE[61], sh = 12 * sp.oct[man];
+    let lo, hi;
+    if (man === 0) { lo = sp.mode >= 1 ? sp.hi : a; hi = b; }
+    else if (man === 1) { if (sp.mode >= 1) { lo = sp.mode === 2 ? sp.lo : a; hi = sp.hi - 1; } else if (sh) { lo = a; hi = b; } else return null; }
+    else { if (sp.mode !== 2) return null; lo = a; hi = sp.lo - 1; }
+    const base = man === 2 ? 24 : 36, max = man === 2 ? 24 : 60;
+    return [clamp(lo - base + sh, 0, max + 1), clamp(hi - base + sh, -1, max)];
+  }
+  function applyZones() {
+    for (let man = 0; man < 3; man++) {
+      const w = reach(man), max = man === 2 ? 24 : 60;
+      let firstW = -1, lastW = -1;
+      if (w) for (let k = w[0]; k <= w[1]; k++) if (!isBlack(k)) { if (firstW < 0) firstW = k; lastW = k; }
+      for (let k = 0; k <= max; k++) {
+        const out = !!w && (k < w[0] || k > w[1]);
+        if (man < 2) {
+          const e = keyEls[man][k]; if (!e) continue;
+          e.classList.toggle('out', out);
+          e.classList.toggle('edgeL', !!w && k === firstW && w[0] > 0);
+          e.classList.toggle('edgeR', !!w && k === lastW && w[1] < max);
+        } else { const e = keyEls[2][k]; if (e) e.g.setAttribute('opacity', out ? 0.42 : 1); }
+      }
+    }
+  }
+  // octave control right of each manual
+  for (let man = 0; man < 3; man++) {
+    const box = $('ov' + man), up = h('button', '', '+'), val = h('span', 'ov', '0'), dn = h('button', '', '−'), lab = h('span', 'ol', 'OKT');
+    up.type = dn.type = 'button';
+    up.title = `${MAN_NAME[man]} eine Oktave höher`; dn.title = `${MAN_NAME[man]} eine Oktave tiefer`;
+    up.setAttribute('aria-label', up.title); dn.setAttribute('aria-label', dn.title);
+    up.onclick = () => setManOct(man, 1); dn.onclick = () => setManOct(man, -1);
+    box.append(lab, up, val, dn);
+    reg({ sync() { const o = S.split.oct[man]; val.textContent = (o > 0 ? '+' : o < 0 ? '−' : '') + Math.abs(o); val.classList.toggle('hi', o !== 0); } });
+  }
+  // a split point chip: "Ober ab ‹ C4 › ●" (● = learn from the keyboard)
+  function splitChip(k, label) {
+    const el = h('span', 'spt'), t = h('span', '', label + ' ab'), dn = h('button', '', '‹'), v = h('b', '', ''), up = h('button', '', '›'), ln = h('button', 'learn', '●');
+    [dn, up, ln].forEach(b => b.type = 'button');
+    dn.title = 'Trennpunkt einen Halbton tiefer'; up.title = 'Trennpunkt einen Halbton höher'; ln.title = 'Lernen: nächste Taste am Keyboard setzt den Trennpunkt';
+    ln.setAttribute('aria-label', ln.title); dn.setAttribute('aria-label', dn.title); up.setAttribute('aria-label', up.title);
+    dn.onclick = () => setSplit(k, S.split[k] - 1); up.onclick = () => setSplit(k, S.split[k] + 1);
+    ln.onclick = () => { learnTarget = learnTarget === k ? null : k; syncAll(); };
+    el.append(t, dn, v, up, ln);
+    reg({ sync() { v.textContent = noteName(S.split[k]); ln.classList.toggle('on', learnTarget === k); } });
+    return el;
+  }
+  (() => {
+    const g = $('splitG'), seg = h('span', 'pcseg'), lab = h('span', '', 'Split');
+    const btns = [[0, 'Aus', 'Kein Split'], [1, '2', 'Unter | Ober'], [2, '3', 'Pedal | Unter | Ober']].map(([v, t, ti]) => { const b = h('button', '', t); b.type = 'button'; b.title = ti; b.onclick = () => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }; seg.appendChild(b); return [v, b]; });
+    const cLo = splitChip('lo', 'Unter'), cHi = splitChip('hi', 'Ober');
+    g.append(lab, seg, cLo, cHi);
+    reg({ sync() {
+      btns.forEach(([v, b]) => b.classList.toggle('on', v === S.split.mode));
+      cHi.style.display = S.split.mode >= 1 ? '' : 'none'; cLo.style.display = S.split.mode === 2 ? '' : 'none';
+      applyZones();
+    } });
+  })();
   const pcBtns = [[0, 'Ober'], [1, 'Unter'], [2, 'Pedal']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }; $('pcSeg').appendChild(b); return [v, b]; });
   reg({ sync() {
     $('swBar').style.width = (S.volume * 100) + '%';
@@ -1528,7 +1634,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics(); sendOffline();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics(); sendOffline(); sendKeyMap();
     applyMode();
   }
 
@@ -1562,6 +1668,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     B.addEventListener('audio', (m) => { audioInfo = Object.assign(audioInfo, m); updateChanInfo(); syncAll(); });
     B.addEventListener('resend', () => pushAll());
     B.addEventListener('midi', (m) => {
+      if (learnTarget && (m.type === 'noteOn' || m.type === 'noteOut') && m.note !== undefined) { setSplit(learnTarget, m.note); learnTarget = null; syncAll(); }
       if (m.type === 'noteOn' || m.type === 'noteOff') {
         const man = m.man | 0; if (man < 0) return;
         if (m.type === 'noteOn') { active[man].add(m.key); keyEl(man, m.key, true); } else { active[man].delete(m.key); keyEl(man, m.key, false); }

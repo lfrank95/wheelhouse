@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include <thread>
+#include <cstring>
 
 using namespace juce;
 
@@ -48,6 +49,7 @@ int WheelhouseEngine::autoThreads(bool plugin) {
 }
 
 WheelhouseEngine::WheelhouseEngine(bool plugin) : isPlugin(plugin), applied(params().size()) {
+    std::memset(heldMan, -1, sizeof(heldMan)); std::memset(heldKey, 0, sizeof(heldKey));
     dsp = std::make_unique<leslie::LeslieRoomDSP>(fs);
     dsp->setThreads(autoThreads(plugin));
     for (size_t i = 0; i < applied.size(); i++) applied[i] = params()[i].def;
@@ -98,16 +100,35 @@ void WheelhouseEngine::pushUi(UiEv e) {
     if (w.blockSize1 > 0) uiBuf[(size_t) w.startIndex1] = e; else if (w.blockSize2 > 0) uiBuf[(size_t) w.startIndex2] = e;
 }
 
-// MIDI note/controller -> manual. Pedal and lower manual by channel; the upper manual on its channel or omni (0).
-var WheelhouseEngine::midiFromDevice(const MidiMessage& m) {
-    const int ch = m.getChannel();
-    int man = 0;
+// MIDI note -> manual and key. Pedal and lower manual by channel; the upper manual on its channel or omni (0).
+// On the upper channel the split divides the keyboard: below splitLo pedal (3-way), below splitHi lower, else upper.
+// Key numbers: manuals start at MIDI note 36 (C2), the pedal at 24; each manual is shifted by its octave setting.
+bool WheelhouseEngine::mapNote(int path, int ch, int note, bool on, int& man, int& key) {
+    if (ch < 1 || ch > 16 || note < 0 || note > 127) return false;
+    int8_t& hm = heldMan[path][ch - 1][note]; int8_t& hk = heldKey[path][ch - 1][note];
+    if (!on && hm >= 0) { man = hm; key = hk; hm = -1; return true; }   // goes where its note-on went
+    if (!on) return false;
+    man = 0;
     if (ch == midiPedal.load()) man = 2;
     else if (ch == midiLower.load()) man = 1;
-    else if (midiUpper.load() != 0 && ch != midiUpper.load()) man = -1;
-    auto ev = [](const char* type, int key, int manual) { auto* o = new DynamicObject(); o->setProperty("type", type); o->setProperty("key", key); o->setProperty("man", manual); return var(o); };
-    if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
-        int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
+    else if (midiUpper.load() != 0 && ch != midiUpper.load()) return false;
+    if (man == 0) {
+        const int mode = splitMode.load();
+        if (mode == 2 && note < splitLo.load()) man = 2;
+        else if (mode >= 1 && note < splitHi.load()) man = 1;
+    }
+    key = note - (man == 2 ? 24 : 36) + 12 * octShift[man].load();
+    if (key < 0 || key > (man == 2 ? 24 : 60)) return false;
+    hm = (int8_t) man; hk = (int8_t) key;
+    return true;
+}
+
+var WheelhouseEngine::midiFromDevice(const MidiMessage& m) {
+    auto ev = [&](const char* type, int key, int manual) { auto* o = new DynamicObject(); o->setProperty("type", type); o->setProperty("key", key); o->setProperty("man", manual); o->setProperty("note", m.getNoteNumber()); return var(o); };
+    if (m.isNoteOn() || m.isNoteOff()) {
+        int man = 0, key = 0; bool ok;
+        { std::lock_guard<std::mutex> g(playWriteLock); ok = mapNote(0, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key); }
+        if (!ok) { if (m.isNoteOn()) { auto* o = new DynamicObject(); o->setProperty("type", "noteOut"); o->setProperty("note", m.getNoteNumber()); return var(o); } return {}; }
         pushPlay(m.isNoteOn() ? NOTE_ON : NOTE_OFF, man, key, m.getVelocity());
         return ev(m.isNoteOn() ? "noteOn" : "noteOff", key, man);
     }
@@ -141,12 +162,12 @@ void WheelhouseEngine::render(float* const* out, int n, const MidiBuffer* midi) 
             const int at = jlimit(0, n, meta.samplePosition);
             if (at > pos) { for (int c = 0; c < 16; c++) seg[c] = out[c] + pos; dsp->process(seg, 16, at - pos); pos = at; }
             const auto m = meta.getMessage();
-            const int ch = m.getChannel();
-            int man = ch == midiPedal.load() ? 2 : ch == midiLower.load() ? 1 : (midiUpper.load() != 0 && ch != midiUpper.load()) ? -1 : 0;
-            if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
-                int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
-                if (m.isNoteOn()) dsp->noteOn(key, man, m.getVelocity()); else dsp->noteOff(key, man, m.getVelocity());
-                pushUi({ (uint8_t) (m.isNoteOn() ? 1 : 2), (int8_t) man, (int16_t) key });
+            if (m.isNoteOn() || m.isNoteOff()) {
+                int man = 0, key = 0;
+                if (mapNote(1, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key)) {
+                    if (m.isNoteOn()) dsp->noteOn(key, man, m.getVelocity()); else dsp->noteOff(key, man, m.getVelocity());
+                    pushUi({ (uint8_t) (m.isNoteOn() ? 1 : 2), (int8_t) man, (int16_t) key, (int16_t) m.getNoteNumber() });
+                } else if (m.isNoteOn()) pushUi({ 4, 0, 0, (int16_t) m.getNoteNumber() });
             } else if (m.isController()) {
                 int cc = m.getControllerNumber(), v = m.getControllerValue();
                 if (cc == leslieCC.load()) dsp->setLeslie(v >= 64 ? "fast" : "slow");
@@ -272,7 +293,8 @@ bool WheelhouseEngine::popUiEvent(var& ev) {
     if (e.kind == 3) {
         const auto& p = params()[(size_t) e.key];
         o->setProperty("type", "param"); o->setProperty("id", String(p.id)); o->setProperty("v", applied[(size_t) e.key].load());
-    } else { o->setProperty("type", e.kind == 1 ? "noteOn" : "noteOff"); o->setProperty("key", (int) e.key); o->setProperty("man", (int) e.man); }
+    } else if (e.kind == 4) { o->setProperty("type", "noteOut"); o->setProperty("note", (int) e.note); }
+    else { o->setProperty("type", e.kind == 1 ? "noteOn" : "noteOff"); o->setProperty("key", (int) e.key); o->setProperty("man", (int) e.man); o->setProperty("note", (int) e.note); }
     ev = var(o);
     return true;
 }
@@ -370,6 +392,10 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
             d.setKeyNoise(numProp(m, "keyNoise", 0.5));
         }
         else if (type == "output") d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
+        else if (type == "keyMap") {
+            splitMode = jlimit(0, 2, (int) numProp(m, "mode", 0)); splitHi = jlimit(1, 127, (int) numProp(m, "hi", 60)); splitLo = jlimit(0, 126, (int) numProp(m, "lo", 48));
+            if (auto* a = m.getProperty("oct", var()).getArray()) for (int i = 0; i < 3 && i < a->size(); i++) octShift[i] = jlimit(-3, 3, (int) (*a)[i]);
+        }
         else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); leslieCC = (int) numProp(m, "leslieCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
         else if (type == "vib") d.setVib(m.getProperty("v", "c3").toString().toStdString());
         else if (type == "drive") d.setDrive(numProp(m, "v", 0.35));

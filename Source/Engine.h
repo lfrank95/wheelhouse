@@ -82,7 +82,7 @@ private:
     std::mutex playWriteLock;
 
     // UI events produced on the audio thread (host MIDI notes, automation): small lock-free queue
-    struct UiEv { uint8_t kind = 0; int8_t man = 0; int16_t key = 0; };   // kind 1 note on, 2 note off, 3 param (key = index)
+    struct UiEv { uint8_t kind = 0; int8_t man = 0; int16_t key = 0; int16_t note = -1; };   // kind 1 note on, 2 note off, 3 param (key = index); note = incoming MIDI note
     juce::AbstractFifo uiFifo { 256 };
     std::array<UiEv, 256> uiBuf {};
     void pushUi(UiEv e);
@@ -93,6 +93,13 @@ private:
     std::atomic<int> droppedBlocks { 0 };
 
     std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, leslieCC { 1 }, swellCC { 11 };
+
+    // Keyboard split (one keyboard on the upper channel plays pedal | lower | upper) and octave transposition per
+    // manual. A note-off always goes where its note-on went, even if split or transposition changed in between.
+    std::atomic<int> splitMode { 0 }, splitHi { 60 }, splitLo { 48 };   // mode 0 off, 1 lower|upper, 2 pedal|lower|upper
+    std::atomic<int> octShift[3] { {0}, {0}, {0} };
+    int8_t heldMan[2][16][128], heldKey[2][16][128];                     // [path: device, host][channel][note]
+    bool mapNote(int path, int channel, int note, bool on, int& man, int& key);
     struct AmpRequest { int model = 0, quality = 1; double sag = 0.5; } ampRequest;
 
     // parameters as last applied to the DSP (shared by the audio thread and UI-originated changes)

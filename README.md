@@ -74,6 +74,11 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.
 * **MIDI**: Kanäle für Ober (oder Omni), Unter und Pedal, Controller für Leslie und Schweller. Alle MIDI-Eingänge sind aktiv.
+* **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Unter | Ober, „3“ = Pedal | Unter | Ober, auf dem
+  Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
+  lernen) und in der Karte MIDI. Jedes Manual und das Pedal lässt sich rechts daneben um ±3 Oktaven verschieben.
+  Auf den Manualen ist abgedunkelt, was das Keyboard nicht erreicht, die Grenzen sind gold markiert (Keyboardgröße
+  in der Karte MIDI). Ein losgelassener Ton geht immer dorthin, wo er angeschlagen wurde.
 * **Audio**: Kerne (Auto = halbe Kernzahl, höchstens 8, oder 1–16): Raum und Mikros rechnen auf mehreren Threads,
   jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
 * PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
