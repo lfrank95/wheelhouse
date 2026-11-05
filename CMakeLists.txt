@@ -23,6 +23,8 @@ juce_add_binary_data(WheelhouseResources SOURCES Resources/index.html ${WHEELHOU
 juce_add_gui_app(Wheelhouse
     PRODUCT_NAME "Wheelhouse"
     COMPANY_NAME "Lorenzo Frank"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-1024.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-small-256.png"
     NEEDS_WEBVIEW2 TRUE
     NEEDS_WEB_BROWSER TRUE)
 

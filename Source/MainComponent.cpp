@@ -107,17 +107,56 @@ void MainComponent::audioDeviceAboutToStart(AudioIODevice* device) {
 }
 void MainComponent::audioDeviceStopped() {}
 
+void MainComponent::pushPlay(PlayCmd c) {
+    std::lock_guard<std::mutex> g(playWriteLock);
+    const auto w = playFifo.write(1);
+    if (w.blockSize1 > 0) playBuf[(size_t) w.startIndex1] = c;
+    else if (w.blockSize2 > 0) playBuf[(size_t) w.startIndex2] = c;   // queue full (512 pending): the event is dropped
+}
+// Audio thread, with dspLock held
+void MainComponent::drainPlay() {
+    const auto r = playFifo.read(playFifo.getNumReady());
+    auto apply = [this](const PlayCmd& c) {
+        switch (c.type) {
+            case NOTE_ON: dsp->noteOn(c.key, c.man, c.value); break;
+            case NOTE_OFF: dsp->noteOff(c.key, c.man, c.value); break;
+            case LESLIE: dsp->setLeslie(c.value == 2 ? "fast" : c.value == 1 ? "slow" : "stop"); break;
+            case SWELL: dsp->setVolume(c.value / 127.0); break;
+            case PANIC: dsp->panic(); break;
+            default: break;
+        }
+    };
+    for (int i = 0; i < r.blockSize1; i++) apply(playBuf[(size_t) (r.startIndex1 + i)]);
+    for (int i = 0; i < r.blockSize2; i++) apply(playBuf[(size_t) (r.startIndex2 + i)]);
+}
+
 void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, float* const* outputChannelData, int numOutputChannels, int numSamples, const AudioIODeviceCallbackContext&) {
+    ScopedNoDenormals noDenormals;   // decaying filters and reverb tails must not fall into slow denormal arithmetic
     for (int c = 0; c < numOutputChannels; c++) if (outputChannelData[c]) FloatVectorOperations::clear(outputChannelData[c], numSamples);
     const int nCh = jmin(16, numOutputChannels);
     float* ptrs[16];
     for (int c = 0; c < 16; c++) { if (scratch[c].size() < (size_t) numSamples) scratch[c].assign((size_t) numSamples, 0.f); ptrs[c] = scratch[c].data(); }
     {
-        // try_lock: if the message thread holds the lock (room rebuild, amp swap) we output one silent block
-        // instead of stalling the driver
-        std::unique_lock<std::mutex> lock(dspLock, std::try_to_lock);
-        if (lock.owns_lock()) dsp->process(ptrs, 16, numSamples);
-        else for (int c = 0; c < 16; c++) FloatVectorOperations::clear(ptrs[c], numSamples);
+        // The message thread holds dspLock only briefly for settings (microseconds), longer only for a room rebuild.
+        // Wait for it at most 30 % of the buffer; only if it is still busy output one silent block instead of
+        // stalling the driver.
+        std::unique_lock<std::mutex> lock(dspLock, std::defer_lock);
+        const double t0 = Time::getMillisecondCounterHiRes(), waitMs = 300.0 * numSamples / jmax(8000.0, currentSampleRate);
+        while (!lock.try_lock()) {
+            if (Time::getMillisecondCounterHiRes() - t0 > waitMs) break;
+            std::this_thread::yield();
+        }
+        if (lock.owns_lock()) {
+            drainPlay();
+            dsp->process(ptrs, 16, numSamples);
+            teleHorn = dsp->hornAngle(); teleDrum = dsp->drumAngle(); teleHornHz = dsp->hornHz(); teleDrumHz = dsp->drumHz();
+            telePlate = dsp->ampPlate(); teleCathode = dsp->ampCathode(); teleLatency = dsp->processingLatency();
+            teleMics = dsp->mics().on;
+            for (int c = 0; c < leslie::MIC_CH && c < 6; c++) teleMicMeter[(size_t) c] = dsp->micMeter(c);
+        } else {
+            for (int c = 0; c < 16; c++) FloatVectorOperations::clear(ptrs[c], numSamples);
+            droppedBlocks++;
+        }
     }
     for (int c = 0; c < nCh; c++) if (outputChannelData[c]) FloatVectorOperations::copy(outputChannelData[c], ptrs[c], numSamples);
 
@@ -156,19 +195,16 @@ void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) 
     auto noteEvent = [&](const char* type, int key) {
         auto* o = new DynamicObject(); o->setProperty("type", type); o->setProperty("key", key); o->setProperty("man", man); ev = var(o);
     };
-    {
-        std::lock_guard<std::mutex> lock(dspLock);
-        if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
-            int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
-            if (m.isNoteOn()) { dsp->noteOn(key, man, m.getVelocity()); noteEvent("noteOn", key); }
-            else { dsp->noteOff(key, man, m.getVelocity()); noteEvent("noteOff", key); }
-        }
-        else if (m.isController()) {
-            int cc = m.getControllerNumber(), v = m.getControllerValue();
-            if (cc == leslieCC.load()) { dsp->setLeslie(v >= 64 ? "fast" : "slow"); auto* o = new DynamicObject(); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); ev = var(o); }
-            else if (cc == swellCC.load()) { dsp->setVolume(v / 127.0); auto* o = new DynamicObject(); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); ev = var(o); }
-            else if (cc == 123) { dsp->panic(); auto* o = new DynamicObject(); o->setProperty("type", "panic"); ev = var(o); }
-        }
+    if (man >= 0 && (m.isNoteOn() || m.isNoteOff())) {
+        int key = m.getNoteNumber() - (man == 2 ? 24 : 36);
+        if (m.isNoteOn()) { pushPlay({ NOTE_ON, (int8_t) man, (int16_t) key, (int16_t) m.getVelocity() }); noteEvent("noteOn", key); }
+        else { pushPlay({ NOTE_OFF, (int8_t) man, (int16_t) key, (int16_t) m.getVelocity() }); noteEvent("noteOff", key); }
+    }
+    else if (m.isController()) {
+        int cc = m.getControllerNumber(), v = m.getControllerValue();
+        if (cc == leslieCC.load()) { pushPlay({ LESLIE, 0, 0, (int16_t) (v >= 64 ? 2 : 1) }); auto* o = new DynamicObject(); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); ev = var(o); }
+        else if (cc == swellCC.load()) { pushPlay({ SWELL, 0, 0, (int16_t) v }); auto* o = new DynamicObject(); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); ev = var(o); }
+        else if (cc == 123) { pushPlay({ PANIC, 0, 0, 0 }); auto* o = new DynamicObject(); o->setProperty("type", "panic"); ev = var(o); }
     }
     if (!ev.isVoid()) MessageManager::callAsync([this, ev] { if (web) web->emitEventIfBrowserIsVisible("midi", ev); });
 }
@@ -181,19 +217,16 @@ void MainComponent::changeListenerCallback(ChangeBroadcaster*) { enableAllMidiIn
 void MainComponent::timerCallback() {
     if (!web) return;
     auto* o = new DynamicObject();
-    {
-        std::lock_guard<std::mutex> lock(dspLock);
-        o->setProperty("horn", dsp->hornAngle()); o->setProperty("drum", dsp->drumAngle());
-        o->setProperty("hornHz", dsp->hornHz()); o->setProperty("drumHz", dsp->drumHz());
-    }
+    // everything here comes from values the audio thread published: the timer never takes dspLock
+    o->setProperty("horn", teleHorn.load()); o->setProperty("drum", teleDrum.load());
+    o->setProperty("hornHz", teleHornHz.load()); o->setProperty("drumHz", teleDrumHz.load());
     Array<var> m; for (int c = 0; c < 16; c++) m.add(20.0 * std::log10(meterRms[(size_t) c].load() + 1e-6));
     o->setProperty("meters", m);
     o->setProperty("cpu", deviceManager.getCpuUsage());
-    {
-        std::lock_guard<std::mutex> lock(dspLock); o->setProperty("vb", dsp->ampPlate()); o->setProperty("vk", dsp->ampCathode());
-        o->setProperty("procLatency", dsp->processingLatency());
-        if (dsp->mics().on) { Array<var> mm; for (int c = 0; c < leslie::MIC_CH; c++) mm.add(20.0 * std::log10(dsp->micMeter(c) + 1e-6)); o->setProperty("mm", mm); }
-    }
+    o->setProperty("vb", telePlate.load()); o->setProperty("vk", teleCathode.load());
+    o->setProperty("procLatency", teleLatency.load());
+    o->setProperty("dropped", droppedBlocks.load());
+    if (teleMics.load()) { Array<var> mm; for (int c = 0; c < 6; c++) mm.add(20.0 * std::log10(teleMicMeter[(size_t) c].load() + 1e-6)); o->setProperty("mm", mm); }
     web->emitEventIfBrowserIsVisible("rot", var(o));
 }
 
@@ -253,9 +286,9 @@ void MainComponent::handleDspMessage(const var& m) {
         std::lock_guard<std::mutex> lock(dspLock);
         auto& d = *dsp;
         const int man = (int) m.getProperty("man", 0);
-        if (type == "noteOn") d.noteOn((int) m.getProperty("key", 0), man, (int) numProp(m, "vel", 100));
-        else if (type == "noteOff") d.noteOff((int) m.getProperty("key", 0), man, (int) numProp(m, "vel", 64));
-        else if (type == "panic") d.panic();
+        if (type == "noteOn") pushPlay({ NOTE_ON, (int8_t) man, (int16_t) (int) m.getProperty("key", 0), (int16_t) (int) numProp(m, "vel", 100) });
+        else if (type == "noteOff") pushPlay({ NOTE_OFF, (int8_t) man, (int16_t) (int) m.getProperty("key", 0), (int16_t) (int) numProp(m, "vel", 64) });
+        else if (type == "panic") pushPlay({ PANIC, 0, 0, 0 });
         else if (type == "drawbars") { int v[9] = {0}; if (auto* a = m.getProperty("v", var()).getArray()) for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i]; d.setDrawbars(v, man); }
         else if (type == "perc") {
             leslie::Perc p; auto v = m.getProperty("v", var());

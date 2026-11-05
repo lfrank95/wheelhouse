@@ -22,6 +22,8 @@ select option { background: #1a1511; color: #e8dcc4; }
 /* ---------- Header bar ---------- */
 .top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a221b; }
 .logo { font-family: 'Yellowtail', 'Brush Script MT', cursive; font-size: 34px; line-height: 1; color: #f2c879; letter-spacing: .5px; padding-right: 4px; }
+.logo { display: flex; align-items: center; gap: 9px; }
+.logo .logoIcon { width: 38px; height: 38px; flex: none; }
 .sel { font-size: 15px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 6px; padding: 6px 10px; }
 .tabs { display: flex; gap: 2px; background: #120f0c; border: 1px solid #2e2620; border-radius: 8px; padding: 3px; }
 .tabs button { font-size: 14.5px; font-weight: 600; letter-spacing: .4px; border: none; border-radius: 5px; padding: 7px 10px; background: transparent; color: #e8dcc4; }
@@ -201,7 +203,24 @@ select option { background: #1a1511; color: #e8dcc4; }
 
   <!-- ============ Header bar ============ -->
   <header class="top">
-    <div class="logo">Wheelhouse</div>
+    <div class="logo"><svg class="logoIcon" viewBox="0 0 256 256" aria-hidden="true"><defs><clipPath id="hlT"><rect x="4" y="4" width="248" height="248" rx="56"/></clipPath><radialGradient id="hlG" cx="50%" cy="34%" r="60%"><stop offset="0" stop-color="#3a2a1c"/><stop offset="1" stop-color="#16110d"/></radialGradient><linearGradient id="hlW" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5c3319"/><stop offset="0.5" stop-color="#7c4a26"/><stop offset="1" stop-color="#4e2a14"/></linearGradient><linearGradient id="hlS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5a33"/><stop offset="1" stop-color="#4a2914"/></linearGradient></defs><g clip-path="url(#hlT)"><rect x="4" y="4" width="248" height="248" fill="url(#hlG)"/><rect x="40" y="26" width="176" height="14" rx="3" fill="#86532c"/><rect x="40" y="38" width="176" height="3" fill="#3a2010" opacity="0.6"/><rect x="48" y="40" width="160" height="120" fill="url(#hlW)"/><rect x="62" y="52" width="132" height="76" rx="3" fill="#0e0a08"/><rect x="124" y="86" width="8" height="42" fill="#3a2a1c"/><path d="M128 80 L100 77 L86 72 L86 96 L100 91 L128 88 Z" fill="#4a3a2a"/><path d="M128 79 L162 74 L178 64 L184 64 L184 104 L178 104 L162 94 L128 89 Z" fill="#f2c879"/><rect x="120" y="76" width="16" height="16" rx="3" fill="#b8913f"/><rect x="62" y="55" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="67" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="79" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="91" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="103" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="115" width="132" height="7" fill="url(#hlS)"/><rect x="62" y="52" width="132" height="76" rx="3" fill="none" stroke="#2e180a" stroke-width="3"/><rect x="4" y="150" width="248" height="20" fill="#1c1410"/><rect x="4" y="150" width="248" height="3" fill="#f2c879" opacity="0.85"/><rect x="26.5" y="160" width="7" height="60" fill="#d9ccb4"/>
+<rect x="20.5" y="220" width="19" height="24" rx="5" fill="#a8662f" stroke="#7a4519" stroke-width="1.5"/>
+<rect x="51.0" y="160" width="7" height="60" fill="#d9ccb4"/>
+<rect x="45.0" y="220" width="19" height="24" rx="5" fill="#a8662f" stroke="#7a4519" stroke-width="1.5"/>
+<rect x="75.5" y="160" width="7" height="60" fill="#d9ccb4"/>
+<rect x="69.5" y="220" width="19" height="24" rx="5" fill="#efe6d2" stroke="#b9ab92" stroke-width="1.5"/>
+<rect x="100.0" y="160" width="7" height="46" fill="#d9ccb4"/>
+<rect x="94.0" y="206" width="19" height="24" rx="5" fill="#efe6d2" stroke="#b9ab92" stroke-width="1.5"/>
+<rect x="124.5" y="160" width="7" height="4" fill="#d9ccb4"/>
+<rect x="118.5" y="164" width="19" height="24" rx="5" fill="#26201b" stroke="#8a7a64" stroke-width="1.5"/>
+<rect x="149.0" y="160" width="7" height="4" fill="#d9ccb4"/>
+<rect x="143.0" y="164" width="19" height="24" rx="5" fill="#efe6d2" stroke="#b9ab92" stroke-width="1.5"/>
+<rect x="173.5" y="160" width="7" height="25" fill="#d9ccb4"/>
+<rect x="167.5" y="185" width="19" height="24" rx="5" fill="#26201b" stroke="#8a7a64" stroke-width="1.5"/>
+<rect x="198.0" y="160" width="7" height="4" fill="#d9ccb4"/>
+<rect x="192.0" y="164" width="19" height="24" rx="5" fill="#26201b" stroke="#8a7a64" stroke-width="1.5"/>
+<rect x="222.5" y="160" width="7" height="32" fill="#d9ccb4"/>
+<rect x="216.5" y="192" width="19" height="24" rx="5" fill="#efe6d2" stroke="#b9ab92" stroke-width="1.5"/></g><rect x="4" y="4" width="248" height="248" rx="56" fill="none" stroke="#3a2f25" stroke-width="2"/></svg><span>Wheelhouse</span></div>
     <select id="preset" class="sel" style="width: 220px" aria-label="Preset"></select>
     <nav class="tabs" id="tabs" aria-label="Bereiche"></nav>
     <div style="flex: 1"></div>
@@ -417,7 +436,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
   S.meters = null;
   let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, outLatencySamples: 0, driverLatencySamples: 0, channelNames: [], midiDevices: [] };
-  let procLatency = 0;
+  let procLatency = 0, droppedBlocks = 0;
   const micMeterEls = []; const micHold = new Array(6).fill(-120);
   let ampText = '–', tInfoText = '–', cpuText = '–', warnText = '', slowSync = 0, roomInfo = null;
   const SAVE_KEYS = Object.keys(DEF);
@@ -739,11 +758,16 @@ select option { background: #1a1511; color: #e8dcc4; }
       const nx = (x - (x > 70 ? rx * 0.3 : -rx * 0.3)).toFixed(1);
       return { x: x.toFixed(1), rx: rx.toFixed(1), rxIn: (rx * 0.62).toFixed(1), neck: `M70 41.5 L${nx} ${(44 - tipH).toFixed(1)} L${nx} ${(44 + tipH).toFixed(1)} L70 46.5 Z`, front: depth >= 0 };
     };
-    // Angles relative to the cabinet front (the front faces the viewer)
-    const a = hornA - S.cabYaw, f = horn(a), b = horn(a + Math.PI);
-    const F = f.front ? f : b, B = f.front ? b : f;
-    svgSet('hfNeck', { d: F.neck }); svgSet('hfBell', { cx: F.x, rx: F.rx }); svgSet('hfIn', { cx: F.x, rx: F.rxIn });
-    svgSet('hbNeck', { d: B.neck }); svgSet('hbBell', { cx: B.x, rx: B.rx });
+    // Angles relative to the cabinet front (the front faces the viewer). f = the sounding horn (gold mouth),
+    // b = the capped dummy opposite. Whichever is nearer is drawn in front of the shaft, but each keeps its own look:
+    // the sounding horn seen from behind shows its darker gold outside and no mouth.
+    const a = hornA - S.cabYaw, f = horn(a), b = horn(a + Math.PI), live = f.front;
+    const F = live ? f : b, B = live ? b : f;
+    svgSet('hfNeck', { d: F.neck, fill: live ? 'url(#lbell)' : '#2a1d12' });
+    svgSet('hfBell', { cx: F.x, rx: F.rx, fill: live ? '#f2c879' : '#1d140c', stroke: live ? '#a88a55' : '#3a2a1b' });
+    svgSet('hfIn', { cx: F.x, rx: F.rxIn, display: live ? 'inline' : 'none' });
+    svgSet('hbNeck', { d: B.neck, fill: live ? '#2a1d12' : '#8a6a3a' });
+    svgSet('hbBell', { cx: B.x, rx: B.rx, fill: live ? '#1d140c' : '#a8803e', stroke: live ? '#3a2a1b' : '#6a4f24' });
     const d = drumA - S.cabYaw, dc = Math.cos(d), dxw = 70 + 40 * Math.sin(d), dw = Math.max(4, 30 * dc);
     $('drumWin').style.display = dc > 0.05 ? '' : 'none';
     svgSet('dwRect', { x: (dxw - dw / 2).toFixed(1), width: dw.toFixed(1) });
@@ -1110,6 +1134,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       rowVal('Aktiv', () => audioInfo.outputs ? `${audioInfo.outputs} Ausgänge` : '–'),
       rowVal('Kanäle', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
       rowVal('Rechenlast', () => cpuText),
+      rowVal('Aussetzer', () => droppedBlocks ? `${droppedBlocks} Blöcke ausgelassen (Einstellung lief gerade)` : 'keine'),
       rowSeg('Endstufe', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); syncAll(); }),
       rowSeg('Kerne', [[0, 'Auto'], [1, '1'], [2, '2'], [4, '4'], [8, '8'], [16, '16']], () => S.threads, v => { S.threads = v; sendThreads(); }, 0),
     ], 'Raum und Mikros rechnen auf mehreren Kernen (Auto = halbe Kernzahl, höchstens 8). Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
@@ -1502,11 +1527,24 @@ select option { background: #1a1511; color: #e8dcc4; }
   if (NATIVE) {
     const B = window.__JUCE__.backend;
     B.addEventListener('rot', (m) => {
-      Object.assign(S.rot, { horn: m.horn, drum: m.drum, hornHz: m.hornHz, drumHz: m.drumHz, t: performance.now() }); S.meters = m.meters;
+      // The events arrive irregularly (the WebView delivers them in bursts), so the drawn rotors run on their own
+      // clock and are only pulled gently towards the reported angles; a big difference (start, stop) snaps.
+      {
+        const now = performance.now(), dt = (now - S.rot.t) / 1000;
+        const pull = (shown, hz, reported) => {
+          const cur = shown + hz * 2 * Math.PI * dt;
+          let e = reported - cur; e -= Math.round(e / (2 * Math.PI)) * 2 * Math.PI;
+          return Math.abs(e) > 1.2 ? reported : cur + e * 0.2;
+        };
+        S.rot.horn = pull(S.rot.horn, S.rot.hornHz, m.horn); S.rot.drum = pull(S.rot.drum, S.rot.drumHz, m.drum);
+        S.rot.hornHz = m.hornHz; S.rot.drumHz = m.drumHz; S.rot.t = now;
+      }
+      S.meters = m.meters;
       if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + ' %'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
       if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${de(m.vk)} V`;
       if (m.mm) S.micMeters = m.mm;
       if (m.procLatency !== undefined) procLatency = m.procLatency;
+      if (m.dropped !== undefined) droppedBlocks = m.dropped;
       if (tab !== 'spielen') { slowSync++; if (slowSync % 10 === 0) syncAll(); }
     });
     B.addEventListener('roomInfo', (m) => { roomInfo = m; syncAll(); });

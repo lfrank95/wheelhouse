@@ -13,6 +13,23 @@
 #include <vector>
 #include <chrono>
 #include <cstdint>
+#if defined(__SSE__) || defined(_M_X64) || defined(_M_IX86)
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+#endif
+#if defined(_WIN32)
+// Declared by hand (identical to the Windows headers) so this header does not pull <windows.h> into JUCE code.
+extern "C" __declspec(dllimport) void* __stdcall GetCurrentThread();
+extern "C" __declspec(dllimport) int __stdcall SetThreadPriority(void* thread, int priority);
+extern "C" __declspec(dllimport) void* __stdcall AvSetMmThreadCharacteristicsW(const wchar_t* task, unsigned long* index);
+extern "C" __declspec(dllimport) int __stdcall AvSetMmThreadPriority(void* handle, int priority);
+#if defined(_MSC_VER)
+#pragma comment(lib, "avrt.lib")
+#endif
+#elif defined(__unix__) || defined(__APPLE__)
+#include <pthread.h>
+#include <sched.h>
+#endif
 
 namespace leslie {
 
@@ -65,16 +82,34 @@ private:
             done.fetch_add(1, std::memory_order_acq_rel);
         }
     }
+    // Workers do audio work the driver is waiting for: they must not lose the CPU to the UI or the browser view.
+    // Same treatment as the audio thread: real-time priority (Windows: MMCSS "Pro Audio") and denormals flushed
+    // to zero (decaying filters would otherwise slow down by a factor of 100 on x86).
+    static void prepareThread() {
+#if defined(__SSE__) || defined(_M_X64) || defined(_M_IX86)
+        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON); _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#endif
+#if defined(_WIN32)
+        unsigned long index = 0;
+        void* task = AvSetMmThreadCharacteristicsW(L"Pro Audio", &index);
+        if (task) AvSetMmThreadPriority(task, 1 /* AVRT_PRIORITY_HIGH */);
+        SetThreadPriority(GetCurrentThread(), 15 /* THREAD_PRIORITY_TIME_CRITICAL */);
+#elif defined(__unix__) || defined(__APPLE__)
+        sched_param sp{}; sp.sched_priority = sched_get_priority_max(SCHED_FIFO) - 2;
+        pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);   // needs permission; stays normal otherwise
+#endif
+    }
     void workerLoop() {
+        prepareThread();
         uint64_t seen = 0;
         for (;;) {
             // spin for a short while: sub-blocks arrive every ~1.3 ms, a sleeping thread would add wake-up latency
-            auto t0 = std::chrono::steady_clock::now();
+            // (only right after a job: an idle pool sleeps and costs nothing, even at real-time priority)
+            const auto t0 = std::chrono::steady_clock::now();
             while ((state.load(std::memory_order_acquire) >> GEN_SHIFT) == seen && !quit.load(std::memory_order_acquire)) {
                 if (std::chrono::steady_clock::now() - t0 > std::chrono::microseconds(300)) {
                     std::unique_lock<std::mutex> lock(mtx);
-                    cv.wait_for(lock, std::chrono::milliseconds(2), [&] { return (state.load(std::memory_order_acquire) >> GEN_SHIFT) != seen || quit.load(); });
-                    t0 = std::chrono::steady_clock::now();
+                    cv.wait(lock, [&] { return (state.load(std::memory_order_acquire) >> GEN_SHIFT) != seen || quit.load(); });
                 }
             }
             if (quit.load(std::memory_order_acquire)) return;

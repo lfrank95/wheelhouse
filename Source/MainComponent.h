@@ -57,6 +57,23 @@ private:
     int meterCount = 0;
 
     std::vector<float> scratch[16];
+
+    // Notes and performance controls (keys, Leslie switch, swell, panic) from MIDI and the on-screen keys go through a
+    // lock-free queue that the audio thread empties at the start of each block: the MIDI threads never touch dspLock,
+    // so a key press can never make the audio thread miss its lock.
+    struct PlayCmd { uint8_t type = 0; int8_t man = 0; int16_t key = 0; int16_t value = 0; };   // type: see PlayType
+    enum PlayType : uint8_t { NOTE_ON = 1, NOTE_OFF, LESLIE, SWELL, PANIC };
+    juce::AbstractFifo playFifo { 512 };
+    std::array<PlayCmd, 512> playBuf {};
+    std::mutex playWriteLock;                                // several MIDI input threads may write; never taken by audio
+    void pushPlay(PlayCmd c);
+    void drainPlay();
+
+    // Values the 30 Hz UI timer shows, published by the audio thread (no lock needed to read them)
+    std::atomic<double> teleHorn { 0 }, teleDrum { 0 }, teleHornHz { 0 }, teleDrumHz { 0 }, telePlate { 0 }, teleCathode { 0 };
+    std::atomic<int> teleLatency { 0 }; std::atomic<bool> teleMics { false };
+    std::array<std::atomic<float>, 6> teleMicMeter {};
+    std::atomic<int> droppedBlocks { 0 };
     // MIDI channels per manual (0 = omni for the upper manual) and controller numbers for Leslie speed / swell pedal
     std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, leslieCC { 1 }, swellCC { 11 };
 

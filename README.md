@@ -78,6 +78,7 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
 * PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
+* **Aussetzer** (Karte Audio) zählt Blöcke, die still ausgegeben wurden, weil eine Einstellung gerade den Klangkern belegt hat (sollte bei normalem Spielen 0 bleiben).
 
 ## Geplant für die VST3-Version
 
@@ -137,6 +138,7 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
+* `Resources/icon/` – App-Icon (Leslie über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
