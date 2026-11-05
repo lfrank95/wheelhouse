@@ -801,7 +801,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       sendChr(); syncAll();
     } });
     p.appendChild(sec('Charakter', [condK('cond', 'Zustand', 0.5), condK('leak', 'Übersprechen', 0.5), condK('contact', 'Kontakte', 0.5), condK('motor', 'Motor', 0.4)], [],
-      '„Zustand“ zieht die anderen drei mit: von fabrikneu bis 40 Jahre Tour.'));
+      '„Zustand“ zieht die anderen drei mit und bestimmt Pegelstreuung und Schlag der Tonräder: von fabrikneu bis 40 Jahre Tour.'));
     p.appendChild(sec('Generator', [], [
       rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
       rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),

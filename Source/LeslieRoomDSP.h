@@ -257,6 +257,11 @@ private:
     std::vector<float> sine, complexWave;
     std::array<double, 92> phase{}, inc{}, incNew{}, incGear{};
     std::array<float, 92> percG{}, wheelLvl{}, wheelVar{}, wheelG{};
+    // Tonewheel runout: every disc is slightly bent or sits slightly off-centre on its shaft, so the air gap to the
+    // pickup changes once per shaft revolution -> amplitude modulation at the shaft speed (13-33 Hz). Amount and
+    // direction (phase) are random per wheel and fixed for this organ; fine-toothed upper wheels react more.
+    std::array<double, 92> runPh{}, runInc{}, runA1{}, runA2{}, runP1{}, runP2{}, runF{}, runDF{};
+    double runScale = 0;
     std::array<float, 92> gain[3]{}, target[3]{};
     std::array<uint8_t, 61> keys[3]{};
     int numKeysUpper = 0;
@@ -390,6 +395,21 @@ inline void LeslieRoomDSP::init() {
         wheelLvl[w] = (float) (w < 13 ? 1.15 : w < 49 ? 1.0 : 1 - (w - 48) / 43.0 * 0.42);
         wheelVar[w] = (float) (rnd() * 2 - 1);
     }
+    {
+        Lcg rr(0x5C4A7u);
+        for (int w = 1; w <= 91; w++) {
+            int n = (w - 1) % 12, oct = (w - 1) / 12;
+            int teeth = 2 << oct; const int* g = GEARS[n];
+            if (w >= 85) { teeth = 192; g = GEARS[(n + 5) % 12]; }
+            runInc[w] = 20.0 * g[0] / g[1] / fs;                       // shaft revolutions per sample (main shaft 20 Hz x gear ratio)
+            double sens = std::sqrt(teeth / 192.0);                    // relative gap sensitivity: finer teeth, stronger effect
+            double amt = 0.3 + 0.7 * rr();                             // how badly this particular disc runs out
+            runA1[w] = sens * amt;                                     // once per revolution (eccentricity / bend)
+            runA2[w] = sens * amt * (0.15 + 0.3 * rr());               // twice per revolution (a bent disc wobbles unevenly)
+            runP1[w] = rr(); runP2[w] = rr(); runPh[w] = rr();
+            runF[w] = 1;
+        }
+    }
     applyCharacter();
     vibBuf.assign(2048, 0.f);
     expLp.set("lp", 180, 0.7, fs);
@@ -423,6 +443,8 @@ inline void LeslieRoomDSP::applyCharacter() {
     const auto& c = chr;
     for (int w = 1; w <= 91; w++) inc[w] = c.gearTune ? incGear[w] : incNew[w];
     for (int w = 1; w <= 91; w++) wheelG[w] = (float) (wheelLvl[w] * std::pow(10.0, wheelVar[w] * 1.5 * c.cond / 20));
+    // runout depth of the worst (top) wheels: ~0.2 % when new, ~1.6 % for a well-kept 60s organ (cond 0.45), ~4 % worn out
+    runScale = 0.002 + 0.045 * std::pow(c.cond, 1.5);
     leakAdj = std::pow(10.0, -(52 - 14 * c.leak) / 20); leakAdj2 = leakAdj * 0.45;
     leakBank = std::pow(10.0, -(50 - 12 * c.leak) / 20); leakHum = std::pow(10.0, -(78 - 16 * c.leak) / 20);
     staggerS = (0.0008 + 0.0045 * c.contact) * fs; bounceP = 0.15 + 0.7 * c.contact;
@@ -1024,6 +1046,12 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     constexpr double COS1 = 0.5403023058681398, SIN1 = 0.8414709848078965;
     const size_t np = paths.size();
 
+    // Tonewheel runout: modulation factor at the end of this sub-block (<= 66 Hz content, so a linear ramp is exact enough)
+    for (int w = 1; w <= 91; w++) {
+        double ph = runPh[w] + runInc[w] * N; ph -= std::floor(ph); runPh[w] = ph;
+        double f = 1 + runScale * (runA1[w] * std::sin(TWO_PI * (ph + runP1[w])) + runA2[w] * std::sin(2 * TWO_PI * (ph + runP2[w])));
+        runDF[w] = (f - runF[w]) / N;
+    }
     // ---------- 1) Organ: tonewheels, manuals, key contacts, percussion, scanner vibrato, expression pedal -> orgBuf ----------
     if ((int) orgBuf.size() < N) orgBuf.assign((size_t) N, 0.f);   // pre-sized in init(); only grows for unusually large host blocks
     for (int n = 0; n < N; n++) {
@@ -1046,7 +1074,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             if (gsum + leakHum > 1e-6 || pg > 0) {
                 double x = ph * TAB; int i = (int) x; double f = x - i;
                 const float* tab = (w <= 12 && complexLow) ? complexWave.data() : sine.data();
-                double v = (tab[i] + (tab[i + 1] - tab[i]) * f) * wheelG[w];
+                double v = (tab[i] + (tab[i + 1] - tab[i]) * f) * wheelG[w] * (runF[w] + runDF[w] * (n + 1));
                 sU += v * g0; sL += v * g1; sP += v * g2; ps += v * pg; hum += v; load += gsum;
             }
         }
@@ -1074,6 +1102,8 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         s = (s + expLp.run(s) * expBass) * expGain;
         orgBuf[(size_t) n] = (float) s;
     }
+
+    for (int w = 1; w <= 91; w++) runF[w] += runDF[w] * N;
 
     // ---------- 2) Organ preamp, spring reverb and Leslie power amp (circuit models with their own oversampling) ----------
     pre.process(orgBuf.data(), N); spring.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);

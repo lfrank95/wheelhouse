@@ -43,7 +43,8 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 
 * **Spielen**: 9 Zugriegel Ober, 2 Pedal (16′/8′), 9 Unter; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
   Zugriegel und Knöpfe ziehen oder Mausrad, Umschalt = fein, Doppelklick = Standardwert.
-* **Orgel**: Zustand, Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
+* **Orgel**: Zustand (auch Pegelstreuung und Schlag der Tonräder: jedes Rad eiert mit eigener Stärke und Richtung,
+  0,2 % neu bis etwa 4 % abgenutzt, obere Räder stärker), Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten.
 * **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Balance, Hornfach, Ausrichtung.
 * **Modus Hörer / Mikros** (Kopfleiste): Hörer = du stehst im Raum; Mikros = Nahmikros und Raumpaar über das Pult.
