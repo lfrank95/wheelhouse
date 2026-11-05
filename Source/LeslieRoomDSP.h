@@ -1167,17 +1167,13 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
     const bool vibChorus = vibChorusMode;
     const double vibInc = 6.87 / fs;
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
-    const double fsc = fs / C_SOUND;
     Rotor& rh = rot[0]; Rotor& rd = rot[1];
     const double wob = rotorWobble;
     const double revGain = fdnInGain * room.reverb;
     const int nSpk = (int) fdnOutRows.size();
     const int lfeIdx = spk.lfe;
     const double master = 6.5 * masterGain;
-    const double kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs), kScale = TWO_PI / fs;
-    const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
     constexpr double COS1 = 0.5403023058681398, SIN1 = 0.8414709848078965;
-    const size_t np = paths.size();
 
     // Tonewheel runout: modulation factor at the end of this sub-block (<= 66 Hz content, so a linear ramp is exact enough)
     for (int w = 1; w <= 91; w++) {
@@ -1316,7 +1312,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
 
     // ---------- 3c) Per sample (sequential): sum the partials, mic post-processing, FDN reverb, mixer, output ----------
     for (int n = 0; n < N; n++) {
-        const double chc = chcA[(size_t) n], chs = chsA[(size_t) n], hi = hiA[(size_t) n], lo = loA[(size_t) n];
+        const double chc = chcA[(size_t) n], chs = chsA[(size_t) n];
         const double tt = (n + 1.0) / N;
 
         acc.fill(0); bucket.fill(0);
@@ -1512,7 +1508,7 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
     for (int n = 0; n < N; n++) { for (int c = 0; c < 8; c++) P.acc[n][c] = 0; for (int k = 0; k <= NB; k++) P.bucket[n][k] = 0; P.lfe[n] = 0; }
     const double fsc = fs / C_SOUND, kDrumLo = 1 - std::exp(-TWO_PI * 200 / fs);
     const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
-    const auto& H = listener; const auto& L = lesliePos;
+    const auto& H = listener;
     const Rotor& rh = rot[0]; const Rotor& rd = rot[1];
     // slice of the exact paths
     const size_t ne = exactIdx.size(), e0 = ne * (size_t) job / (size_t) listenerJobs, e1 = ne * (size_t) (job + 1) / (size_t) listenerJobs;

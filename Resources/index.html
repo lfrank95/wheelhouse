@@ -578,7 +578,8 @@ self.onmessage = (e) => {
   if (NATIVE) window.__JUCE__.backend.addEventListener('__juce__complete', ({ promiseId, result }) => { const p = promises.get(promiseId); if (p) { p(result); promises.delete(promiseId); } });
   let ready = false;
   const NO_SAVE = new Set(['noteOn', 'noteOff', 'panic', 'springKick', 'taps']);
-  const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); if (ready && !NO_SAVE.has(m.type)) scheduleSave(); };
+  let muteSend = false;   // while the state is assembled at startup (pushAll sends everything afterwards)
+  const send = (m) => { if (muteSend) return; if (NATIVE) nativeInvoke('dsp', m); if (ready && !NO_SAVE.has(m.type)) scheduleSave(); };
 
   // ---------------- State ----------------
   // DEF holds the defaults, S is the live state; all keys of DEF are persisted via saveUi/loadUi.
@@ -592,7 +593,7 @@ self.onmessage = (e) => {
     perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
     vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
     organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true, keyNoise: 0.5 },
-    mains: 50, velClick: true,
+    mains: 50, velClick: true, offlineMax: true,
     rotor: [{ slow: 0.75, fast: 6.8, up: 0.8, down: 1.4 }, { slow: 0.62, fast: 5.7, up: 4.5, down: 5.5 }],
     brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 },
     amp: { model: 0, quality: 1, sag: 0.5 },
@@ -759,7 +760,10 @@ self.onmessage = (e) => {
     else s.appendChild(h('span', 'st', title));
     if (knobs && knobs.length) { const g = h('div', 'kgrid'); if (opts.kcols) g.style.gridTemplateColumns = `repeat(${opts.kcols}, minmax(0, 1fr))`; knobs.forEach(k => g.appendChild(k.el)); s.appendChild(g); }
     if (rows && rows.length) { const g = h('div', 'rows'); if (opts.rcols) { g.style.display = 'grid'; g.style.gridTemplateColumns = `repeat(${opts.rcols}, minmax(0, 1fr))`; g.style.columnGap = '18px'; } rows.forEach(r => g.appendChild(r.el)); s.appendChild(g); }
-    if (note) { const n = h('span', 'note'); n.textContent = note; s.appendChild(n); }
+    if (note) {   // text, or a function for notes that depend on the state (registered for syncAll)
+      const n = h('span', 'note'); s.appendChild(n);
+      if (typeof note === 'function') reg({ sync() { n.textContent = note(); } }); else n.textContent = note;
+    }
     if (opts.extra) s.appendChild(opts.extra);
     if (opts.span) s.style.gridColumn = `span ${opts.span}`;
     if (opts.id) s.id = opts.id;
@@ -774,6 +778,7 @@ self.onmessage = (e) => {
   const sendRotor = (r) => send(Object.assign({ type: 'rotor', r }, S.rotor[r]));
   const sendAmp = () => send(Object.assign({ type: 'amp' }, S.amp));
   const sendCab = () => send(Object.assign({ type: 'cabDetail' }, S.cab));
+  const sendOffline = () => send({ type: 'offlineMax', v: S.offlineMax });
   const sendOut = () => send(Object.assign({ type: 'output' }, S.out));
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
   const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
@@ -1294,28 +1299,32 @@ self.onmessage = (e) => {
 
   // ---------------- Card: Audio ----------------
   page('audio', (p) => {
+    const setBtn = rowBtn('', 'Audio-Einstellungen …', () => nativeInvoke('audioSettings'));
+    const bounce = rowSeg('Bounce', [[true, 'maximal'], [false, 'wie eingestellt']], () => S.offlineMax, v => { S.offlineMax = v; sendOffline(); }, true);
+    reg({ sync() { const pl = isPlugin(); setBtn.el.style.display = pl ? 'none' : ''; bounce.el.style.display = pl ? '' : 'none'; } });
     p.appendChild(sec('Gerät', [], [
       rowVal('Treiber', () => audioInfo.type || '–'), rowVal('Gerät', () => audioInfo.device || '–'),
-      rowBtn('', 'Audio-Einstellungen …', () => nativeInvoke('audioSettings')),
-    ], 'Treiber (ASIO, Windows Audio), Gerät, Abtastrate, Puffer und Ausgänge stellst du im Audio-Dialog ein; Wheelhouse merkt sie sich.'));
+      setBtn, bounce,
+    ], () => isPlugin() ? 'Als Plugin bestimmt der Host Abtastrate, Puffer und Ausgänge. Bounce „maximal“: beim Rendern rechnet Wheelhouse mit 5. Ordnung, Exakt und Ultra – egal, was in Echtzeit möglich ist.' : 'Treiber (ASIO, Windows Audio), Gerät, Abtastrate, Puffer und Ausgänge stellst du im Audio-Dialog ein; Wheelhouse merkt sie sich.'));
     p.appendChild(sec('Puffer', [], [
       rowVal('Abtastrate', () => audioInfo.sampleRate ? de(audioInfo.sampleRate / 1000, 1) + ' kHz' : '–'),
       rowVal('Puffer', () => audioInfo.bufferSize ? `${audioInfo.bufferSize} Samples = ${de(audioInfo.bufferSize / audioInfo.sampleRate * 1000, 1)} ms` : '–'),
-      rowVal('Ausgang', () => audioInfo.sampleRate ? `${de(outMs(), 1)} ms (laut Treiber, inkl. Puffer)` : '–'),
+      rowVal('Ausgang', () => audioInfo.sampleRate ? (isPlugin() ? `${de(outMs(), 1)} ms Puffer (Ausgabe rechnet der Host)` : `${de(outMs(), 1)} ms (laut Treiber, inkl. Puffer)`) : '–'),
       rowVal('Verarbeitung', () => audioInfo.sampleRate ? `${de(procLatency / audioInfo.sampleRate * 1000, 1)} ms (Oversampling Röhren)` : '–'),
       rowVal('Gesamt', () => audioInfo.sampleRate ? `${de(outMs() + procLatency / audioInfo.sampleRate * 1000, 1)} ms + Schallweg ${de(soundPathMs(), 1)} ms` : '–'),
     ], 'Schallweg: Laufzeit vom Leslie zum Hörer bzw. zum nächsten Mikro – wie im echten Raum. Die Zeit vom Tastendruck bis zum Programm (MIDI, USB) kann Wheelhouse nicht messen.'));
     p.appendChild(sec('Ausgänge · Last', [], [
       rowVal('Aktiv', () => audioInfo.outputs ? `${audioInfo.outputs} Ausgänge` : '–'),
       rowVal('Kanäle', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
-      rowVal('Rechenlast', () => cpuText),
+      rowVal('Rechenlast', () => isPlugin() ? 'zeigt der Host' : cpuText),
       rowVal('Aussetzer', () => droppedBlocks ? `${droppedBlocks} Blöcke ausgelassen (Einstellung lief gerade)` : 'keine'),
       rowSeg('Endstufe', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); syncAll(); }),
       rowSeg('Kerne', [[0, 'Auto'], [1, '1'], [2, '2'], [4, '4'], [8, '8'], [16, '16']], () => S.threads, v => { S.threads = v; sendThreads(); }, 0),
-    ], 'Raum und Mikros rechnen auf mehreren Kernen (Auto = halbe Kernzahl, höchstens 8). Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
+    ], () => (isPlugin() ? 'Raum und Mikros rechnen auf mehreren Kernen (Auto im Plugin = ein Viertel der Kerne, höchstens 4 – die DAW braucht auch welche).' : 'Raum und Mikros rechnen auf mehreren Kernen (Auto = halbe Kernzahl, höchstens 8).') + ' Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
   });
 
   // Latency figures for the Audio card: the driver's output latency already contains the buffer
+  function isPlugin() { return audioInfo.type === 'Plugin'; }
   function outMs() { return (audioInfo.outLatencySamples || audioInfo.bufferSize || 0) / (audioInfo.sampleRate || 48000) * 1000; }
   function soundPathMs() {
     if (S.mics.on) { const M = S.mics; return Math.min(0.37 + M.hornDist, Math.hypot(M.roomX - S.lesliePos.x, M.roomY - S.lesliePos.y)) / 343 * 1000; }
@@ -1694,7 +1703,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics(); sendOffline();
     applyMode();
   }
 
@@ -1723,6 +1732,8 @@ self.onmessage = (e) => {
       if (tab !== 'spielen') { slowSync++; if (slowSync % 10 === 0) syncAll(); }
     });
     B.addEventListener('roomInfo', (m) => { roomInfo = m; syncAll(); });
+    // plugin: the host automated a parameter (the engine has already applied it)
+    B.addEventListener('param', (m) => { applyParam(m.id, m.v); syncAll(); scheduleSave(); });
     B.addEventListener('audio', (m) => { audioInfo = Object.assign(audioInfo, m); updateChanInfo(); syncAll(); });
     B.addEventListener('resend', () => pushAll());
     B.addEventListener('midi', (m) => {
@@ -1762,11 +1773,33 @@ self.onmessage = (e) => {
     if (o.listener === undefined && o.lis) o.listener = o.lis;
     return o;
   }
+  // Plugin parameters (automation) -> UI state
+  const VIB_IDS = ['v1', 'v2', 'v3', 'c1', 'c2', 'c3'], LES_IDS = ['stop', 'slow', 'fast'];
+  function applyParam(id, v) {
+    let m;
+    if ((m = /^db_([ulp])_(\d)$/.exec(id))) { S.db[{ u: 'upper', l: 'lower', p: 'pedal' }[m[1]]][+m[2]] = Math.round(v); return; }
+    const b = v > 0.5;
+    switch (id) {
+      case 'leslie': S.leslie = LES_IDS[Math.round(v)] || 'slow'; break;
+      case 'swell': S.volume = v; break;
+      case 'drive': S.drive = v; break;
+      case 'vib': S.vib = VIB_IDS[Math.round(v)] || 'c3'; break;
+      case 'vib_upper': S.perc.vibU = b; break;
+      case 'vib_lower': S.perc.vibL = b; break;
+      case 'perc_on': S.perc.on = b; break;
+      case 'perc_soft': S.perc.soft = b; break;
+      case 'perc_fast': S.perc.fast = b; break;
+      case 'perc_third': S.perc.third = b; break;
+    }
+  }
   let loadedState = false;
   async function start() {
     if (NATIVE) {
       try { const txt = await nativeInvoke('loadUi'); if (txt) { deepMerge(S, migrate(JSON.parse(txt))); loadedState = true; } } catch (e) { console.warn('Saved state unreadable', e); }
     }
+    // plugin: the project's parameter values win over the stored UI state
+    const pv = NATIVE ? await nativeInvoke('params') : null;
+    if (pv) { if (!loadedState) { muteSend = true; applyInstrument(0); muteSend = false; } loadedState = true; Object.entries(pv).forEach(([id, v]) => applyParam(id, v)); }
     if (!loadedState) applyInstrument(0);   // first start: B3 + 122 as in the original
     if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';
     fit(); setTab('spielen'); buildMeters();

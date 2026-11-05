@@ -54,3 +54,10 @@ jobs:
           name: Wheelhouse-win64
           path: build/Wheelhouse_artefacts/Release/*.exe
           if-no-files-found: error
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wheelhouse-VST3-win64
+          path: build/WheelhousePlugin_artefacts/Release/VST3/
+          if-no-files-found: error

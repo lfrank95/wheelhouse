@@ -80,10 +80,22 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
 * **Aussetzer** (Karte Audio) zählt Blöcke, die still ausgegeben wurden, weil eine Einstellung gerade den Klangkern belegt hat (sollte bei normalem Spielen 0 bleiben).
 
-## Geplant für die VST3-Version
+## VST3
 
-* Offline-Rendern in maximaler Qualität: beim Bounce/Einfrieren meldet der Host „nicht Echtzeit“, dann rechnet das
-  Plugin mit eigenen Render-Einstellungen (Ordnung, Exakt, Ultra), unabhängig davon, was in Echtzeit möglich ist.
+Derselbe Klangkern und dieselbe Oberfläche als Instrument-Plugin (`Wheelhouse.vst3`, Artefakt „Wheelhouse-VST3-win64“).
+Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren.
+
+* **Ausgänge**: Hauptbus Stereo, Quad oder 5.1 (je nach Spur der DAW) plus vier optionale Stereo-Busse
+  „Einzel 9/10“ … „Einzel 15/16“ für die Mikro-Einzelausgänge (Ziel im Pult der Karte Mikros).
+* **MIDI** vom Host, Noten sampelgenau. Kanalzuordnung für Ober/Unter/Pedal wie in der App (Karte MIDI).
+* **Automation**: alle 20 Zugriegel, Leslie (Stopp/Choral/Tremolo), Schweller, Drive, Vibrato/Chorus, Vibrato
+  Ober/Unter, Percussion (an, leise, kurz, 3rd). Bewegungen in der Oberfläche werden als Automation aufgezeichnet.
+* **Projekt**: alle übrigen Einstellungen (Raum, Mikros, Orgel, Leslie …) werden mit dem Projekt gespeichert und
+  auch ohne geöffnetes Fenster geladen.
+* **Latenz** der Röhren-Oversampling-Filter wird an den Host gemeldet (Ausgleich durch die DAW).
+* **Bounce**: meldet der Host „nicht Echtzeit“, rechnet Wheelhouse mit 5. Ordnung, Exakt und Ultra-Endstufe
+  (abschaltbar in der Karte Audio: „Bounce: wie eingestellt“); danach wieder mit den eigenen Einstellungen.
+* **Kerne**: Auto nimmt im Plugin ein Viertel der Kerne, höchstens 4.
 
 ## Endstufe
 
@@ -134,7 +146,10 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
 * `Source/SpringReverb.h` – Federhall
 * `Source/Mechanics.h` – Leslie-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Leslie und Orgel
 * `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
-* `Source/MainComponent.*` – Audio/MIDI/Oberfläche (JUCE)
+* `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
+* `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
+* `Source/PluginProcessor.*` – VST3: Busse, Parameter, Projektzustand, Editor
+* `Source/WebUi.h` – WebView und native Funktionen, von App und Plugin geteilt
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
@@ -143,7 +158,8 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
   `bench.cpp` (Rechenlast je Stufe), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
-  `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum); Tests mit `-pthread` bauen,
+  `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum),
+  `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros
 
 ## Lizenz
