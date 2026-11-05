@@ -191,6 +191,7 @@ void MainComponent::timerCallback() {
     o->setProperty("cpu", deviceManager.getCpuUsage());
     {
         std::lock_guard<std::mutex> lock(dspLock); o->setProperty("vb", dsp->ampPlate()); o->setProperty("vk", dsp->ampCathode());
+        o->setProperty("procLatency", dsp->processingLatency());
         if (dsp->mics().on) { Array<var> mm; for (int c = 0; c < leslie::MIC_CH; c++) mm.add(20.0 * std::log10(dsp->micMeter(c) + 1e-6)); o->setProperty("mm", mm); }
     }
     web->emitEventIfBrowserIsVisible("rot", var(o));
@@ -207,7 +208,10 @@ void MainComponent::sendAudioInfo() {
     o->setProperty("sampleRate", dev ? dev->getCurrentSampleRate() : 0.0);
     o->setProperty("bufferSize", dev ? dev->getCurrentBufferSizeSamples() : 0);
     o->setProperty("outputs", dev ? dev->getActiveOutputChannels().countNumberOfSetBits() : 0);
-    o->setProperty("latencyMs", dev ? dev->getOutputLatencyInSamples() * 1000.0 / jmax(1.0, dev->getCurrentSampleRate()) : 0.0);
+    // Output latency as reported by the driver. ASIO drivers (and most others) already include the buffer in this
+    // value, so it must not be added to the buffer length again; it can never be shorter than one buffer, though.
+    o->setProperty("outLatencySamples", dev ? jmax(dev->getOutputLatencyInSamples(), dev->getCurrentBufferSizeSamples()) : 0);
+    o->setProperty("driverLatencySamples", dev ? dev->getOutputLatencyInSamples() : 0);
     StringArray names; if (dev) { auto chans = dev->getOutputChannelNames(); auto active = dev->getActiveOutputChannels(); for (int i = 0; i < chans.size(); i++) if (active[i]) names.add(chans[i]); }
     Array<var> n; for (auto& s : names) n.add(s); o->setProperty("channelNames", n);
     Array<var> md; for (auto& d : MidiInput::getAvailableDevices()) if (deviceManager.isMidiInputDeviceEnabled(d.identifier)) md.add(d.name);

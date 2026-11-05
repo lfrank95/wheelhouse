@@ -118,6 +118,8 @@ public:
     /** Organ preamp stage on/off and its gain 0..1 (see OrganPreamp). */
     /** Supply sag only (cheap); model/quality switches go through ampModel() so the host can prepare them off the audio thread. */
     void setAmpSag(double sagAmount) { amp.setSag(sagAmount); }
+    /** Delay added by the circuit models (oversampling filters of preamp and power amp), in samples. */
+    int processingLatency() const { return amp.latency() + (pre.isEnabled() ? pre.latency() : 0); }
     amp::LeslieAmp& ampModel() { return amp; }
     amp::OrganPreamp& preampModel() { return pre; }
     void setPreamp(bool on, double gain) { pre.setEnabled(on); pre.setGain(gain); }

@@ -590,7 +590,8 @@ self.onmessage = (e) => {
   const S = clone(DEF);
   S.rot = { horn: 0, drum: 0, hornHz: 0.75, drumHz: 0.62, t: performance.now() };
   S.meters = null;
-  let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, latencyMs: 0, channelNames: [], midiDevices: [] };
+  let audioInfo = { outputs: 0, device: '', type: '', sampleRate: 0, bufferSize: 0, outLatencySamples: 0, driverLatencySamples: 0, channelNames: [], midiDevices: [] };
+  let procLatency = 0;
   const micMeterEls = []; const micHold = new Array(6).fill(-120);
   let ampText = '–', tInfoText = '–', cpuText = '–', warnText = '', slowSync = 0, roomInfo = null;
   const SAVE_KEYS = Object.keys(DEF);
@@ -1243,9 +1244,11 @@ self.onmessage = (e) => {
     ], 'Treiber (ASIO, Windows Audio), Gerät, Abtastrate, Puffer und Ausgänge stellst du im Audio-Dialog ein; Wheelhouse merkt sie sich.'));
     p.appendChild(sec('Puffer', [], [
       rowVal('Abtastrate', () => audioInfo.sampleRate ? de(audioInfo.sampleRate / 1000, 1) + ' kHz' : '–'),
-      rowVal('Puffergröße', () => audioInfo.bufferSize ? audioInfo.bufferSize + ' Samples' : '–'),
-      rowVal('Latenz', () => audioInfo.bufferSize ? de(audioInfo.bufferSize / audioInfo.sampleRate * 1000 + (audioInfo.latencyMs || 0), 1) + ' ms Ausgang' : '–'),
-    ]));
+      rowVal('Puffer', () => audioInfo.bufferSize ? `${audioInfo.bufferSize} Samples = ${de(audioInfo.bufferSize / audioInfo.sampleRate * 1000, 1)} ms` : '–'),
+      rowVal('Ausgang', () => audioInfo.sampleRate ? `${de(outMs(), 1)} ms (laut Treiber, inkl. Puffer)` : '–'),
+      rowVal('Verarbeitung', () => audioInfo.sampleRate ? `${de(procLatency / audioInfo.sampleRate * 1000, 1)} ms (Oversampling Röhren)` : '–'),
+      rowVal('Gesamt', () => audioInfo.sampleRate ? `${de(outMs() + procLatency / audioInfo.sampleRate * 1000, 1)} ms + Schallweg ${de(soundPathMs(), 1)} ms` : '–'),
+    ], 'Schallweg: Laufzeit vom Leslie zum Hörer bzw. zum nächsten Mikro – wie im echten Raum. Die Zeit vom Tastendruck bis zum Programm (MIDI, USB) kann Wheelhouse nicht messen.'));
     p.appendChild(sec('Ausgänge · Last', [], [
       rowVal('Aktiv', () => audioInfo.outputs ? `${audioInfo.outputs} Ausgänge` : '–'),
       rowVal('Kanäle', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
@@ -1255,6 +1258,12 @@ self.onmessage = (e) => {
     ], 'Raum und Mikros rechnen auf mehreren Kernen (Auto = halbe Kernzahl, höchstens 8). Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
   });
 
+  // Latency figures for the Audio card: the driver's output latency already contains the buffer
+  function outMs() { return (audioInfo.outLatencySamples || audioInfo.bufferSize || 0) / (audioInfo.sampleRate || 48000) * 1000; }
+  function soundPathMs() {
+    if (S.mics.on) { const M = S.mics; return Math.min(0.37 + M.hornDist, Math.hypot(M.roomX - S.lesliePos.x, M.roomY - S.lesliePos.y)) / 343 * 1000; }
+    return Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y) / 343 * 1000;
+  }
   // ---------------- Room presets ----------------
   function matchRoom() {
     if (S.room.shape === 'tent') return ROOMS.findIndex(r => r.tent);
@@ -1637,6 +1646,7 @@ self.onmessage = (e) => {
       if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + ' %'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
       if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${de(m.vk)} V`;
       if (m.mm) S.micMeters = m.mm;
+      if (m.procLatency !== undefined) procLatency = m.procLatency;
       if (tab !== 'spielen') { slowSync++; if (slowSync % 10 === 0) syncAll(); }
     });
     B.addEventListener('roomInfo', (m) => { roomInfo = m; syncAll(); });
