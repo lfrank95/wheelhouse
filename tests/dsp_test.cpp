@@ -22,7 +22,7 @@ int main() {
             for (int c = 0; c < 6; c++) for (int i = 0; i < N; i++) { float v = out[c][i]; if (!std::isfinite(v)) nan++; peak = std::max(peak, (double) std::fabs(v)); e[c] += v * v; }
         }
         double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-        printf("Endstufe Q%d: CPU %.1f %%  Spitze %.3f  NaN %d  RMS", q, ms / 50, peak, nan);
+        printf("power amp Q%d: CPU %.1f %%  peak %.3f  NaN %d  RMS", q, ms / 50, peak, nan);
         for (int c = 0; c < 6; c++) printf(" %.4f", std::sqrt(e[c] / (blocks * N)));
         printf("  Vb %.0f V\n", dsp.ampPlate());
     }

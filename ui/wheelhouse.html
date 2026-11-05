@@ -19,7 +19,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .muted { color: #a8977c; }
 .hi { color: #f2c879; }
 
-/* ---------- Kopfleiste ---------- */
+/* ---------- Header bar ---------- */
 .top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a221b; }
 .logo { font-family: 'Yellowtail', 'Brush Script MT', cursive; font-size: 34px; line-height: 1; color: #f2c879; letter-spacing: .5px; padding-right: 4px; }
 .sel { font-size: 15px; color: #e8dcc4; background: #1a1511; border: 1px solid #3a2f25; border-radius: 6px; padding: 6px 10px; }
@@ -43,7 +43,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .btn.on { background: #f2a33a; color: #1a1206; border-color: #f2a33a; font-weight: 700; }
 .btn.big { font-size: 14px; letter-spacing: .6px; padding: 8px 14px; border-radius: 7px; }
 
-/* ---------- Gehäuse ---------- */
+/* ---------- Cabinet (organ console) ---------- */
 .wood { background: repeating-linear-gradient(92deg, rgba(0,0,0,0) 0px, rgba(0,0,0,.10) 3px, rgba(0,0,0,0) 7px, rgba(255,210,160,.04) 11px, rgba(0,0,0,0) 16px), linear-gradient(180deg, #5a321b 0%, #43230f 55%, #331a0b 100%);
   box-shadow: 0 10px 30px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,220,180,.18); border-radius: 10px; }
 .case { height: 440px; flex: none; padding: 14px; position: relative; }
@@ -85,7 +85,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .tablet.on { background: linear-gradient(180deg, #bdb29c 0%, #e9e1d0 45%, #faf6ee 100%); box-shadow: inset 0 3px 4px rgba(0,0,0,.35), 0 1px 0 rgba(255,220,180,.1); }
 .tablet span { white-space: pre-line; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; line-height: 1.15; color: #2a2016; display: block; }
 
-/* Drehknopf */
+/* Rotary knob */
 .knob { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 58px; }
 .knob .kb { width: 46px; height: 46px; padding: 0; border: none; border-radius: 50%; background: repeating-conic-gradient(#2c2622 0deg 7deg, #1a1614 7deg 14deg);
   box-shadow: 0 3px 6px rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; }
@@ -142,7 +142,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .rpre button { height: 32px; font-size: 13.5px; font-weight: 600; border-radius: 4px; padding: 0; background: linear-gradient(180deg, #2b2420, #141110); color: #e8dcc4; border: 1px solid #3a2f25; }
 .rpre button.on { background: #f2a33a; color: #1a1206; border-color: #f2a33a; }
 
-/* Karte */
+/* Settings card (fold-out panel) */
 .card { position: absolute; left: 14px; right: 14px; top: 14px; bottom: 14px; border-radius: 6px; background: #17130f; box-shadow: 0 12px 30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,220,180,.14); display: flex; flex-direction: column; overflow: hidden; }
 .card[hidden] { display: none; }
 .hinge { height: 6px; flex: none; background: linear-gradient(180deg, #d9b56a, #8a6a30); box-shadow: 0 1px 0 #3a2a10; }
@@ -171,7 +171,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .rseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
 .note { font-size: 12.5px; color: #a8977c; line-height: 1.4; }
 
-/* ---------- Manuale + Pedal ---------- */
+/* ---------- Manuals + pedalboard ---------- */
 .keys { flex: 1; min-height: 0; padding: 0 16px 8px; display: flex; flex-direction: column;
   background: repeating-linear-gradient(92deg, rgba(0,0,0,0) 0px, rgba(0,0,0,.10) 3px, rgba(0,0,0,0) 7px, rgba(255,210,160,.04) 11px, rgba(0,0,0,0) 16px), linear-gradient(180deg, #4a2812 0%, #351c0b 100%); }
 .kstrip { height: 30px; flex: none; display: flex; align-items: center; gap: 18px; padding: 0 48px; font-size: 13px; color: #e3cfae; white-space: nowrap; }
@@ -199,7 +199,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 <body>
 <div id="stage">
 
-  <!-- ============ Kopfleiste ============ -->
+  <!-- ============ Header bar ============ -->
   <header class="top">
     <div class="logo">Wheelhouse</div>
     <select id="preset" class="sel" style="width: 220px" aria-label="Preset"></select>
@@ -212,11 +212,11 @@ select option { background: #1a1511; color: #e8dcc4; }
     <button type="button" class="btn big" id="panic" title="Alle Töne aus (MIDI CC 123)">Panik</button>
   </header>
 
-  <!-- ============ Gehäuse ============ -->
+  <!-- ============ Cabinet: Leslie, organ, room panels ============ -->
   <section class="case wood">
     <div class="play">
 
-      <!-- Leslie -->
+      <!-- Leslie panel (SVG cabinet, speed buttons) -->
       <div class="panel lesP">
         <div class="ph"><span>Leslie</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Modell 122</span></div>
         <div style="display: flex; gap: 16px; align-items: stretch">
@@ -268,7 +268,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         <div class="speed" id="speed" aria-label="Leslie-Geschwindigkeit"></div>
       </div>
 
-      <!-- Orgel -->
+      <!-- Organ panel (drawbars, front knobs, tablets) -->
       <div class="panel orgP">
         <div class="dbgroups" id="dbgroups"></div>
         <div class="front">
@@ -278,7 +278,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         </div>
       </div>
 
-      <!-- Raum -->
+      <!-- Room panel (small floor plan, room presets) -->
       <div class="panel roomP">
         <div class="ph"><span>Raum</span><button type="button" class="linkbtn" id="openRoom">Einstellungen ›</button></div>
         <div class="rview"><canvas id="roomS"></canvas><div class="rinfo" id="rinfoS"></div></div>
@@ -286,7 +286,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       </div>
     </div>
 
-    <!-- Aufgeklappte Karte -->
+    <!-- Fold-out settings card (pages are built by JS) -->
     <div class="card" id="card" hidden>
       <div class="hinge"></div>
       <div class="chead">
@@ -309,7 +309,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     </div>
   </section>
 
-  <!-- ============ Manuale + Pedal ============ -->
+  <!-- ============ Manuals + pedalboard ============ -->
   <section class="keys wood">
     <div class="kstrip">
       <span style="display: flex; align-items: center; gap: 8px">Schweller <span class="swbar"><i id="swBar"></i></span></span>
@@ -365,7 +365,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const de = (x, d = 1) => (+x).toFixed(d).replace('.', ',');
   const pct = (v) => Math.round(v * 100) + ' %';
 
-  // ---------------- Bühne skalieren (1600 × 900) ----------------
+  // ---------------- Stage scaling (fixed 1600 × 900 design, scaled to the window) ----------------
   const stage = $('stage'); let SCALE = 1;
   function fit() {
     SCALE = Math.min(innerWidth / 1600, innerHeight / 900);
@@ -373,7 +373,8 @@ select option { background: #1a1511; color: #e8dcc4; }
     rooms.forEach(r => r.resize());
   }
 
-  // ---------------- Verbindung zum Programm ----------------
+  // ---------------- Bridge to the native app (JUCE backend) ----------------
+  // nativeInvoke() calls a native function and resolves with its result; send() pushes a DSP message.
   const NATIVE = !!(window.__JUCE__ && window.__JUCE__.backend);
   const promises = new Map(); let pid = 0;
   const nativeInvoke = (name, ...params) => new Promise(res => {
@@ -384,7 +385,8 @@ select option { background: #1a1511; color: #e8dcc4; }
   let ready = false;
   const send = (m) => { if (NATIVE) nativeInvoke('dsp', m); if (ready) scheduleSave(); };
 
-  // ---------------- Zustand ----------------
+  // ---------------- State ----------------
+  // DEF holds the defaults, S is the live state; all keys of DEF are persisted via saveUi/loadUi.
   const DEF = {
     room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'wood', shape: 'box' },
     chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
@@ -460,8 +462,8 @@ select option { background: #1a1511; color: #e8dcc4; }
     { n: 'Theater', u: [8, 7, 6, 5, 4, 3, 2, 1, 1], l: [0, 0, 4, 5, 4, 4, 2, 0, 0], p: [7, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v3', drive: 0.2 },
     { n: 'Perc 2nd', u: [8, 4, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: false, fast: false, soft: false, vibU: true, vibL: false }, vib: 'c2', drive: 0.3 },
   ];
-  // Rotor-Zeiten sind Zeitkonstanten: nach etwa 3 τ ist der Rotor auf Tempo
-  // (gemessen an echten Leslies: Horn ~1,5 s hoch / 2,5 s runter, Trommel ~5 s / 7,5 s; 48/400 und 40/342 U/min)
+  // Rotor times are time constants: the rotor reaches speed after about 3 τ
+  // (measured on real Leslies: horn ~1.5 s up / 2.5 s down, drum ~5 s / 7.5 s; 48/400 and 40/342 rpm)
   const rpmHz = (r) => r / 60;
   const INSTRUMENTS = [
     { n: 'B3 + Leslie 122 (Original)', note: 'gepflegte B3 der 60er, Serien-122 ohne Stopp, kein Hall',
@@ -492,14 +494,15 @@ select option { background: #1a1511; color: #e8dcc4; }
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
   const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
 
-  // ---------------- Steuerelemente ----------------
-  const all = [];                 // alle Elemente mit sync()
-  const cardCtl = {};             // Karte -> Elemente mit reset()
+  // ---------------- Control builders ----------------
+  // Every control is registered via reg(); syncAll() refreshes all of them from S.
+  const all = [];                 // all controls with sync()
+  const cardCtl = {};             // card id -> controls with reset()
   let curCard = null;
   const reg = (c) => { all.push(c); if (curCard) (cardCtl[curCard] = cardCtl[curCard] || []).push(c); return c; };
   const syncAll = () => all.forEach(c => c.sync && c.sync());
 
-  // Drehknopf: o = { label, get, set, min, max, def, fmt, step, log, opts (diskret), auto }
+  // Rotary knob: o = { label, get, set, min, max, def, fmt, step, log, opts (discrete), auto }
   function knob(o) {
     const el = h('div', o.small ? 'knob sm' : 'knob', `<button type="button" class="kb"><span class="kc"><span class="kp"></span></span></button><span class="kl"></span><span class="kv"></span>`);
     const kb = el.querySelector('.kb'), kc = el.querySelector('.kc'), kv = el.querySelector('.kv');
@@ -526,7 +529,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     kb.title = 'Ziehen oder Mausrad · Umschalt = fein · Doppelklick = Standard';
     c.sync(); return reg(c);
   }
-  // Zeilen der Karten
+  // Card rows: segmented buttons (rowSeg), select (rowSel), read-only value (rowVal), button (rowBtn); sec() groups them
   function rowSeg(label, opts, get, set, def) {
     const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const sg = h('div', 'rseg'); r.appendChild(sg);
     const bs = opts.map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { set(v); c.sync(); }; sg.appendChild(b); return [v, b]; });
@@ -557,7 +560,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     return s;
   }
 
-  // ---------------- Senden je Bereich ----------------
+  // ---------------- Senders per DSP section ----------------
   const sendDb = (man) => send({ type: 'drawbars', man, v: man === 0 ? S.db.upper : man === 1 ? S.db.lower : S.db.pedal });
   const sendPerc = () => send({ type: 'perc', v: S.perc });
   const sendChr = () => send({ type: 'character', v: S.chr });
@@ -571,7 +574,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const sendSpring = () => send(Object.assign({ type: 'spring' }, S.spring));
   const sendMics = () => send({ type: 'mics', v: S.mics });
 
-  // ---------------- Registerkarten ----------------
+  // ---------------- Tabs and settings cards ----------------
   const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['mikros', 'Mikros'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
   const CARD_INFO = {
     orgel: ['Orgel', 'Tonradgenerator, Kontakte, Vorverstärker, Federhall', 5],
@@ -605,7 +608,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     $('cbody').appendChild(p); cardPages[id] = p;
   }
 
-  // ---------------- Kopfleiste: Preset, Ausgabe, Pegel ----------------
+  // ---------------- Header bar: preset, output format, meters ----------------
   const presetSel = $('preset');
   (() => {
     const o0 = h('option', '', 'Eigene Einstellung'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0);
@@ -662,7 +665,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     });
   }
 
-  // ---------------- Kanalzuordnung ----------------
+  // ---------------- Channel mapping (logical channel -> physical output) ----------------
   function autoMap(mode) { const M = MODES[mode]; const out = []; for (let i = 0; i < M.ch; i++) out.push(i); return out; }
   function curMap() { const m = S.chmap[S.mode]; return m && m.length === MODES[S.mode].ch ? m : autoMap(S.mode); }
   function physCh(i) { return curMap()[i]; }
@@ -682,7 +685,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   }
   const outName = (i) => { const n = audioInfo.channelNames && audioInfo.channelNames[i]; return `Ausgang ${i + 1}` + (n ? ` · ${n}` : ''); };
 
-  // ---------------- Leslie (Spielfläche) ----------------
+  // ---------------- Leslie panel on the play surface (SVG cabinet) ----------------
   (() => {
     const top = $('slatsTop'), bot = $('slatsBot');
     const mk = (g, y, hgt, op) => { const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('x', 12); r.setAttribute('y', y); r.setAttribute('width', 116); r.setAttribute('height', hgt); r.setAttribute('fill', 'url(#lslat)'); r.setAttribute('opacity', op); g.appendChild(r); };
@@ -704,7 +707,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       const nx = (x - (x > 70 ? rx * 0.3 : -rx * 0.3)).toFixed(1);
       return { x: x.toFixed(1), rx: rx.toFixed(1), rxIn: (rx * 0.62).toFixed(1), neck: `M70 41.5 L${nx} ${(44 - tipH).toFixed(1)} L${nx} ${(44 + tipH).toFixed(1)} L70 46.5 Z`, front: depth >= 0 };
     };
-    // Winkel relativ zur Gehäusefront (Front zeigt zum Betrachter)
+    // Angles relative to the cabinet front (the front faces the viewer)
     const a = hornA - S.cabYaw, f = horn(a), b = horn(a + Math.PI);
     const F = f.front ? f : b, B = f.front ? b : f;
     svgSet('hfNeck', { d: F.neck }); svgSet('hfBell', { cx: F.x, rx: F.rx }); svgSet('hfIn', { cx: F.x, rx: F.rxIn });
@@ -716,7 +719,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     $('orbit').setAttribute('opacity', S.rot.hornHz > 3 ? 0.55 : 0.25);
   }
 
-  // ---------------- Zugriegel ----------------
+  // ---------------- Drawbars ----------------
   const FT = ["16'", "5⅓'", "8'", "4'", "2⅔'", "2'", "1⅗'", "1⅓'", "1'"];
   const KIND = ['brown', 'brown', 'white', 'white', 'black', 'white', 'black', 'black', 'white'];
   const LOOK = {
@@ -766,7 +769,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   dbGroup('Pedal', 'pedal', 2, ["16'", "8'"], ['pedal', 'pedal'], null);
   dbGroup('Untermanual', 'lower', 1, FT, KIND, LOWER_PRESETS);
 
-  // Frontknöpfe und Wippen
+  // Front knobs and rocker tablets
   const fk = $('frontKnobs');
   fk.appendChild(knob({ label: 'Vibrato', opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
   fk.appendChild(knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
@@ -781,7 +784,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     reg({ sync() { const v = !!S.perc[k]; b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); b.firstChild.textContent = v ? on : off; } });
   });
 
-  // ---------------- Karte Orgel ----------------
+  // ---------------- Card: Organ ----------------
   page('orgel', (p) => {
     const condK = (id, label, def) => knob({ label, min: 0, max: 1, def, fmt: pct, get: () => S.chr[id], set: v => {
       S.chr[id] = v;
@@ -821,7 +824,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     ], 'Hammond-Tank wie in A-100 und 122RV: sitzt in der Orgel, vor dem Leslie – der Hall dreht sich also mit.'));
   });
 
-  // ---------------- Karte Leslie ----------------
+  // ---------------- Card: Leslie ----------------
   const rpmFmt = (v) => Math.round(v * 60) + ' U/min';
   const secFmt = (v) => de(v, 1) + ' s';
   function cabDeg() { let d = Math.round((S.cabYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
@@ -855,7 +858,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     ], 'Leertaste schaltet immer zwischen Choral und Tremolo. Das Leslie lässt sich im Grundriss auch mit dem Mausrad drehen.'));
   });
 
-  // ---------------- Karte Raum ----------------
+  // ---------------- Card: Room ----------------
   page('raum', (p) => {
     const m = (v) => de(v, 1) + ' m';
     const rk = (id, label, min, max, def, fmt) => knob({ label, min, max, def, step: id === 'absorb' || id === 'reverb' ? 0.01 : 0.1, fmt, get: () => S.room[id], set: v => { S.room[id] = v; clampPos(); send({ type: 'room', v: { [id]: v } }); sendPos(); } });
@@ -868,7 +871,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'wood'),
       rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
     ], '', { id: 'secSurf' }));
-    // Zelt
+    // Circus tent section
     const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; applyTent(false); } });
     p.appendChild(sec('Zirkuszelt', [
       tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('dome', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
@@ -890,7 +893,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   reg({ sync() { const z = S.room.shape === 'tent'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
 
 
-  // ---------------- Karte Mikros ----------------
+  // ---------------- Card: Mics ----------------
   const MIC_TYPES = [[0, '57 · dynamisch'], [1, '421 · dynamisch'], [2, 'D112 · Bass'], [3, 'RE20 · Superniere'], [4, '87 · Kondensator'], [5, 'KM 84 · Kleinmembr.'], [6, '121 · Bändchen']];
   const PATTERNS = [[0, 'Niere'], [1, 'Kugel'], [2, 'Acht']];
   const CH_NAMES = ['Horn L', 'Horn R', 'Trom. 1', 'Trom. 2', 'Raum L', 'Raum R', 'Hörer'];
@@ -936,7 +939,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       patRow('roomType', 'roomPattern'),
       rowBtn('', 'Vor das Leslie', () => { placeRoomPair(); sendMics(); syncAll(); }),
     ]));
-    // Pult: drei Gruppen, jede Stereo (Balance + Breite) oder Mono (Panorama)
+    // Mixer: three groups, each stereo (balance + width) or mono (pan)
     const desk = h('div', 'desk');
     const GRP = [['Horn', () => S.mics.hornStereo, () => S.mics.hornAngle + '°'], ['Trommel', () => S.mics.drumStereo, () => S.mics.drumAngle + '°'], ['Raum', () => true, () => ['AB', 'XY', 'ORTF'][S.mics.roomArr]]];
     GRP.forEach(([nm, isSt, stInfo], g) => {
@@ -998,7 +1001,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     p.appendChild(sec('Pult', [], [], '', { span: 2, head: onSeg, extra: desk }));
   });
 
-  // ---------------- Karte Ausgabe ----------------
+  // ---------------- Card: Output ----------------
   page('ausgabe', (p) => {
     p.appendChild(sec('Format', [
       knob({ label: 'LFE', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.lfe, set: v => { S.lfe = v; send({ type: 'lfe', v }); } }),
@@ -1006,7 +1009,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       knob({ label: 'Ausgang', min: -24, max: 6, step: 0.5, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + de(Math.abs(v), 1) + ' dB', get: () => S.out.masterDb, set: v => { S.out.masterDb = v; sendOut(); } }),
     ], [rowSeg('Ausgabe', [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']], () => S.mode, v => { S.mode = v; applyMode(); syncAll(); }, 'stereo')],
       'LFE und Weiche wirken nur bei 5.1.'));
-    // Kanalzuordnung: Zeilen für bis zu 6 Kanäle, sichtbare Anzahl je Format
+    // Channel mapping: rows for up to 6 channels, visible count depends on the format
     const mapRows = [0, 1, 2, 3, 4, 5].map(i => {
       const r = rowSel('Kanal ' + (i + 1), () => { const n = Math.max(audioInfo.outputs || 0, 8); return Array.from({ length: n }, (_, k) => [k, outName(k)]); },
         () => curMap()[i] ?? i, v => { const m = curMap().slice(); m[i] = +v; S.chmap[S.mode] = m; applyMode(); syncAll(); });
@@ -1027,7 +1030,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     testTimers.push(setTimeout(() => { btn.textContent = 'Alle Kanäle anpiepen'; btn.classList.remove('on'); }, n * 750));
   }
 
-  // ---------------- Karte MIDI ----------------
+  // ---------------- Card: MIDI ----------------
   page('midi', (p) => {
     const chOpts = (omni) => [[0, omni ? 'Omni (alle)' : 'aus'], ...Array.from({ length: 16 }, (_, i) => [i + 1, 'Kanal ' + (i + 1)])];
     const chRow = (label, k, def, omni) => rowSel(label, chOpts(omni), () => S.midi[k], v => { S.midi[k] = +v; sendMidi(); syncAll(); }, def);
@@ -1046,7 +1049,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     ], 'Leertaste: Leslie umschalten · Esc: Panik.'));
   });
 
-  // ---------------- Karte Audio ----------------
+  // ---------------- Card: Audio ----------------
   page('audio', (p) => {
     p.appendChild(sec('Gerät', [], [
       rowVal('Treiber', () => audioInfo.type || '–'), rowVal('Gerät', () => audioInfo.device || '–'),
@@ -1065,7 +1068,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     ], 'Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
   });
 
-  // ---------------- Raumvorlagen ----------------
+  // ---------------- Room presets ----------------
   function matchRoom() {
     if (S.room.shape === 'tent') return ROOMS.findIndex(r => r.tent);
     const i = ROOMS.findIndex(r => !r.tent && r.Lx === S.room.Lx && r.Ly === S.room.Ly && r.Lz === S.room.Lz && r.absorb === S.room.absorb && r.material === S.room.material && r.reverb === S.room.reverb);
@@ -1085,7 +1088,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const preBtns = quick.map(([r, i]) => { const b = h('button', '', r.s); b.type = 'button'; b.title = r.n; b.onclick = () => loadRoom(i); $('roomPre').appendChild(b); return [i, b]; });
   reg({ sync() { const m = matchRoom(); preBtns.forEach(([i, b]) => b.classList.toggle('on', i === m)); } });
 
-  // ---------------- Zirkuszelt ----------------
+  // ---------------- Circus tent (geometry, absorption, ray tracer worker) ----------------
   let tracer = null, traceTimer = null, traceId = 0;
   function tentGeo() {
     const T = S.tent, R = T.W / 2, rK = Math.min(R - 1, T.dome / 2);
@@ -1130,7 +1133,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     tInfoText = 'rechnet …';
   }
 
-  // ---------------- Position und Blickrichtung ----------------
+  // ---------------- Position and viewing direction ----------------
   function yawDeg() { let d = Math.round((S.listener.yaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
   function setYaw(rad, jump) { S.listener.yaw = rad; sendPos(jump); syncAll(); }
   function clampPos() {
@@ -1146,7 +1149,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   }
   function sendPos(jump) { send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: !!jump }); if (S.room.shape === 'tent') scheduleTrace(); }
 
-  // ---------------- Grundriss (klein auf der Spielfläche, groß in der Karte Raum) ----------------
+  // ---------------- Floor plan canvas (small on the play surface, large in the Room card) ----------------
   function RoomView(cv, big) {
     const g = cv.getContext('2d'); const view = { s: 1, ox: 0, oy: 0 }; let W = 0, H = 0;
     const self = {
@@ -1231,7 +1234,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       } else {
         grid();
         g.strokeStyle = '#6b5a40'; g.lineWidth = 2.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
-        // Schallwege: direkt + 1. Ordnung, mit Horn-Abstrahlung gewichtet
+        // Sound paths: direct + 1st order, weighted by horn radiation
         const L = S.lesliePos, Hh = S.listener;
         const imgs = [[L.x, L.y], [-L.x, L.y], [2 * R.Lx - L.x, L.y], [L.x, -L.y], [L.x, 2 * R.Ly - L.y]];
         g.lineCap = 'round';
@@ -1246,7 +1249,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         });
       }
       if (R.shape === 'tent') { const [a1, b1] = W2C(S.lesliePos.x, S.lesliePos.y), [a2, b2] = W2C(S.listener.x, S.listener.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
-      // Leslie
+      // Leslie cabinet
       const [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
       g.save(); g.translate(lx, ly); g.rotate(-S.cabYaw + Math.PI / 2);
       const cw = cab, cd = cab * 0.72;
@@ -1261,7 +1264,7 @@ select option { background: #1a1511; color: #e8dcc4; }
       g.fillStyle = '#f2c879'; g.beginPath(); g.arc(hx2, hy2, 3.5, 0, Math.PI * 2); g.fill();
       g.strokeStyle = 'rgba(242,200,121,.3)'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - Math.cos(hornA) * hl * 0.7, ly + Math.sin(hornA) * hl * 0.7); g.stroke();
       g.fillStyle = '#c9b89c'; g.font = '12px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Leslie', lx, ly + cab / 2 + 14); g.textAlign = 'left';
-      // Mikros
+      // Mics
       if (S.mics.on) {
         const M = S.mics, D2R = Math.PI / 180;
         const mic = (x, y, ax, ay, r) => { const [a, b] = W2C(x, y); g.strokeStyle = '#f2c879'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, b); g.lineTo(a + ax * (r + 7), b - ay * (r + 7)); g.stroke(); g.fillStyle = '#f2c879'; g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill(); g.fillStyle = '#17130f'; g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill(); };
@@ -1270,7 +1273,7 @@ select option { background: #1a1511; color: #e8dcc4; }
           (st ? [center - ang / 2, center + ang / 2] : [center]).forEach((ph) => {
             const t = S.cabYaw + ph * D2R, c = Math.cos(t), sn = Math.sin(t), cf = Math.abs(Math.cos(ph * D2R)), sf = Math.abs(Math.sin(ph * D2R));
             const R = Math.min(cf > 1e-6 ? 0.275 / cf : 1e9, sf > 1e-6 ? 0.37 / sf : 1e9) + Math.max(0.02, dist);
-            const rp = Math.max(R * view.s, cab * 0.6 + 7);   // bei kleinem Maßstab neben dem Gehäuse halten
+            const rp = Math.max(R * view.s, cab * 0.6 + 7);   // at small scale keep the mic next to the cabinet
             const [wx, wy] = C2W(a + c * rp, b - sn * rp);
             mic(wx, wy, -c, -sn, big ? 4 : 3);
           });
@@ -1279,7 +1282,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         close(M.drumStereo, M.drumAngle, M.drumCenter, M.drumDist);
         const yawR = M.roomYaw, lx2 = -Math.sin(yawR), ly2 = Math.cos(yawR);
         const sp = M.roomArr === 0 ? M.roomSpacing : M.roomArr === 2 ? 0.17 : 0.02, aimOff = M.roomArr === 0 ? 0 : (M.roomArr === 2 ? 55 : 45) * D2R;
-        [1, -1].forEach((sg) => {   // 1 = links (von der Blickrichtung aus)
+        [1, -1].forEach((sg) => {   // 1 = left (seen from the viewing direction)
           const off = Math.max(sp * view.s, M.roomArr === 1 ? 3 : 9) / 2 * sg;
           const [ca, cb] = W2C(M.roomX, M.roomY), [wx, wy] = C2W(ca + lx2 * off, cb - ly2 * off), a = yawR + sg * aimOff;
           mic(wx, wy, Math.cos(a), Math.sin(a), big ? 5 : 4);
@@ -1287,7 +1290,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         const [ca, cb] = W2C(M.roomX, M.roomY);
         g.fillStyle = '#c9b89c'; g.font = '11px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Raumpaar', ca, cb + 20); g.textAlign = 'left';
       }
-      // Hörer + Lautsprecher
+      // Listener + speakers
       const [hx, hy] = W2C(S.listener.x, S.listener.y), yaw = S.listener.yaw;
       g.globalAlpha = S.mics.on ? 0.35 : 1;
       MODES[S.mode].show.forEach((deg) => { const a = yaw + deg * Math.PI / 180, rr = big ? 30 : 24; g.fillStyle = '#7d715f'; g.beginPath(); g.arc(hx + Math.cos(a) * rr, hy - Math.sin(a) * rr, big ? 3.5 : 2.5, 0, Math.PI * 2); g.fill(); });
@@ -1310,7 +1313,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     if (roomInfo) { $('stRt').textContent = roomInfo.rt60.map(x => de(x)).join(' / ') + ' s'; $('stRc').textContent = de(roomInfo.rc) + ' m'; $('stPaths').textContent = roomInfo.paths; }
   } });
 
-  // ---------------- Manuale ----------------
+  // ---------------- Manuals (upper / lower keyboard) ----------------
   const isBlack = (k) => [1, 3, 6, 8, 10].includes(((k % 12) + 12) % 12);
   const keyEls = [[], [], []];
   const active = [new Set(), new Set(), new Set()];
@@ -1337,7 +1340,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   }
   buildManual(0); buildManual(1);
 
-  // Pedal: 25 Holzbalken, Halbtöne erhöht und schwarz
+  // Pedalboard: 25 wooden bars, sharps raised and black
   (() => {
     const NS = 'http://www.w3.org/2000/svg', gk = $('pedKeys');
     const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
@@ -1374,7 +1377,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   function panic() { [0, 1, 2].forEach(m => [...active[m]].forEach(k => noteOff(k, m))); send({ type: 'panic' }); }
   $('panic').onclick = panic;
 
-  // Schweller
+  // Swell pedal
   (() => {
     const sv = $('swellSvg'); let drag = false;
     const setFrom = (e) => { const r = sv.getBoundingClientRect(); const v = clamp(1 - ((e.clientY - r.top) / r.height - 0.18) / 0.7, 0, 1); S.volume = +v.toFixed(3); send({ type: 'volume', v: S.volume }); syncAll(); };
@@ -1396,7 +1399,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     pcBtns.forEach(([v, b]) => b.classList.toggle('on', v === S.pcMan));
   } });
 
-  // PC-Tastatur
+  // PC keyboard as a MIDI substitute
   const KEYMAP = {
     KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14,
     KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23, KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28,
@@ -1420,7 +1423,7 @@ select option { background: #1a1511; color: #e8dcc4; }
   const setOct = (d) => { releasePc(); S.octave = clamp(S.octave + d, -1, 2); syncAll(); if (ready) scheduleSave(); };
   $('octDn').onclick = () => setOct(-1); $('octUp').onclick = () => setOct(1);
 
-  // ---------------- Alles schicken ----------------
+  // ---------------- Push the whole state to the DSP ----------------
   function pushAll() {
     if (S.room.shape === 'tent') applyTent(false); else send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) });
     send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: true });
@@ -1431,7 +1434,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     applyMode();
   }
 
-  // ---------------- Ereignisse vom Programm ----------------
+  // ---------------- Events from the native app ----------------
   if (NATIVE) {
     const B = window.__JUCE__.backend;
     B.addEventListener('rot', (m) => {
@@ -1453,7 +1456,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     });
   }
 
-  // ---------------- Animation ----------------
+  // ---------------- Animation loop (rotor angles, meters) ----------------
   let lastRpm = '';
   function frame() {
     const now = performance.now(), dt = (now - S.rot.t) / 1000;
@@ -1467,7 +1470,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     requestAnimationFrame(frame);
   }
 
-  // ---------------- Start ----------------
+  // ---------------- Startup ----------------
   window.addEventListener('resize', fit);
   // Older saved states used German value names; map them to the current ones
   function migrate(o) {
@@ -1485,7 +1488,7 @@ select option { background: #1a1511; color: #e8dcc4; }
     if (NATIVE) {
       try { const txt = await nativeInvoke('loadUi'); if (txt) { deepMerge(S, migrate(JSON.parse(txt))); loadedState = true; } } catch (e) { console.warn('Saved state unreadable', e); }
     }
-    if (!loadedState) applyInstrument(0);   // erster Start: B3 + 122 wie im Original
+    if (!loadedState) applyInstrument(0);   // first start: B3 + 122 as in the original
     if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';
     fit(); setTab('spielen'); buildMeters();
     pushAll(); ready = true;

@@ -1,4 +1,4 @@
-// Speicherprüfung aller Betriebsarten: g++ -O1 -g -std=c++17 -fsanitize=address,undefined -ISource tests/asan_all_test.cpp
+// Memory check of all operating modes: g++ -O1 -g -std=c++17 -fsanitize=address,undefined -ISource tests/asan_all_test.cpp
 #include "../Source/LeslieRoomDSP.h"
 #include <cstdio>
 using namespace leslie;
@@ -23,12 +23,12 @@ int main() {
         MicSetup m; m.on = true; m.grp[0].out = 6; m.grp[1].out = 15; m.grp[2].out = -2; dsp.setMics(m); run(20);
         m.hornStereo = false; m.drumStereo = true; m.roomArr = 2; m.roomType = 6; dsp.setMics(m); run(20);
         m.grp[0].out = 15; m.grp[2].out = 14; m.grp[1].delayMs = 50; dsp.setMics(m); dsp.kickSpring(1); run(20);
-        // Zelt mit Taps
+        // Tent with ray-tracer taps
         r.shape = "tent"; r.Lx = 30; r.Ly = 30; r.Lz = 8.5; dsp.setRoom(r);
         std::vector<Tap> taps; for (int i = 0; i < 300; i++) { Tap t{0.01 + i * 0.001, i * 0.1, 0.1, {1, 0, 0}, 2, {0.01, 0.01, 0.01}}; taps.push_back(t); } dsp.setTaps(taps);
         m.on = false; dsp.setMics(m); run(20);
         m.on = true; dsp.setMics(m); run(20);
-        if (nan) printf("NaN bei fs %.0f mode %d q %d: %d\n", fs, mode, q, nan);
+        if (nan) printf("NaN at fs %.0f mode %d q %d: %d\n", fs, mode, q, nan);
     }
-    printf("fertig\n");
+    printf("done\n");
 }

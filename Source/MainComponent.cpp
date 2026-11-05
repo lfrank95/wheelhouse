@@ -5,7 +5,7 @@ using namespace juce;
 
 static double numProp(const var& v, const char* name, double def) { auto x = v.getProperty(name, var()); return x.isVoid() ? def : (double) x; }
 static bool hasProp(const var& v, const char* name) { return v.hasProperty(name); }
-// Oberflächen-Zustand (Zugriegel, Raum, Leslie, MIDI-Kanäle …) zwischen zwei Starts
+// UI state (drawbars, room, Leslie, MIDI channels, ...) persisted between two program starts
 static File uiStateFile() { return File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile("Wheelhouse").getChildFile("ui-state.json"); }
 
 MainComponent::MainComponent() {
@@ -17,23 +17,30 @@ MainComponent::MainComponent() {
                                     .withUserDataFolder(File::getSpecialLocation(File::SpecialLocationType::tempDirectory).getChildFile("WheelhouseWebView")))
         .withNativeIntegrationEnabled()
         .withResourceProvider([this](const auto& url) { return getResource(url); })
+        // Native functions callable from JavaScript in the WebView (window.__JUCE__ bridge):
+        // "dsp": one UI message (JSON object with a "type" field) that changes a DSP parameter, see handleDspMessage()
         .withNativeFunction("dsp", [this](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
             if (args.size() > 0) handleDspMessage(args[0]);
             complete(var());
         })
+        // "audioSettings": opens JUCE's native audio/MIDI device selector dialog
         .withNativeFunction("audioSettings", [this](const Array<var>&, WebBrowserComponent::NativeFunctionCompletion complete) {
             openAudioSettings(); complete(var());
         })
+        // "audioInfo": asks for the current device info; answered asynchronously via the "audio" event
         .withNativeFunction("audioInfo", [this](const Array<var>&, WebBrowserComponent::NativeFunctionCompletion complete) {
             sendAudioInfo(); complete(var());
         })
+        // "saveUi": stores the UI state (a JSON string the UI assembles itself) in ui-state.json
         .withNativeFunction("saveUi", [](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
             if (args.size() > 0) { auto f = uiStateFile(); f.getParentDirectory().createDirectory(); f.replaceWithText(args[0].toString()); }
             complete(var());
         })
+        // "loadUi": returns the stored UI state string, or "" if none exists yet
         .withNativeFunction("loadUi", [](const Array<var>&, WebBrowserComponent::NativeFunctionCompletion complete) {
             auto f = uiStateFile(); complete(f.existsAsFile() ? var(f.loadFileAsString()) : var(""));
         })
+        // "chantest": plays a 0.5 s test tone on one output channel (index as argument) so the user can identify speakers
         .withNativeFunction("chantest", [this](const Array<var>& args, WebBrowserComponent::NativeFunctionCompletion complete) {
             if (args.size() > 0) { testChannel = (int) args[0]; testSamplesLeft = (int) (currentSampleRate * 0.5); testPhase = 0; }
             complete(var());
@@ -42,7 +49,7 @@ MainComponent::MainComponent() {
     addAndMakeVisible(*web);
     web->goToURL(WebBrowserComponent::getResourceProviderRoot());
 
-    // Audio: 0 Eingänge, bis zu 8 Ausgänge; gespeicherte Einstellungen aus der Properties-Datei, sonst Standardgerät
+    // Audio: 0 inputs, up to 16 outputs; restore the saved device setup from the properties file, otherwise use the default device
     PropertiesFile::Options po; po.applicationName = "Wheelhouse"; po.filenameSuffix = ".settings"; po.folderName = "Wheelhouse"; po.osxLibrarySubFolder = "Application Support";
     auto settingsFile = po.getDefaultFile();
     std::unique_ptr<XmlElement> savedState;
@@ -60,7 +67,7 @@ MainComponent::~MainComponent() {
     deviceManager.removeAudioCallback(this);
     deviceManager.removeMidiInputDeviceCallback({}, this);
     deviceManager.removeChangeListener(this);
-    // Audio-Einstellungen sichern
+    // Save the audio device setup
     PropertiesFile::Options po; po.applicationName = "Wheelhouse"; po.filenameSuffix = ".settings"; po.folderName = "Wheelhouse"; po.osxLibrarySubFolder = "Application Support";
     if (auto xml = deviceManager.createStateXml()) { auto f = po.getDefaultFile(); f.getParentDirectory().createDirectory(); xml->writeTo(f); }
     web = nullptr;
@@ -78,7 +85,7 @@ void MainComponent::audioDeviceAboutToStart(AudioIODevice* device) {
     currentOutputs = device->getActiveOutputChannels().countNumberOfSetBits();
     std::lock_guard<std::mutex> lock(dspLock);
     if (std::abs(dsp->fs - currentSampleRate) > 0.5) {
-        // Kern mit neuer Abtastrate aufbauen (Zustand geht verloren, Einstellungen schickt die Oberfläche erneut)
+        // Rebuild the DSP core at the new sample rate (its state is lost; the UI re-sends all settings on the "resend" event)
         dsp = std::make_unique<leslie::LeslieRoomDSP>(currentSampleRate);
         MessageManager::callAsync([this] { if (web) web->emitEventIfBrowserIsVisible("resend", var()); });
     }
@@ -98,7 +105,8 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
     }
     for (int c = 0; c < nCh; c++) if (outputChannelData[c]) FloatVectorOperations::copy(outputChannelData[c], ptrs[c], numSamples);
 
-    // Kanaltest-Piep
+    // Channel test beep (triggered by the "chantest" native function): 440 Hz triangle, or 55 Hz on the LFE channel
+    // (index 3 of a 5.1 layout), with 20 ms fade in/out
     int tc = testChannel.load();
     if (tc >= 0 && testSamplesLeft > 0 && tc < numOutputChannels && outputChannelData[tc]) {
         double f = tc == 3 && numOutputChannels >= 6 ? 55.0 : 440.0;
@@ -110,7 +118,7 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
         }
         if (testSamplesLeft <= 0) testChannel = -1;
     }
-    // Pegel
+    // Output level meters: accumulate energy, publish RMS per channel every 1024 samples
     for (int c = 0; c < nCh; c++) { float s = 0; const float* x = outputChannelData[c] ? outputChannelData[c] : ptrs[c]; for (int i = 0; i < numSamples; i++) s += x[i] * x[i]; meterAcc[(size_t) c] += s; }
     meterCount += numSamples;
     if (meterCount >= 1024) { for (int c = 0; c < 16; c++) { meterRms[(size_t) c] = std::sqrt(meterAcc[(size_t) c] / (float) meterCount); meterAcc[(size_t) c] = 0; } meterCount = 0; }
@@ -119,7 +127,10 @@ void MainComponent::audioDeviceIOCallbackWithContext(const float* const*, int, f
 void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) {
     var ev;
     const int ch = m.getChannel();
-    // Zuordnung: Pedal und Untermanual über ihren Kanal, alles andere (oder Omni) aufs Obermanual
+    // Channel-to-manual routing: pedal (man 2) and lower manual (man 1) are selected by their MIDI channel,
+    // everything else goes to the upper manual (man 0). If the upper channel is 0 (omni) every remaining channel
+    // plays the upper manual; otherwise only its own channel does and other channels are ignored (man -1).
+    // Key numbers are relative: pedal starts at MIDI note 24, the manuals at MIDI note 36.
     int man = 0;
     if (ch == midiPedal.load()) man = 2;
     else if (ch == midiLower.load()) man = 1;
@@ -146,6 +157,9 @@ void MainComponent::handleIncomingMidiMessage(MidiInput*, const MidiMessage& m) 
 
 void MainComponent::changeListenerCallback(ChangeBroadcaster*) { enableAllMidiInputs(); sendAudioInfo(); }
 
+// 30 Hz UI update: the "rot" event carries the rotor state (horn/drum angle in radians and speed in Hz),
+// output meters in dBFS ("meters"), audio CPU load ("cpu"), amp plate/cathode voltage ("vb"/"vk")
+// and, when the mic rig is active, the mic group meters in dB ("mm").
 void MainComponent::timerCallback() {
     if (!web) return;
     auto* o = new DynamicObject();
@@ -164,6 +178,8 @@ void MainComponent::timerCallback() {
     web->emitEventIfBrowserIsVisible("rot", var(o));
 }
 
+// "audio" event: current device name/type, sample rate, buffer size, active output count and names,
+// output latency and the list of enabled MIDI inputs
 void MainComponent::sendAudioInfo() {
     if (!web) return;
     auto* o = new DynamicObject();
@@ -181,6 +197,7 @@ void MainComponent::sendAudioInfo() {
     web->emitEventIfBrowserIsVisible("audio", var(o));
 }
 
+// "roomInfo" event: RT60 per band, critical distance and number of image-source paths of the current room
 void MainComponent::sendRoomInfo() {
     if (!web) return;
     leslie::RoomInfo ri; { std::lock_guard<std::mutex> lock(dspLock); ri = dsp->info(); }
@@ -203,7 +220,9 @@ void MainComponent::openAudioSettings() {
     lo.launchAsync();
 }
 
-// ---------------- Nachrichten der Oberfläche (gleiches Format wie im Browser) ----------------
+// ---------------- Messages from the UI (same JSON format the browser prototype uses) ----------------
+// Each message is an object with a "type" field; the remaining fields are the parameters.
+// Missing fields fall back to the defaults given here.
 void MainComponent::handleDspMessage(const var& m) {
     String type = m.getProperty("type", "").toString();
     bool roomInfoChanged = false;
@@ -306,7 +325,7 @@ void MainComponent::handleDspMessage(const var& m) {
 }
 
 std::optional<WebBrowserComponent::Resource> MainComponent::getResource(const String& url) {
-    // Alles aus BinaryData: "/" = index.html, sonst Dateiname (z. B. /fonts/BarlowCondensed-SemiBold.ttf)
+    // Everything is served from BinaryData: "/" = index.html, otherwise the file name (e.g. /fonts/BarlowCondensed-SemiBold.ttf)
     String file = url.upToFirstOccurrenceOf("?", false, false).fromLastOccurrenceOf("/", false, false);
     if (file.isEmpty()) file = "index.html";
     for (int i = 0; i < BinaryData::namedResourceListSize; i++) {

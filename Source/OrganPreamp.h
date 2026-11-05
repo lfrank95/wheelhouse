@@ -1,19 +1,19 @@
 #pragma once
-// Wheelhouse – Orgel-Vorverstärker nach dem Hammond AO-28 (Ausgangsteil hinter dem Schweller)
+// Wheelhouse – organ preamp modelled on the Hammond AO-28 (output section after the swell/expression pedal)
 //
-// Signalweg im Original: Matching-Transformer → Eingangsstufen (12AX7, 6AU6) → Vibrato-Scanner → Schweller →
-// Spannungsverstärker → Gegentakt-Ausgangsstufe 12BH7 → Ausgangsübertrager → Leslie (symmetrischer Eingang).
-// Gerechnet wird der Teil hinter dem Schweller, denn dort entsteht die Übersteuerung: je weiter der Schweller
-// offen ist und je mehr Zugriegel gezogen sind, desto mehr Pegel kommt an der 12AX7 und der 12BH7 an.
+// Signal path in the original: matching transformer → input stages (12AX7, 6AU6) → vibrato scanner → swell pedal →
+// voltage amplifier → 12BH7 push-pull output stage → output transformer → Leslie (balanced input).
+// Only the part after the swell pedal is simulated, because that is where overdrive occurs: the further the swell
+// pedal is open and the more drawbars are pulled, the more level reaches the 12AX7 and the 12BH7.
 //
-//   Eco   statische Kennlinien (12AX7 asymmetrisch, Gegentakt symmetrisch weich)
-//   HQ    Schaltung: 12AX7 mit Newton-Lösung, Koppelkondensator mit Gitterstrom (Blocking), 12BH7-Gegentakt
-//         mit gemeinsamer Kathode, Übertrager mit Kernsättigung und Hysterese, 2-fach Oversampling
-//   Ultra zusätzlich Miller-Kapazität der 12AX7, nachgebende Anodenversorgung, Kathoden-Bias der 12BH7
-//         mit eigener Zeitkonstante, Wirbelströme im Kern, 4-fach Oversampling
+//   Eco   static transfer curves (12AX7 asymmetric, push-pull symmetric and soft)
+//   HQ    circuit: 12AX7 solved with Newton iteration, coupling capacitor with grid current (blocking distortion),
+//         12BH7 push-pull with shared cathode, transformer with core saturation and hysteresis, 2× oversampling
+//   Ultra additionally Miller capacitance of the 12AX7, sagging plate supply, 12BH7 cathode bias with its own
+//         time constant, eddy currents in the core, 4× oversampling
 //
-// Die Röhren- und Kernmodelle beruhen auf dsp/glow.c und dsp/iron.c aus Amberwave (AGPL-3.0, © The Amberwave
-// contributors). Röhrendaten 12AX7 nach Koren; 12BH7 angenähert (μ ≈ 16,5, etwa doppelter Strom der 12AU7).
+// The tube and core models are based on dsp/glow.c and dsp/iron.c from Amberwave (AGPL-3.0, © The Amberwave
+// contributors). 12AX7 tube data per Koren; 12BH7 approximated (μ ≈ 16.5, roughly twice the current of a 12AU7).
 
 #include "LeslieAmp.h"
 
@@ -27,13 +27,18 @@ class OrganPreamp {
 public:
     explicit OrganPreamp(double sampleRate) : fs(sampleRate) { configure(); }
 
+    /** Quality level 0..2 (Eco / HQ / Ultra), see file header. Rebuilds the circuit. */
     void setQuality(int q) { q = std::max(0, std::min(2, q)); if (q != quality) { quality = q; configure(); } }
-    void setGain(double g) { gain = std::max(0.0, std::min(1.0, g)); kin = 0.9 * std::pow(12.0, gain); }   // Volt am 12AX7-Gitter je Einheit
+    /** Gain 0..1: input level into the 12AX7 grid (log scale, 0.9 V .. 10.8 V per unit input); affects saturation only. */
+    void setGain(double g) { gain = std::max(0.0, std::min(1.0, g)); kin = 0.9 * std::pow(12.0, gain); }   // volts at the 12AX7 grid per unit input
+    /** Enable/bypass the preamp; when disabled, process() leaves the signal untouched. */
     void setEnabled(bool on) { enabled = on; }
+    /** True when the preamp is active. */
     bool isEnabled() const { return enabled; }
+    /** Latency in samples introduced by the oversampling filters (0 without oversampling). */
     int latency() const { return ovs.delay; }
 
-    /** mono, in place; x etwa ±0,3 bei voller Orgel und offenem Schweller */
+    /** Mono, in place; x is roughly ±0.3 with full organ and open swell pedal */
     void process(float* x, int n) {
         if (!enabled) return;
         if (quality == 0) { processEco(x, n); return; }
@@ -53,23 +58,23 @@ private:
     void processEco(float* x, int n) {
         for (int i = 0; i < n; i++) {
             double u = (double) x[i] * kin;
-            // 12AX7: weiche Begrenzung, nach oben (Gitterstrom) früher als nach unten (Sperrung)
+            // 12AX7: soft limiting, earlier on the positive side (grid current) than on the negative side (cutoff)
             double a = u * 0.55;
             double s1 = a > 0 ? std::tanh(a * 1.25) / 1.25 : std::tanh(a * 0.8) / 0.8;
-            // 12BH7-Gegentakt: symmetrisch
+            // 12BH7 push-pull: symmetric
             double s2 = std::tanh(s1 * 1.6) / 1.6;
             double w = s2 - dcX + dcR * dcY; dcX = s2; dcY = w;
             x[i] = (float) (w / (0.55 * kin) * 1.0);
         }
     }
 
-    // ---------- Schaltung (ein Takt bei os·fs; u = Volt an der 12AX7) ----------
+    // ---------- Circuit (one step at os·fs; u = volts at the 12AX7 grid) ----------
     double tick(double u) {
         const double h = dt;
-        // Ultra: Miller-Kapazität der 12AX7 mit dem Quellwiderstand des Schwellers → Höhenabfall
+        // Ultra: Miller capacitance of the 12AX7 against the source resistance of the swell pedal → high-frequency roll-off
         if (quality == 2) { millerY += millerK * (u - millerY); u = millerY; }
-        // --- 12AX7 Spannungsverstärker, Kathode überbrückt ---
-        // Gitterstrom am Eingang: der Schweller hat hohe Quellimpedanz, positive Spitzen werden weich abgeschnitten
+        // --- 12AX7 voltage amplifier, cathode bypassed ---
+        // grid current at the input: the swell pedal has a high source impedance, so positive peaks are clipped softly
         double Vgk = u - Vk1;
         for (int it = 0; it < 2; it++) { double ig0, dig0; gridCurrent(T_12AX7.rgi, T_12AX7.vth, T_12AX7.w, Vgk, ig0, dig0); double f = Vgk - (u - Vk1) + Rsrc * ig0; Vgk -= f / (1 + Rsrc * dig0); }
         double Vp = vp1, ip = 0, gp = 0, gm = 0;
@@ -83,8 +88,8 @@ private:
         vp1 = Vp; double ip1 = ip;
         double rout1 = 1 / (1 / Ra1 + std::max(gp, 1e-8));
         Vk1 += h * (ip1 - Vk1 / Rk1) / Ck1;
-        // --- Teiler und Phasenumkehr (Übertrager-Treiber im Original) → zwei Koppelkondensatoren ---
-        double vsig = (Vp - vp1Rest) * divK;                 // Wechselanteil, abgeschwächt
+        // --- Divider and phase inversion (transformer driver in the original) → two coupling capacitors ---
+        double vsig = (Vp - vp1Rest) * divK;                 // AC component, attenuated
         double Vg[2], ig[2];
         for (int j = 0; j < 2; j++) {
             double src = (j == 0 ? vsig : -vsig);
@@ -104,7 +109,7 @@ private:
             ccQ[j] += h * I / Cc;
             Vg[j] = Vgj; ig[j] = igj;
         }
-        // --- 12BH7 Gegentakt auf den Übertrager: v = halbe Primärspannung ---
+        // --- 12BH7 push-pull into the transformer: v = half the primary voltage ---
         double Im = magnetizing();
         double v = vPrev, ia = 0, ib = 0;
         for (int it = 0; it < itB; it++) {
@@ -120,9 +125,9 @@ private:
         }
         vPrev = v;
         coreUpdate(2 * v);
-        // Kathode der 12BH7 (gemeinsam, überbrückt; Ultra: kleinerer Kondensator → hörbares Atmen des Bias)
+        // 12BH7 cathode (shared, bypassed; Ultra: smaller capacitor → audible breathing of the bias)
         Vk2 += h * (ia + ib + ig[0] + ig[1] - Vk2 / Rk2) / Ck2;
-        // Anodenversorgung (Ultra: RC-Siebung gibt unter Last nach)
+        // plate supply (Ultra: the RC filtering sags under load)
         if (quality == 2) Vb += h * ((V0 - Vb) / Rsup - (ia + ib + ip1 + Iq)) / Csup;
         return 2 * v;
     }
@@ -143,8 +148,8 @@ private:
     void coreUpdate(double vPrim) {
         double dphi = dt * vPrim * fluxK;
         if (quality == 2) eddy = eddyK * dphi / dt * 1e-3;
-        // Wicklungswiderstand: Gleichanteil im Fluss baut sich ab (R/L ≈ 0,3 s), sonst läuft der Kern bei kleinster
-        // Unsymmetrie der Röhren langsam in die Sättigung
+        // winding resistance: the DC component of the flux decays (R/L ≈ 0.3 s); otherwise the slightest tube
+        // mismatch would slowly push the core into saturation
         phi += dphi - phi * dt / 0.3;
         if (phi > bs * 0.98) phi = bs * 0.98; else if (phi < -bs * 0.98) phi = -bs * 0.98;
         coreH(phi, true);
@@ -156,14 +161,14 @@ private:
         dt = 1 / (fs * os);
         dcR = 1 - 2 * PI * 4 / fs;
         itA = quality == 2 ? 6 : 3; itB = quality == 2 ? 8 : 4;
-        // Schaltung (Werte nach AO-28-Schaltplan, gerundet)
+        // circuit values (from the AO-28 schematic, rounded)
         V0 = 285; Vb = 285; Ra1 = 100e3; Rk1 = 1500; Ck1 = 10e-6;
         divK = 0.14; Rs2 = 47e3; Cc = 0.05e-6; Rg = 470e3;
         Rk2 = 560; Ck2 = quality == 2 ? 25e-6 : 100e-6;
         Raa = 10e3; Rsup = 2200; Csup = 20e-6; Iq = 0.002;
-        // Miller: Cgp 1,6 pF × (1 + Verstärkung ≈ 60) an etwa 150 kΩ Quellimpedanz → Ecke um 10 kHz
+        // Miller: Cgp 1.6 pF × (1 + gain ≈ 60) against about 150 kΩ source impedance → corner around 10 kHz
         double fM = 14000; millerK = 1 - std::exp(-2 * PI * fM * dt);
-        // Übertrager: kleinerer Kern als im Leslie, Primärinduktivität ~60 H
+        // transformer: smaller core than in the Leslie, primary inductance ~60 H
         bs = 1.3; hystW = 0.4; double hyst = 0.06;
         double ws = 0; for (int j = 1; j <= PLAYS; j++) { playR[j - 1] = hyst * j / PLAYS; playW[j - 1] = j; ws += j; }
         for (int j = 0; j < PLAYS; j++) playW[j] /= ws;
@@ -183,10 +188,10 @@ private:
         if (quality == 0) return;
         int steps = (int) (0.5 / dt);
         for (int i = 0; i < steps; i++) tick(0);
-        vp1Rest = vp1;                                     // Ruhepunkt der 12AX7-Anode (Wechselanteil beginnt hier)
+        vp1Rest = vp1;                                     // 12AX7 plate operating point (AC component is measured from here)
         for (int i = 0; i < steps / 4; i++) tick(0);
     }
-    /** Kleinsignal-Verstärkung auf 1 normieren: sauber gespielt klingt die Orgel lauter oder leiser nur über den Schweller */
+    /** Normalise the small-signal gain to 1: played cleanly, the organ gets louder or quieter only via the swell pedal */
     void calibrate() {
         if (quality == 0) return;
         struct S { double a[16]; double pl[PLAYS]; } sv;

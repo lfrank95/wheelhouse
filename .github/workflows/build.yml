@@ -1,4 +1,4 @@
-name: Windows-Build
+name: Windows build
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ASIO-SDK laden (Steinberg)
+      - name: Download ASIO SDK (Steinberg)
         id: asio
         shell: pwsh
         continue-on-error: true
@@ -18,11 +18,11 @@ jobs:
           Invoke-WebRequest -Uri "https://www.steinberg.net/asiosdk" -OutFile asiosdk.zip -UserAgent "Mozilla/5.0"
           Expand-Archive asiosdk.zip -DestinationPath asiosdk
           $common = Get-ChildItem -Path asiosdk -Recurse -Directory -Filter common | Select-Object -First 1
-          if ($null -eq $common) { throw "ASIO-SDK: Ordner 'common' nicht gefunden" }
+          if ($null -eq $common) { throw "ASIO SDK: folder 'common' not found" }
           "ASIO_SDK_DIR=$($common.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "ASIO-SDK: $($common.FullName)"
+          Write-Host "ASIO SDK: $($common.FullName)"
 
-      - name: Schriften laden (Barlow Condensed, Yellowtail)
+      - name: Download fonts (Barlow Condensed, Yellowtail)
         shell: pwsh
         continue-on-error: true
         run: |
@@ -32,23 +32,23 @@ jobs:
           foreach ($f in $files) { Invoke-WebRequest -Uri "$base/$f" -OutFile ("Resources/fonts/" + (Split-Path $f -Leaf)) }
           Get-ChildItem Resources/fonts
 
-      - name: Oberfläche zusammenbauen
+      - name: Assemble UI
         run: python tools/build_ui.py
 
-      - name: WebView2-Paket (NuGet)
+      - name: WebView2 package (NuGet)
         run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
 
-      - name: Konfigurieren
+      - name: Configure
         shell: pwsh
         run: |
           $asio = $env:ASIO_SDK_DIR
-          if ($asio) { Write-Host "Build mit ASIO" } else { Write-Host "Build OHNE ASIO (SDK-Download fehlgeschlagen)" }
+          if ($asio) { Write-Host "Building with ASIO" } else { Write-Host "Building WITHOUT ASIO (SDK download failed)" }
           cmake -B build -A x64 -DASIO_SDK_DIR="$asio" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
 
-      - name: Bauen
+      - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Programm bereitstellen
+      - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
           name: Wheelhouse-win64

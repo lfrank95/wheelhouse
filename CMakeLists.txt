@@ -4,7 +4,7 @@ project(Wheelhouse VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# JUCE: entweder als Unterordner (JUCE/) oder per FetchContent
+# JUCE: either as a subdirectory (JUCE/) or via FetchContent
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/CMakeLists.txt")
     add_subdirectory(JUCE)
 else()
@@ -13,10 +13,10 @@ else()
     FetchContent_MakeAvailable(JUCE)
 endif()
 
-# ASIO-SDK (nur Windows): Pfad zum Ordner "common" des Steinberg ASIO SDK, z.B. -DASIO_SDK_DIR=C:/asiosdk/common
-set(ASIO_SDK_DIR "" CACHE PATH "Ordner 'common' des Steinberg ASIO SDK")
+# ASIO SDK (Windows only): path to the "common" folder of the Steinberg ASIO SDK, e.g. -DASIO_SDK_DIR=C:/asiosdk/common
+set(ASIO_SDK_DIR "" CACHE PATH "Folder 'common' of the Steinberg ASIO SDK")
 
-# Schriften (Barlow Condensed, Yellowtail) lädt der Build-Workflow nach Resources/fonts; ohne sie greifen Ersatzschriften
+# The build workflow downloads the fonts (Barlow Condensed, Yellowtail) into Resources/fonts; without them fallback fonts are used
 file(GLOB WHEELHOUSE_FONTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/fonts/*.ttf")
 juce_add_binary_data(WheelhouseResources SOURCES Resources/index.html ${WHEELHOUSE_FONTS})
 
@@ -43,11 +43,11 @@ target_compile_definitions(Wheelhouse PRIVATE
     JUCE_DIRECTSOUND=1)
 
 if(WIN32 AND ASIO_SDK_DIR)
-    message(STATUS "ASIO-Unterstützung aktiv: ${ASIO_SDK_DIR}")
+    message(STATUS "ASIO support enabled: ${ASIO_SDK_DIR}")
     target_compile_definitions(Wheelhouse PRIVATE JUCE_ASIO=1)
     target_include_directories(Wheelhouse PRIVATE "${ASIO_SDK_DIR}")
 else()
-    message(STATUS "Kein ASIO-SDK angegeben – Build ohne ASIO (WASAPI/DirectSound).")
+    message(STATUS "No ASIO SDK given - building without ASIO (WASAPI/DirectSound).")
 endif()
 
 target_link_libraries(Wheelhouse PRIVATE

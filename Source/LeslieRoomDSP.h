@@ -1,7 +1,8 @@
-// Leslie im Raum – DSP-Kern (C++-Port von processor7.js)
-// Tonradorgel -> Scanner-Vibrato -> Schweller -> Leslie-Verstärker -> Weiche -> rotierende Quellen im Raum
-// (Spiegelquellen / Strahlen-Taps, Doppler, Gehäuse-Richtwirkung) -> 16-Leitungen-FDN -> Panning.
-// Kein JUCE in dieser Datei, damit der Kern auch ohne Framework getestet werden kann.
+// Wheelhouse - DSP core (C++ port of processor7.js)
+// Signal chain: tonewheel organ -> scanner vibrato -> expression (swell) pedal -> Leslie amplifier
+// -> crossover -> rotating sources placed in a room (image sources / ray-traced taps, Doppler,
+// cabinet directivity) -> 16-line feedback delay network (FDN) reverb -> speaker panning.
+// This file deliberately contains no JUCE code so the core can be built and tested without the framework.
 #pragma once
 #include <cmath>
 #include <cstdint>
@@ -24,7 +25,7 @@ struct Biquad {
         double B0, B1, B2, A0 = 1 + al, A1 = -2 * cw, A2 = 1 - al;
         if (type[0] == 'l') { B0 = (1 - cw) / 2; B1 = 1 - cw; B2 = (1 - cw) / 2; }
         else if (type[0] == 'h') { B0 = (1 + cw) / 2; B1 = -(1 + cw); B2 = (1 + cw) / 2; }
-        else if (type[0] == 's') {   // Tiefenregal (RBJ)
+        else if (type[0] == 's') {   // low shelf (RBJ cookbook)
             double A = std::pow(10.0, gainDb / 40), sA = 2 * std::sqrt(A) * al;
             B0 = A * ((A + 1) - (A - 1) * cw + sA); B1 = 2 * A * ((A - 1) - (A + 1) * cw); B2 = A * ((A + 1) - (A - 1) * cw - sA);
             A0 = (A + 1) + (A - 1) * cw + sA; A1 = -2 * ((A - 1) + (A + 1) * cw); A2 = (A + 1) + (A - 1) * cw - sA;
@@ -50,7 +51,7 @@ struct Path {
     double d0 = 0, d1 = 0, g0 = 0, g1 = 0, dl0 = 0, dl1 = 0, cab0 = 0, cab1 = 0, hf = 1;
     int bP = 0, bN = 0;
     std::array<float, 8> gPrev{}, gNext{};
-    // Strahlen-Taps
+    // Fields used only by ray-traced taps (tent shape): fixed distance, departure direction, arrival azimuth/elevation
     double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, glr = 1, kTrace = 1;
 };
 
@@ -78,61 +79,101 @@ class LeslieRoomDSP {
 public:
     explicit LeslieRoomDSP(double sampleRate) : fs(sampleRate), amp(sampleRate), pre(sampleRate), spring(sampleRate) { init(); }
 
-    // ---------------- Steuerung (entspricht den Worklet-Nachrichten) ----------------
-    // Manuale: 0 = Ober, 1 = Unter, 2 = Pedal
+    // ---------------- Control API (mirrors the messages of the original audio worklet) ----------------
+    // Manuals: 0 = upper (swell), 1 = lower (great), 2 = pedal
+    /** Key down. k = key index (0..60 for manuals, 0..24 for pedals), man = manual (0/1/2). */
     void noteOn(int k, int man = 0);
+    /** Key up. Same arguments as noteOn(). */
     void noteOff(int k, int man = 0);
+    /** All notes off: clears held keys, pending contact events, tonewheel targets and percussion. */
     void panic() {
         for (int m = 0; m < 3; m++) { std::fill(keys[m].begin(), keys[m].end(), 0); std::fill(target[m].begin(), target[m].end(), 0.f); }
         numKeysUpper = 0; events.clear(); std::fill(percG.begin(), percG.end(), 0.f);
     }
+    /** Drawbar positions 0..8 for one manual (9 values; the pedal uses only the first 2). */
     void setDrawbars(const int* v, int man = 0) { int n = man == 2 ? 2 : 9; for (int i = 0; i < n; i++) drawbars[man][i] = v[i]; retarget(); }
+    /** Percussion switches: on/off, harmonic (third = 4' / second = 2 2/3'), decay fast/slow, volume soft/normal. */
     void setPerc(const Perc& p) { perc = p; retarget(); }
+    /** Routes the scanner vibrato to the upper and/or lower manual (the vibrato tabs on the console). */
     void setVibRouting(bool upper, bool lower) { vibUpper = upper; vibLower = lower; }
+    /** Vibrato/chorus knob position: "v1".."v3" (vibrato) or "c1".."c3" (chorus); anything else = off. */
     void setVib(const std::string& v) { vibMode = v; }
+    /** Leslie amplifier drive, 0..1 (also forwarded to the amp model). */
     void setDrive(double v) { drive = v; amp.setDrive(v); }
+    /** Amplifier model index, simulation quality level, and power-supply sag amount 0..1. */
     void setAmp(int model, int quality, double sagAmount) { amp.setModel(model); amp.setQuality(quality); amp.setSag(sagAmount); pre.setQuality(quality); }
+    /** Organ preamp stage on/off and its gain 0..1 (see OrganPreamp). */
     void setPreamp(bool on, double gain) { pre.setEnabled(on); pre.setGain(gain); }
+    /** Spring reverb: on/off, wet mix 0..1, decay time T60 in seconds, tone 0..1, drive 0..1, number of springs. */
     void setSpring(bool on, double mixAmt, double t60, double toneAmt, double driveAmt, int springs) { spring.setEnabled(on); spring.setMix(mixAmt); spring.setDecay(t60); spring.setTone(toneAmt); spring.setDrive(driveAmt); spring.setSprings(springs); }
+    /** Physically "kicks" the spring tank (the classic crash); strength 0..1. */
     void kickSpring(double strength) { spring.kick(strength); }
+    /** Rotor speeds: r = 0 horn, 1 drum; slow/fast speed in Hz, acceleration/deceleration time constants in seconds. */
     void setRotor(int r, double slowHz, double fastHz, double upTau, double dnTau) {
         auto& R = rot[r]; R.slow = slowHz; R.fast = fastHz; R.upTau = upTau; R.dnTau = dnTau; setLeslie(leslieMode);
     }
+    /** Motor brake: true = rotors stop quickly in "stop" mode, false = they coast down slowly. */
     void setBrake(bool on) { brake = on; }
+    /** Cabinet detail: level of the horn-compartment reflection 0..1, rotor speed wobble 0..1 (negative = derive from Character). */
     void setCabinetDetail(double hornBox, double wobble) { hornBoxLevel = hornBox; wobbleOverride = wobble; applyCharacter(); }
+    /** Organ detail: percussion level (linear), short/long percussion decay in seconds, use harmonic-rich waveforms for the lowest 12 wheels. */
     void setOrganDetail(double percLevel, double percShort, double percLong, bool complexWheels) { percLevelUser = percLevel; percShortS = percShort; percLongS = percLong; complexLow = complexWheels; }
+    /** Output stage: master gain in dB and LFE low-pass cutoff in Hz. */
     void setOutput(double masterDb, double lfeHz) {
         masterGain = std::pow(10.0, masterDb / 20); lfeLp1.set("lp", lfeHz, 0.70710678, fs); lfeLp2.set("lp", lfeHz, 0.70710678, fs);
     }
+    /** Current plate (B+) supply voltage of the amp model, for the UI. */
     double ampPlate() const { return amp.plateSupply(); }
+    /** Current cathode voltage of the amp model, for the UI. */
     double ampCathode() const { return amp.cathodeVoltage(); }
+    /** Active amp simulation quality level. */
     int ampQuality() const { return amp.getQuality(); }
+    /** Key click level 0..1 (contact noise on key press/release). */
     void setClick(double v) { click = v; }
+    /** Expression (swell) pedal position 0..1; also shapes the bass response like the original pedal. */
     void setVolume(double v) { volume = v; }
+    /** Horn/drum balance 0..1: 0 = horn only, 0.5 = both full, 1 = drum only. */
     void setBalance(double v) { hornLevel = std::min(1.0, 2 * (1 - v)); drumLevel = std::min(1.0, 2 * v); }
+    /** Leslie speed switch: "slow", "fast" or anything else for "stop". */
     void setLeslie(const std::string& mode) { leslieMode = mode; for (auto& r : rot) r.tgt = mode == "fast" ? r.fast : mode == "slow" ? r.slow : 0; }
+    /** Replaces the room description (dimensions in metres, absorption, material, shape) and rebuilds all paths. */
     void setRoom(const Room& r) { room = r; rebuildRoom(); }
+    /** Direct access to the room for in-place edits; call roomChanged() afterwards. */
     Room& roomRef() { return room; }
+    /** Rebuilds image sources and reverb after the room was edited via roomRef(). */
     void roomChanged() { rebuildRoom(); }
+    /** Instrument "character": tonewheel condition, crosstalk/leakage, contact quality, motor noise (all 0..1), plus gear-tuning and bus-bar compression switches. */
     void setCharacter(const Character& c) { chr = c; applyCharacter(); }
+    /** Positions in metres: Leslie (lx, ly) and listener (hx, hy) with listener yaw in radians; jump = snap instead of glide. The has* flags say which parts are valid. */
     void setPos(bool hasLes, double lx, double ly, bool hasLis, double hx, double hy, bool hasYaw, double yaw, bool jump);
+    /** Speaker layout: azimuths in degrees, output channel per speaker, LFE channel index (-1 = none), stereo flag. */
     void setSpeakers(const Speakers& s);
+    /** LFE send level (linear). */
     void setLfe(double v) { lfeLevel = v; }
+    /** Cabinet orientation (yaw) in radians; jump = snap instead of glide. */
     void setCabYaw(double v, bool jump) { cabTyaw = v; if (jump) cabYaw = v; }
+    /** Ray-traced reflection taps for the "tent" room shape (delay in s, direction, per-band energy). */
     void setTaps(std::vector<Tap> taps) { tapsData = std::move(taps); if (room.shape == "tent") rebuildRoom(); }
 
+    /** Derived room data for the UI: RT60 per band in seconds, critical distance in metres, number of paths. */
     RoomInfo info() const { return roomInfo; }
-    // Mikrofonierung
+    // Microphone rig
+    /** Microphone setup (types, patterns, positions, mixer groups) - see MicRig.h. */
     void setMics(const MicSetup& m) { micSetup = m; micConfigure(); }
+    /** Current microphone setup. */
     const MicSetup& mics() const { return micSetup; }
-    /** Pegel je Pultkanal (RMS, linear) für die Anzeige */
+    /** Level per mixer channel (RMS, linear) for the meter display. */
     float micMeter(int c) const { return c >= 0 && c < MIC_CH ? micMeterVal[c] : 0.f; }
+    /** Current horn rotor angle in radians. */
     double hornAngle() const { return rot[0].ang; }
+    /** Current drum rotor angle in radians. */
     double drumAngle() const { return rot[1].ang; }
+    /** Current horn rotor speed in Hz. */
     double hornHz() const { return rot[0].hz; }
+    /** Current drum rotor speed in Hz. */
     double drumHz() const { return rot[1].hz; }
 
-    // out[c][n], nCh <= 8
+    /** Renders N samples into out[c][n]. Channels 0..7 carry the speaker/room mix; 8..15 are mic direct outs only. */
     void process(float* const* out, int nCh, int N);
 
     const double fs;
@@ -149,8 +190,9 @@ private:
     void retarget();
     void applyDelta(int m, int w, double d);
     int wheelFor(int key, int i) const { int w = key + 13 + DB_OFF[i]; if (w < 1) w += 12; while (w > 91) w -= 12; return w; }
-    // Pedal: die Zugriegel 16' und 8' sind im Original Mischungen aus Grundton und zwei Obertönen
-    // (16' ≈ 16' + 8' + 5⅓', 8' ≈ 8' + 4' + 2⅔'); Anteile angenähert
+    // Calls f(wheel, amplitude) for every tonewheel a key contributes to on manual m.
+    // Pedal: on the original console the 16' and 8' pedal drawbars are mixtures of the fundamental and two
+    // overtones (16' ~ 16' + 8' + 5 1/3', 8' ~ 8' + 4' + 2 2/3'); the mix ratios are approximations.
     template <class F> void forParts(int m, int k, const double* amps, F f) const {
         static const int OFF[2][3] = {{0, 12, 19}, {12, 24, 31}};
         static const double MIX[2][3] = {{1.0, 0.38, 0.22}, {1.0, 0.32, 0.18}};
@@ -161,12 +203,15 @@ private:
         }
     }
     void drawbarAmps(int man, double* amps) const;
+    // One-pole low-pass coefficient for cutoff f (Hz), clamped below Nyquist
     double kOf(double f) const { return 1 - std::exp(-TWO_PI * std::min(f, fs * 0.45) / fs); }
 
+    // Semitone offset of each drawbar relative to the 8' fundamental (16', 5 1/3', 8', 4', 2 2/3', 2', 1 3/5', 1 1/3', 1')
     static constexpr int DB_OFF[9] = {-12, 7, 0, 12, 19, 24, 28, 31, 36};
+    // Driving/driven gear tooth counts of the original generator, one pair per semitone (gives the slightly detuned "gear tuning")
     static constexpr int GEARS[12][2] = {{85, 104}, {71, 82}, {67, 73}, {105, 108}, {103, 100}, {84, 77}, {74, 64}, {98, 80}, {96, 74}, {88, 64}, {67, 46}, {108, 70}};
 
-    // Tonräder
+    // ---------------- Tonewheel generator (91 wheels, index 1..91) ----------------
     static constexpr int TAB = 4096;
     std::vector<float> sine, complexWave;
     std::array<double, 92> phase{}, inc{}, incNew{}, incGear{};
@@ -189,17 +234,25 @@ private:
     double sampleClock = 0;
     Lcg fastRand{777};
 
+    // ---------------- Instrument character: crosstalk/leakage, key-contact behaviour, bus-bar compression, motor ----------------
     Character chr;
     double leakAdj = 0, leakAdj2 = 0, leakBank = 0, leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
 
+    // ---------------- Scanner vibrato (delay-line based, 2048-sample buffer) ----------------
     std::string vibMode = "c3";
     std::vector<float> vibBuf; int vibW = 0; double vibPh = 0;
 
+    // ---------------- Expression pedal, crossover and cabinet filters ----------------
+    // expLp: bass boost of the expression pedal; lp1/lp2 + hp1/hp2: horn/drum crossover; cabLp: horn-compartment colouration;
+    // hornRes/hornRes2/drumRes/hornHi: resonances of horn and drum; lfeLp1/2: LFE low-pass; motorLp/windBp1/2: motor and wind noise
     double drive = 0.35, volume = 0.8, sagEnv = 0;
     Biquad expLp, lp1, lp2, hp1, hp2, cabLp, hornRes, hornRes2, drumRes, hornHi, lfeLp1, lfeLp2, motorLp, windBp1, windBp2;
     int cabDelay = 0;
-    double cabYaw = -1.5707963, cabTyaw = -1.5707963;
+    double cabYaw = -1.5707963, cabTyaw = -1.5707963;   // current / target cabinet orientation (radians)
 
+    // ---------------- Rotors and rotor delay lines ----------------
+    // rot[0] = horn, rot[1] = drum. bufH/bufD hold the horn/drum signals, bufC the horn signal coloured by the cabinet;
+    // every acoustic path reads from these ring buffers with a fractional (Doppler-shifting) delay.
     Rotor rot[2];
     std::string leslieMode = "slow";
     double hornLevel = 1, drumLevel = 1;
@@ -207,6 +260,7 @@ private:
     std::vector<float> bufH, bufD, bufC;
     int wIdx = 0;
 
+    // ---------------- Room: Leslie/listener positions and acoustic paths (image sources or ray taps) ----------------
     Room room;
     std::vector<Tap> tapsData;
     struct Pos { double x, y, tx, ty; } lesliePos{3, 6, 3, 6};
@@ -216,6 +270,9 @@ private:
     RoomInfo roomInfo;
     double rt60[3] = {0, 0, 0};
 
+    // ---------------- Speaker layout and panning ----------------
+    // Direct paths are panned with pairwise (VBAP-style) gains between the two nearest speakers; higher-order paths are
+    // summed into NB azimuth buckets (plus one omnidirectional bucket) that are panned once per sample.
     Speakers spk;
     double lfeLevel = 0.5;
     struct SpkS { double a; int ch; };
@@ -225,7 +282,7 @@ private:
     std::vector<std::array<float, 8>> bucketG;
     std::array<float, NB + 1> bucket{};
 
-    // FDN
+    // ---------------- FDN reverb (16 modulated delay lines, 6 input allpasses, 16 per-line allpasses, 3-band decay) ----------------
     static constexpr int FM = 65535;
     std::vector<std::vector<float>> fdnBuf, apBuf, lapBuf;
     std::array<int, 16> fdnLen{}, fdnIdx{}, lapLen{}, lapIdx{};
@@ -240,13 +297,14 @@ private:
     std::array<double, 16> rv{};
     std::array<double, 8> acc{};
 
-    // ---------------- Mikrofonierung ----------------
+    // ---------------- Microphone rig and mixer ----------------
+    // mic[0..1] = horn close mics (A/B), mic[2..3] = drum close mics (A/B), mic[4..5] = room pair (L/R)
     MicSetup micSetup;
     MicRt mic[6];
     std::vector<float> chDelay[6]; int chDelayIdx = 0; static constexpr int CHD = 8192;
-    double mixT[MIC_GRP][4] = {}, mixC[MIC_GRP][4] = {};   // je Gruppe: A→L, A→R, B→L, B→R (gleitend)
+    double mixT[MIC_GRP][4] = {}, mixC[MIC_GRP][4] = {};   // per group: A->L, A->R, B->L, B->R (mixT = target, mixC = smoothed current)
     int grpDelayS[MIC_GRP] = {0}, grpOutL[MIC_GRP] = {-1, -1, -1}, grpOutR[MIC_GRP] = {-1, -1, -1};
-    double modeMix = 0;                                     // 0 = Hörer, 1 = Mikros (Überblendung)
+    double modeMix = 0;                                     // 0 = listener mode, 1 = microphone mode (crossfade)
     double micMeterAcc[MIC_CH] = {0}; float micMeterVal[MIC_CH] = {0}; int micMeterN = 0;
     std::array<double, 16> micOut{};
     double kBandLo = 0.05, kBandHi = 0.3, kWind = 0.02, micRevScale = 1, roomReflG = 0.8, roomHfRefl = 0.9;
@@ -261,6 +319,8 @@ private:
 };
 
 // =====================================================================================
+// Initialisation: wavetables, tonewheel frequencies (gear-derived and equal-tempered), per-wheel level
+// and tolerance, fixed filters, rotor parameters, default 8-channel speaker ring, reverb buffers.
 inline void LeslieRoomDSP::init() {
     Lcg rnd(20261104u);
     sine.resize(TAB + 1); complexWave.resize(TAB + 1);
@@ -297,6 +357,8 @@ inline void LeslieRoomDSP::init() {
     rebuildRoom();
 }
 
+// Derives all "character" dependent coefficients: wheel tuning/levels, crosstalk gains, key-contact timing,
+// bus-bar compression, motor noise, rotor wobble and amp ageing.
 inline void LeslieRoomDSP::applyCharacter() {
     const auto& c = chr;
     for (int w = 1; w <= 91; w++) inc[w] = c.gearTune ? incGear[w] : incNew[w];
@@ -310,6 +372,8 @@ inline void LeslieRoomDSP::applyCharacter() {
     amp.setAge(0.6 * c.cond);
 }
 
+// Cabinet directivity: gain g and low-pass cutoff fc (Hz) for a path leaving the cabinet in direction (dx, dy, dz).
+// The louvred front (facing cabYaw) is open; towards the back and vertically the sound is attenuated and dulled.
 inline void LeslieRoomDSP::cabinet(double dx, double dy, double dz, double& g, double& fc) const {
     double c = std::cos(cabYaw), s = std::sin(cabYaw);
     double hd = std::hypot(dx, dy); if (hd == 0) hd = 1e-6;
@@ -321,16 +385,19 @@ inline void LeslieRoomDSP::cabinet(double dx, double dy, double dz, double& g, d
 }
 
 inline void LeslieRoomDSP::drawbarAmps(int man, double* amps) const {
-    // Percussion wirkt nur auf das Obermanual: 1' stumm, „normal“ dämpft die Zugriegel etwas (wie im Original)
+    // Linear amplitude per drawbar (3 dB per step). Percussion only affects the upper manual: the 1' drawbar is
+    // muted and the "normal" (loud) percussion setting slightly attenuates the drawbars, as on the original console.
     double percAtt = man == 0 && perc.on && !perc.soft ? 0.72 : 1;
     int n = man == 2 ? 2 : 9;
     for (int i = 0; i < 9; i++) {
         if (i >= n || (man == 0 && i == 8 && perc.on)) { amps[i] = 0; continue; }
-        double lvl = man == 2 ? 1.15 : 1.0;   // Pedal etwas kräftiger (eigene Pegelkurve im Original)
+        double lvl = man == 2 ? 1.15 : 1.0;   // pedal a little louder (it has its own level curve on the original)
         amps[i] = drawbars[man][i] <= 0 ? 0 : std::pow(10.0, -(8 - drawbars[man][i]) * 3 / 20.0) * percAtt * lvl;
     }
 }
 
+// Schedules a gain change (key contact closing/opening) for tonewheel w on manual m. The contacts of the nine
+// bus bars close at slightly different times (stagger) and may bounce, producing the characteristic key click.
 inline void LeslieRoomDSP::schedule(int m, int w, double d, double baseDelay) {
     double t0 = sampleClock + baseDelay + fastRand() * staggerS * (m == 2 ? 1.6 : 1.0);
     events.push_back({t0, m, w, d});
@@ -365,6 +432,7 @@ inline void LeslieRoomDSP::noteOff(int k, int man) {
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0); });
     if (man == 0 && perc.on) { int w = wheelFor(k, perc.third ? 4 : 3); percG[w] = std::max(0.f, percG[w] - 1); }
 }
+// Recomputes all tonewheel target gains from the currently held keys (after drawbar or percussion changes).
 inline void LeslieRoomDSP::retarget() {
     events.clear(); std::fill(percG.begin(), percG.end(), 0.f);
     for (int m = 0; m < 3; m++) {
@@ -378,6 +446,8 @@ inline void LeslieRoomDSP::retarget() {
         }
     }
 }
+// Adds d to the target gain of wheel w and spreads crosstalk to the neighbouring wheels (adjacent on the
+// generator shaft, +-1 and +-2) and to the wheel 48 positions away that shares the same magnet/bank wiring.
 inline void LeslieRoomDSP::applyDelta(int m, int w, double d) {
     auto& t = target[m];
     t[w] += (float) d;
@@ -399,9 +469,12 @@ inline void LeslieRoomDSP::setSpeakers(const Speakers& s) {
     spk = s; for (auto& a : spk.az) a *= 3.14159265358979 / 180;
     prepSpeakers(); rebuildFdnOut();
     for (auto& p : paths) { p.gPrev.fill(0); p.gNext.fill(0); p.init = false; }
-    if (mic[0].inited) micConfigure();   // Pult-Ziele vorne/hinten hängen vom Ausgabeformat ab
+    if (mic[0].inited) micConfigure();   // the mixer's front/rear output targets depend on the output format
 }
 
+// Rebuilds the acoustic model after a room change: clamps positions, derives per-band absorption from the material,
+// builds the image-source paths (box) or ray taps (tent) for both rotors, computes RT60 (Eyring), the
+// pre-delay and the FDN delay lengths/decay gains, then refreshes the output rows and microphone paths.
 inline void LeslieRoomDSP::rebuildRoom() {
     auto clampd = [](double v, double lo, double hi) { return std::max(lo, std::min(hi, v)); };
     auto& R = room;
@@ -499,6 +572,8 @@ inline void LeslieRoomDSP::rebuildRoom() {
     roomInfo.rt60[0] = rt[0]; roomInfo.rt60[1] = rt[1]; roomInfo.rt60[2] = rt[2]; roomInfo.rc = std::sqrt(rc2); roomInfo.paths = (int) paths.size();
 }
 
+// Per-speaker FDN output taps: a Hadamard-like +-0.25 row per speaker plus prime-number read offsets so that
+// every output gets a decorrelated mix of the 16 lines.
 inline void LeslieRoomDSP::rebuildFdnOut() {
     int n = (int) spk.az.size();
     fdnOutRows.assign(n, {}); fdnOutOff.assign(n, {}); fdnOutChs = spk.ch;
@@ -511,6 +586,7 @@ inline void LeslieRoomDSP::rebuildFdnOut() {
     }
 }
 
+// Sorts the speakers by azimuth and precomputes the panning gains for the NB azimuth buckets (+ omni bucket).
 inline void LeslieRoomDSP::prepSpeakers() {
     int n = (int) spk.az.size();
     spkSorted.clear();
@@ -521,6 +597,8 @@ inline void LeslieRoomDSP::prepSpeakers() {
     for (int k = 0; k <= NB; k++) { if (k < NB) panGains(k * TWO_PI / NB, 1, bucketG[k].data()); else panGains(0, 0, bucketG[k].data()); }
 }
 
+// Panning gains for a source at azimuth az (radians, listener-relative). hfrac = horizontal fraction: that part is
+// panned between the two nearest speakers (constant power), the rest (elevated sound) is spread uniformly.
 inline void LeslieRoomDSP::panGains(double az, double hfrac, float* out) const {
     for (int i = 0; i < 8; i++) out[i] = 0;
     double uni = (1 - hfrac) * uniG;
@@ -547,7 +625,9 @@ inline void LeslieRoomDSP::panGains(double az, double hfrac, float* out) const {
 }
 
 
-// ---------------- Mikrofonierung ----------------
+// ---------------- Microphone rig ----------------
+// Applies a MicSetup: mic types/patterns, close-mic placement around the cabinet, room pair geometry,
+// proximity effect, wind sensitivity and the mixer matrix per group.
 inline void LeslieRoomDSP::micConfigure() {
     const MicSetup& M = micSetup;
     kBandLo = kOf(400); kBandHi = kOf(3500); kWind = kOf(160);
@@ -567,10 +647,10 @@ inline void LeslieRoomDSP::micConfigure() {
         for (int b = 0; b < 3; b++) m.a[b] = T.a[b];
         if (t == 4) { if (d[i].pattern == 1) { m.a[0] = 1; m.a[1] = 0.95; m.a[2] = 0.72; } else if (d[i].pattern == 2) { m.a[0] = m.a[1] = 0; m.a[2] = 0.05; } }
         double aAvg = (m.a[0] + m.a[1] + m.a[2]) / 3;
-        m.diffuse = std::sqrt(aAvg * aAvg + (1 - aAvg) * (1 - aAvg) / 3);      // Empfindlichkeit im diffusen Feld
+        m.diffuse = std::sqrt(aAvg * aAvg + (1 - aAvg) * (1 - aAvg) / 3);      // diffuse-field sensitivity (random-energy efficiency)
         auto setBq = [&](Biquad& q, const char* ty, double f, double qq, double db) {
             Biquad nb; nb.set(ty, std::min(f, fs * 0.45), qq, fs, db);
-            if (first) q = nb; else { q.b0 = nb.b0; q.b1 = nb.b1; q.b2 = nb.b2; q.a1 = nb.a1; q.a2 = nb.a2; }   // Zustand behalten: kein Knacken
+            if (first) q = nb; else { q.b0 = nb.b0; q.b1 = nb.b1; q.b2 = nb.b2; q.a1 = nb.a1; q.a2 = nb.a2; }   // keep the filter state so there is no click
         };
         m.nEq = 0;
         for (int k = 0; k < T.nEq; k++) {
@@ -580,25 +660,25 @@ inline void LeslieRoomDSP::micConfigure() {
         if (m.close) {
             bool horn = m.rotor == 0, st = horn ? M.hornStereo : M.drumStereo;
             double center = (horn ? M.hornCenter : M.drumCenter) * D2R, ang = (horn ? M.hornAngle : M.drumAngle) * D2R;
-            m.phiT = st ? center + (i % 2 == 0 ? -0.5 : 0.5) * ang : center;   // L = aus Sicht des Technikers links
-            const double Dh = 0.275, Wh = 0.37;                                  // halbe Tiefe / Breite des 122
+            m.phiT = st ? center + (i % 2 == 0 ? -0.5 : 0.5) * ang : center;   // L = left as seen by the engineer facing the cabinet
+            const double Dh = 0.275, Wh = 0.37;                                  // half depth / half width of a Leslie 122 cabinet (m)
             double cf = std::fabs(std::cos(m.phiT)), sf = std::fabs(std::sin(m.phiT));
             double edge = std::min(cf > 1e-6 ? Dh / cf : 1e9, sf > 1e-6 ? Wh / sf : 1e9);
             m.RT = edge + std::max(0.02, horn ? M.hornDist : M.drumDist);
             if (first) { m.phi = m.phiT; m.R = m.RT; }
-            else if (i % 2 == 1 && m.want && !wasWant) {   // zweites Mikro kommt aus der Mitte, mit frischen Filtern
+            else if (i % 2 == 1 && m.want && !wasWant) {   // the second (B) mic starts from the centre position with fresh filter state
                 m.phi = center; m.R = mic[i - 1].R;
                 for (auto& q : m.eq) q.reset(); m.prox.reset();
                 for (auto& p : m.paths) { p.lp = p.zlo = p.zhi = p.zd = 0; }
             }
             double r = rot[m.rotor].r;
             m.dMean = std::sqrt(m.RT * m.RT + r * r);
-            m.trim = m.dMean / 2.5;                                             // Vorverstärkung: 0 dB am Pult ≈ Hörer in 2,5 m
+            m.trim = m.dMean / 2.5;                                             // preamp trim: 0 dB on the mixer ~ listener at 2.5 m
             m.windAmt = horn ? T.wind * (M.windscreen ? 0.2 : 1) * std::pow(0.2 / std::max(0.05, m.RT - 0.2), 2) : 0;
         } else {
             m.trim = 1; m.windAmt = 0; m.dMean = 2;
         }
-        // Nahbesprechung: Druckgradient-Anteil (1 − a) hebt unterhalb von c/(2π·d) an
+        // Proximity effect: the pressure-gradient part (1 - a) boosts the bass below c / (2 pi d)
         double grad = 1 - m.a[0];
         double fP = C_SOUND / (TWO_PI * std::max(0.05, m.dMean));
         double boost = std::min(15.0, 20 * std::log10(1 + grad * T.prox * std::max(0.0, fP / 60 - 1) * 0.5));
@@ -606,18 +686,18 @@ inline void LeslieRoomDSP::micConfigure() {
         if (m.hasProx) setBq(m.prox, "shelf", std::min(450.0, fP), 0.6, boost);
         m.inited = true;
     }
-    // Raumpaar
+    // Room pair
     {
-        double yaw = M.roomYaw, px = -std::sin(yaw), py = std::cos(yaw);   // links von der Blickrichtung
+        double yaw = M.roomYaw, px = -std::sin(yaw), py = std::cos(yaw);   // unit vector pointing left of the viewing direction
         double sp = M.roomArr == 0 ? std::max(0.05, M.roomSpacing) : M.roomArr == 2 ? 0.17 : 0.02;
         double aimOff = M.roomArr == 0 ? 0 : M.roomArr == 2 ? 55 * D2R : 45 * D2R;
         for (int j = 0; j < 2; j++) {
-            MicRt& m = mic[4 + j]; double sgn = j == 0 ? 1 : -1;        // 4 = links, 5 = rechts
+            MicRt& m = mic[4 + j]; double sgn = j == 0 ? 1 : -1;        // 4 = left, 5 = right
             m.x = M.roomX + px * sp * 0.5 * sgn; m.y = M.roomY + py * sp * 0.5 * sgn; m.z = M.roomZ;
             double a = yaw + sgn * aimOff; m.ax = std::cos(a); m.ay = std::sin(a); m.az = 0;
         }
     }
-    // Pult: Matrix je Gruppe (A→L, A→R, B→L, B→R)
+    // Mixer: routing matrix per group (A->L, A->R, B->L, B->R)
     bool anySolo = false; for (int g = 0; g < MIC_GRP; g++) if (M.grp[g].solo) anySolo = true;
     const size_t nsp = spk.ch.size();
     const int fl = nsp > 0 ? spk.ch[0] : 0, fr = nsp > 1 ? spk.ch[1] : 1;
@@ -638,17 +718,18 @@ inline void LeslieRoomDSP::micConfigure() {
         }
         if (G.out >= 0) {
             grpOutL[g] = std::min(15, G.out); grpOutR[g] = stereo ? std::min(15, G.out + 1) : grpOutL[g];
-            if (!stereo) { T[0] = gain; T[1] = 0; }   // Einzelausgang mono: ohne Panorama
+            if (!stereo) { T[0] = gain; T[1] = 0; }   // mono direct out: no panning
         } else { grpOutL[g] = G.out == -2 ? rl : fl; grpOutR[g] = G.out == -2 ? rr : fr; }
         grpDelayS[g] = std::max(0, std::min(CHD - 2, (int) std::lround(G.delayMs * 1e-3 * fs)));
     }
     micPlaceClose(1); micRebuildPaths(); micFdnRows();
 }
 
+// Places the four close mics around the cabinet; a = smoothing factor (1 = jump to target).
 inline void LeslieRoomDSP::micPlaceClose(double a) {
     for (int i = 0; i < 4; i++) {
         MicRt& m = mic[i];
-        m.phi += (m.phiT - m.phi) * a; m.R += (m.RT - m.R) * a;        // Mono ↔ Stereo: Mikros wandern, statt zu springen
+        m.phi += (m.phiT - m.phi) * a; m.R += (m.RT - m.R) * a;        // mono <-> stereo: mics glide to the new position instead of jumping
         double th = cabYaw + m.phi, c = std::cos(th), s = std::sin(th);
         m.x = lesliePos.x + m.R * c; m.y = lesliePos.y + m.R * s;
         m.z = m.rotor == 0 ? rot[0].h + micSetup.hornHeight : rot[1].h;
@@ -657,13 +738,14 @@ inline void LeslieRoomDSP::micPlaceClose(double a) {
     }
 }
 
+// Builds the acoustic paths from the rotors to each microphone.
 inline void LeslieRoomDSP::micRebuildPaths() {
     const Room& R = room;
     for (int i = 0; i < 6; i++) {
         MicRt& m = mic[i];
         m.paths.clear();
         if (m.close) {
-            // eigener Rotor: direkt und über den Boden, pro Sample exakt; der andere Rotor als Übersprechen
+            // Close mic: its own rotor directly and via the floor reflection (computed exactly per sample); the other rotor as crosstalk
             for (int r = 0; r < 2; r++) {
                 MicPath p; p.rotor = r; p.exact = r == m.rotor; p.kDrum = kOf(18000); m.paths.push_back(p);
                 if (r == m.rotor) { MicPath f = p; f.sz = -1; f.order = 1; f.g = 0.75 * roomReflG; f.kDrum = kOf(9000); m.paths.push_back(f); }
@@ -693,6 +775,7 @@ inline void LeslieRoomDSP::micRebuildPaths() {
     }
 }
 
+// FDN output rows/offsets for the six microphones (same scheme as rebuildFdnOut(), different seeds).
 inline void LeslieRoomDSP::micFdnRows() {
     static const int primes[] = {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331};
     const int NP = sizeof(primes) / sizeof(int);
@@ -703,7 +786,7 @@ inline void LeslieRoomDSP::micFdnRows() {
     }
 }
 
-/** Blockwerte: Orte der Nahmikros (folgen dem Leslie), Laufzeiten / Pegel / Richtwirkung der Raumwege */
+/** Per-block update: close-mic positions (they follow the Leslie), delays / gains / directivity of the room paths */
 inline void LeslieRoomDSP::micBlock(double bt) {
     const double PI = 3.14159265358979;
     micPlaceClose(1 - std::exp(-bt / 0.12));
@@ -740,6 +823,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
     }
 }
 
+// ---------------- Main render ----------------
 inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     const double PI = 3.14159265358979;
     double a = 1 - std::exp(-N / (0.12 * fs));
@@ -748,9 +832,11 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     double dy = H.tyaw - H.yaw; while (dy > PI) dy -= TWO_PI; while (dy < -PI) dy += TWO_PI; H.yaw += dy * a;
     double dcy = cabTyaw - cabYaw; while (dcy > PI) dcy -= TWO_PI; while (dcy < -PI) dcy += TWO_PI; cabYaw += dcy * a;
 
+    // Per-block smoothing of positions/orientations, then rotor speed ramps (acceleration/deceleration, brake)
     double bt = N / fs;
     for (auto& r : rot) { double tau = r.tgt > r.hz ? r.upTau : r.dnTau; if (r.tgt == 0) tau *= brake ? 0.45 : 1.6; r.hz += (r.tgt - r.hz) * (1 - std::exp(-bt / tau)); if (r.tgt == 0 && r.hz < 0.02) r.hz = 0; }
 
+    // Per-block geometry for every room path: distances, cabinet directivity, panning (interpolated within the block)
     float tmp[8];
     double midAng[2] = {rot[0].ang + PI * rot[0].hz * bt, rot[1].ang + PI * rot[1].hz * bt};
     for (auto& p : paths) {
@@ -802,13 +888,13 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         else { panGains(az, hfr, tmp); for (int c = 0; c < 8; c++) p.gNext[c] = tmp[c]; if (!p.init) { p.gPrev = p.gNext; p.init = true; } }
     }
     for (int c = 0; c < nCh; c++) std::fill(out[c], out[c] + N, 0.f);
-    // Modus Hörer ↔ Mikros: weich überblenden; was ganz ausgeblendet ist, wird nicht gerechnet (der Hall läuft für beide)
+    // Listener <-> microphone mode: crossfade smoothly; whatever is fully faded out is not computed (the reverb runs for both)
     const double modeT = micSetup.on ? 1 : 0;
     const bool micsOn = micSetup.on || modeMix > 1e-5, lisOn = !micSetup.on || modeMix < 1 - 1e-5;
     if (micsOn) micBlock(bt);
     const double chK = 1 - std::exp(-1 / (0.03 * fs)), modeK = 1 - std::exp(-1 / (0.04 * fs));
     const int nOut = std::min(nCh, 16);
-    const int nSp = std::min(nCh, 8);   // Raum/Hörer: höchstens 8 Lautsprecher (acc, Panning-Tabellen); 9–16 nur Einzelausgänge der Mikros
+    const int nSp = std::min(nCh, 8);   // room/listener: at most 8 speakers (acc, panning tables); channels 9-16 are mic direct outs only
 
     const double gs = gainStep;
     const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
@@ -830,7 +916,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
     const double cabC = std::cos(cabYaw), cabS = std::sin(cabYaw);
     const size_t np = paths.size();
 
-    // ---------- 1) Orgel: Tonräder, Manuale, Vibrato, Schweller → orgBuf ----------
+    // ---------- 1) Organ: tonewheels, manuals, key contacts, percussion, scanner vibrato, expression pedal -> orgBuf ----------
     if ((int) orgBuf.size() < N) orgBuf.assign((size_t) N, 0.f);
     for (int n = 0; n < N; n++) {
         if (!events.empty()) {
@@ -859,7 +945,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         double comp = 1 / (1 + busK * load);
         double sVib = ((vibUpper ? sU : 0) + (vibLower ? sL : 0)) * comp;
         double sDry = ((vibUpper ? 0 : sU) + (vibLower ? 0 : sL) + sP) * comp + hum * leakHum;
-        // Percussion läuft am Vibrato vorbei
+        // Percussion bypasses the vibrato (as in the original wiring)
         sDry += ps * percEnv * percLevel * 0.9;
         percEnv *= percDecay;
         if (clickEnv > 1e-4) { sDry += (fastRand() * 2 - 1) * clickEnv * click * 0.35; clickEnv *= clickDecay; }
@@ -881,10 +967,10 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         orgBuf[(size_t) n] = (float) s;
     }
 
-    // ---------- 2) Leslie-Endstufe (Schaltung, eigenes Oversampling) ----------
+    // ---------- 2) Organ preamp, spring reverb and Leslie power amp (circuit models with their own oversampling) ----------
     pre.process(orgBuf.data(), N); spring.process(orgBuf.data(), N); amp.process(orgBuf.data(), N);
 
-    // ---------- 3) Weiche, Rotoren, Raum ----------
+    // ---------- 3) Crossover, rotors, room paths, microphones, FDN reverb and mixer (per sample) ----------
     for (int n = 0; n < N; n++) {
         double s = orgBuf[(size_t) n];
         double lo = drumRes.run(lp2.run(lp1.run(s))) * drumLevel;
@@ -904,6 +990,8 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
 
         acc.fill(0); bucket.fill(0);
         double revIn = 0, lfeIn = 0;
+
+        // Listener rendering: every room path reads the rotor ring buffers with its own (Doppler) delay and directivity
 
         for (size_t q = 0; q < (lisOn ? np : 0); q++) {
             Path& p = paths[q];
@@ -967,7 +1055,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
         }
         if (lisOn) for (int k = 0; k <= NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
 
-        // ---------- Mikros ----------
+        // ---------- Microphones ----------
         if (micsOn) {
             for (int i = 0; i < 6; i++) {
                 MicRt& m = mic[i]; if (!micNeed(i)) { micSig[i] = 0; continue; }
@@ -993,7 +1081,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                             double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
                             double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
                             k = 1 - std::exp(-std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))) * kScale);
-                            // zeigt das Horn weg, kommt Schall über das Hornfach (Reflexion im Gehäuse) zum Mikro
+                            // when the horn points away, sound reaches the mic via the horn compartment (reflection inside the cabinet)
                             double back = std::max(0.0, -cosE);
                             if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
                         } else {
@@ -1016,11 +1104,11 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
                         v = p.lp * g;
                         b0 = p.band[0]; b1 = p.band[1]; b2 = p.band[2];
                     }
-                    // Richtcharakteristik je Band (tief < 400 Hz, mittel, hoch > 3,5 kHz)
+                    // Polar pattern per band (low < 400 Hz, mid, high > 3.5 kHz)
                     p.zlo += kBandLo * (v - p.zlo); p.zhi += kBandHi * (v - p.zhi);
                     sum += p.zlo * b0 + (p.zhi - p.zlo) * b1 + (v - p.zhi) * b2;
                 }
-                // Wind: das Horn bläst am Mikro vorbei (∝ Drehzahl², nur wenn die Hornöffnung zum Mikro zeigt)
+                // Wind: the horn blows past the mic (proportional to speed squared, only while the horn mouth faces the mic)
                 if (m.windAmt > 0 && rh.hz > 0.5) {
                     double c = chc * m.windC + chs * m.windS;
                     if (c > 0.3) {
@@ -1035,6 +1123,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             }
         }
 
+        // ---------- FDN reverb: pre-delay, input diffusion, 16 modulated lines with 3-band decay, Hadamard mixing ----------
         revInZ += revInK * ((hi + lo) - revInZ);
         revHpZ += revHpK * (revInZ - revHpZ);
         preBuf[preIdx] = (float) (revInZ - revHpZ);
@@ -1064,7 +1153,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
             MicRt& m = mic[i]; if (!micNeed(i)) continue;
             double o = 0;
             for (int j = 0; j < 16; j++) o += fdnBuf[j][(fdnIdx[j] - fdnLen[j] + 2 + m.fdnOff[j]) & FM] * m.fdnRow[j];
-            // Mikro-Klang: Diffusfeld (je nach Richtcharakteristik), Nahbesprechung, Frequenzgang, Vorverstärkung
+            // Mic sound: diffuse field (weighted by the polar pattern), proximity effect, frequency response, preamp trim
             double x = (micSig[i] + o * m.diffuse * micRevScale);
             if (m.hasProx) x = m.prox.run(x);
             for (int k = 0; k < m.nEq; k++) x = m.eq[k].run(x);
@@ -1074,6 +1163,7 @@ inline void LeslieRoomDSP::process(float* const* out, int nCh, int N) {
 
         if (lfeIdx >= 0 && lfeIdx < 8) acc[lfeIdx] = lfeLp2.run(lfeLp1.run(lfeIn)) * lfeLevel * 2;
 
+        // ---------- Mixer: listener/mic crossfade, group matrix with delays, direct outs, soft clipping ----------
         modeMix += modeK * (modeT - modeMix);
         if (std::fabs(modeT - modeMix) < 1e-6) modeMix = modeT;
         const double lisG = std::cos(modeMix * 0.5 * PI), micG = std::sin(modeMix * 0.5 * PI);

@@ -1,13 +1,13 @@
 #pragma once
-// Wheelhouse – Mikrofonierung: Nahmikros an Horn und Trommel, Raummikro-Paar, Pult mit Einzelausgängen.
+// Wheelhouse – microphone rig: close mics on horn and drum, a room-mic pair, a mixer with individual outputs.
 //
-// Jedes Mikro hat
-//   * eine Richtcharakteristik je Band (tief / mittel / hoch): Gewicht g = a + (1 − a)·cos θ
-//     (a = 1 Kugel, 0,5 Niere, ≈0,37 Superniere, 0 Acht; die Rückseite der Acht nimmt gegenphasig auf),
-//   * einen Frequenzgang auf Achse (nach Datenblatt angenähert, als Filterkette),
-//   * einen Nahbesprechungseffekt (Druckgradient: Bassanhebung, die mit kleinerem Abstand wächst),
-//   * eine Windempfindlichkeit (das Horn bläst Luft, Bändchen und Kondensator reagieren stärker).
-// Die Namen „Typ 57“ usw. bezeichnen die Bauart, nicht die Marke.
+// Each mic has
+//   * a polar pattern per band (low / mid / high): weight g = a + (1 − a)·cos θ
+//     (a = 1 omni, 0.5 cardioid, ≈0.37 supercardioid, 0 figure-8; the rear of the figure-8 picks up in opposite polarity),
+//   * an on-axis frequency response (approximated from the data sheet as a filter chain),
+//   * a proximity effect (pressure gradient: bass boost that grows as the distance shrinks),
+//   * a wind sensitivity (the horn blows air; ribbon and condenser mics react more strongly).
+// The names "type 57" etc. refer to the construction, not the brand.
 
 #include <cmath>
 #include <vector>
@@ -16,41 +16,41 @@
 
 namespace leslie {
 
-struct MicEq { char type; double f, q, db; };   // 'h' Hochpass, 'l' Tiefpass, 'p' Glocke, 's' Tiefenregal
+struct MicEq { char type; double f, q, db; };   // 'h' highpass, 'l' lowpass, 'p' peak/bell, 's' low shelf
 struct MicType { const char* name; double a[3]; double prox, wind, diffuse; int nEq; MicEq eq[5]; };
 
 static const MicType MIC_TYPES[] = {
-    // 0 Typ 57: Niere, Präsenzanhebung um 5 kHz, schlanker Bass auf Abstand, seitlich deutlich dumpfer
+    // 0 type 57: cardioid, presence boost around 5 kHz, lean bass at a distance, noticeably duller off-axis
     {"57", {0.55, 0.50, 0.32}, 1.0, 0.15, 0.58, 4, {{'h', 90, 0.7, 0}, {'p', 5500, 1.3, 5}, {'p', 2200, 1.0, 1.5}, {'l', 14000, 0.7, 0}}},
-    // 1 Typ 421: Niere, kräftig, breite Präsenz um 4 kHz
+    // 1 type 421: cardioid, full-bodied, broad presence around 4 kHz
     {"421", {0.55, 0.50, 0.38}, 0.9, 0.15, 0.58, 4, {{'h', 45, 0.7, 0}, {'p', 4000, 0.8, 3.5}, {'p', 250, 1.0, 1.5}, {'l', 16000, 0.7, 0}}},
-    // 2 Typ D112: Bassmikro, Buckel um 90 Hz, Mittenloch, Anhebung um 4 kHz
+    // 2 type D112: bass mic, bump around 90 Hz, mid scoop, boost around 4 kHz
     {"D112", {0.60, 0.50, 0.35}, 1.0, 0.12, 0.58, 4, {{'p', 90, 0.9, 5}, {'p', 650, 1.0, -5}, {'p', 4200, 1.3, 6}, {'l', 11000, 0.7, 0}}},
-    // 3 Typ RE20: Superniere, kaum Nahbesprechung (Variable-D), neutral, sanfter Höhenabfall
+    // 3 type RE20: supercardioid, hardly any proximity effect (Variable-D), neutral, gentle high-frequency roll-off
     {"RE20", {0.42, 0.38, 0.36}, 0.15, 0.10, 0.52, 3, {{'h', 40, 0.7, 0}, {'p', 2500, 0.7, 1}, {'l', 12000, 0.6, 0}}},
-    // 4 Typ 87: Großmembran-Kondensator, Niere / Kugel / Acht, leichte Anhebung um 9 kHz
+    // 4 type 87: large-diaphragm condenser, cardioid / omni / figure-8, slight boost around 9 kHz
     {"87", {0.50, 0.50, 0.42}, 1.0, 0.45, 0.58, 3, {{'h', 30, 0.7, 0}, {'p', 9000, 0.9, 2}, {'l', 19000, 0.7, 0}}},
-    // 5 Typ KM 84: Kleinmembran-Niere, auch seitlich sehr gleichmäßig
+    // 5 type KM 84: small-diaphragm cardioid, very even off-axis as well
     {"KM84", {0.50, 0.50, 0.47}, 1.0, 0.40, 0.58, 2, {{'h', 35, 0.7, 0}, {'p', 12000, 0.8, 1}}},
-    // 6 Typ 121: Bändchen, Acht, dunkler Höhenabfall, starker Nahbesprechungseffekt, sehr windempfindlich
+    // 6 type 121: ribbon, figure-8, dark high-frequency roll-off, strong proximity effect, very wind-sensitive
     {"121", {0.0, 0.0, 0.0}, 1.3, 1.0, 0.58, 3, {{'h', 25, 0.7, 0}, {'l', 9500, 0.6, 0}, {'p', 3000, 0.8, -1}}},
 };
 constexpr int NUM_MIC_TYPES = 7;
 
-/** Pultgruppen: 0 Horn, 1 Trommel, 2 Raum. Jede Gruppe ist Stereo (zwei Mikros, Balance + Breite) oder Mono (ein Mikro, Panorama). */
+/** Mixer groups: 0 horn, 1 drum, 2 room. Each group is stereo (two mics, balance + width) or mono (one mic, pan). */
 constexpr int MIC_GRP = 3;
-constexpr int MIC_CH = 6;   // Pegelanzeige: je Gruppe L und R
+constexpr int MIC_CH = 6;   // level meters: L and R per group
 
 struct MicSetup {
-    bool on = false;   // Modus: false = Hörer im Raum, true = Mikrofonierung
-    // Horn: Stereo = zwei Mikros um die Mitte herum, Mono = eins in der Mitte
+    bool on = false;   // mode: false = listener in the room, true = microphone rig
+    // horn: stereo = two mics placed around the centre, mono = one in the centre
     bool hornStereo = true; double hornAngle = 180, hornCenter = 0, hornDist = 0.15, hornHeight = 0.0; int hornType = 0; bool windscreen = false;
     bool drumStereo = false; double drumAngle = 180, drumCenter = 0, drumDist = 0.15; int drumType = 2;
-    // Raumpaar: 0 AB, 1 XY, 2 ORTF
+    // room pair: 0 AB, 1 XY, 2 ORTF
     int roomArr = 0; double roomX = 3, roomY = 3, roomZ = 2.0, roomYaw = 1.5707963, roomSpacing = 0.6; int roomType = 4, roomPattern = 1;
-    int hornPattern = 0, drumPattern = 0;   // nur Typ 87: 0 Niere, 1 Kugel, 2 Acht
+    int hornPattern = 0, drumPattern = 0;   // type 87 only: 0 cardioid, 1 omni, 2 figure-8
     int roomOrder = 2;
-    struct Grp { double gainDb = 0, pan = 0, width = 1, delayMs = 0; bool pol = false, mute = false, solo = false; int out = -1; };   // out: −1 vorne, −2 hinten, ≥0 Einzelausgang (Stereo: out und out+1)
+    struct Grp { double gainDb = 0, pan = 0, width = 1, delayMs = 0; bool pol = false, mute = false, solo = false; int out = -1; };   // out: −1 front, −2 rear, ≥0 individual output (stereo: out and out+1)
     Grp grp[MIC_GRP];
     MicSetup() { grp[2].gainDb = -6; }
 };
@@ -66,13 +66,13 @@ struct MicPath {
 
 struct MicRt {
     bool active = false, close = false; int rotor = 0, type = 0, chan = 0;
-    double x = 0, y = 0, z = 1, ax = 1, ay = 0, az = 0;     // Ort und Blickrichtung (Raumkoordinaten)
+    double x = 0, y = 0, z = 1, ax = 1, ay = 0, az = 0;     // position and facing direction (room coordinates)
     double a[3] = {0.5, 0.5, 0.5}, wind = 0, diffuse = 0.58, trim = 1, dMean = 1;
     Biquad eq[6]; int nEq = 0;
     std::vector<MicPath> paths;
-    Biquad prox; bool hasProx = false;                     // Nahbesprechungseffekt (Tiefenregal, abstandsabhängig)
-    double phi = 0, phiT = 0, R = 1, RT = 1;                 // Nahmikro: Winkel zur Gehäusefront, Abstand zur Gehäusemitte (Ist / Ziel, gleitend)
-    bool want = false, inited = false;                                       // laut Aufbau gebraucht (blendet weich ein und aus)
+    Biquad prox; bool hasProx = false;                     // proximity effect (low shelf, distance-dependent)
+    double phi = 0, phiT = 0, R = 1, RT = 1;                 // close mic: angle to the cabinet front, distance to the cabinet centre (current / target, smoothed)
+    bool want = false, inited = false;                                       // required by the current setup (fades in and out smoothly)
     double windLp = 0, windLp2 = 0, windAmt = 0, windC = 1, windS = 0;
     std::array<float, 16> fdnRow{}; std::array<int, 16> fdnOff{};
 };

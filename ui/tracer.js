@@ -1,15 +1,15 @@
-// Strahlenverfolgung für nicht-rechteckige Räume (läuft in einem Web Worker).
-// Geometrie: ovales Zelt (Stadion-Grundriss: zwei Halbkreise + gerader Mittelteil), Kegel-/Firstdach über einer
-// Mastreihe mit Knick an den Zwischenstangen, Rundwand, Manege (Sand) und Tribünenring mit Publikum.
-// Ergebnis: Taps {t (s), az (rad, Raumkoordinaten), el (-1..1), dep (Abstrahlrichtung am Leslie), order, E[3 Bänder]}.
+// Ray tracing for non-rectangular rooms (runs in a Web Worker).
+// Geometry: oval tent (stadium plan: two half circles + straight middle section), cone/ridge roof over a
+// row of masts with a kink at the intermediate poles, round wall, ring (sand) and a tier of seating with audience.
+// Result: taps {t (s), az (rad, room coordinates), el (-1..1), dep (departure direction at the Leslie), order, E[3 bands]}.
 
 function makeTent(g) {
   const R = g.W / 2, Ls = g.Ls, hw = g.hw, hm = g.hm, hq = g.hq, rq = g.rq * R;
-  const cx = g.cx, cy = g.cy; // Zeltmitte in Raumkoordinaten
-  // Abstand in der Ebene zur Mastlinie (Segment von -Ls/2..Ls/2 entlang x)
+  const cx = g.cx, cy = g.cy; // tent centre in room coordinates
+  // In-plane distance to the mast line (segment from -Ls/2..Ls/2 along x)
   const planD = (x, y) => { const dx = Math.max(Math.abs(x - cx) - Ls / 2, 0); return Math.hypot(dx, y - cy); };
-  // Kuppelkranz: vertikales Band mit Radius rK zwischen hCrown und hCrown+hb; darüber die Kegelkappe bis hTip,
-  // darunter/außen das Hauptdach als Kegel von der Rundwand (hw) bis zur Kranzunterkante (hCrown), leicht durchhängend.
+  // Crown ring: vertical band of radius rK between hCrown and hCrown+hb; above it the cone cap up to hTip,
+  // below/outside the main roof as a cone from the round wall (hw) to the lower edge of the crown (hCrown), slightly sagging.
   const rK = g.rK, hCrown = g.hCrown, hb = g.hb, hTip = g.hTip, sag = g.sag === undefined ? 1.2 : g.sag;
   const roofH = (x, y) => {
     const d = planD(x, y);
@@ -17,7 +17,7 @@ function makeTent(g) {
     if (d >= R) return hw;
     return hw + (hCrown - hw) * Math.pow((R - d) / (R - rK), sag);
   };
-  const ringD = (x, y) => Math.hypot(x - cx, y - cy); // Manege/Tribüne um die Zeltmitte
+  const ringD = (x, y) => Math.hypot(x - cx, y - cy); // ring / tiers around the tent centre
   const floorH = (x, y) => {
     const d = ringD(x, y);
     if (d < g.rRing) return 0;
@@ -30,12 +30,12 @@ function makeTent(g) {
 }
 
 const MATS = {
-  // Energiereflexion tief / mittel / hoch (Rest geht durch die Plane nach draußen bzw. wird absorbiert)
+  // Energy reflection low / mid / high (the rest passes through the canvas or is absorbed)
   canvas: [0.12, 0.45, 0.68],
   sand: [0.55, 0.45, 0.3],
   piste: [0.8, 0.8, 0.7],
   floor: [0.85, 0.85, 0.8],
-  // Untergründe, auf denen das Zelt steht
+  // Ground surfaces the tent stands on
   grass: [0.75, 0.5, 0.25],
   gravel: [0.8, 0.6, 0.45],
   sandlot: [0.6, 0.45, 0.3],
@@ -63,7 +63,7 @@ function trace(cfg) {
   const C = 343;
 
   for (let i = 0; i < N; i++) {
-    // Fibonacci-Kugel
+    // Fibonacci sphere
     const k = i + 0.5, phi = Math.acos(1 - 2 * k / N), th = Math.PI * (1 + Math.sqrt(5)) * k;
     let dx = Math.cos(th) * Math.sin(phi), dy = Math.sin(th) * Math.sin(phi), dz = Math.cos(phi);
     const dep = [dx, dy, dz];
@@ -71,8 +71,8 @@ function trace(cfg) {
     let E = [1, 1, 1], len = 0, order = 0, alive = true;
     let lastHit = -1;
     while (alive && len < maxLen && order <= maxB) {
-      // Empfängerkugel auf dem nächsten Teilstück prüfen (analytisch bis zur nächsten Fläche)
-      // 1) nächste Fläche per Marschieren finden
+      // Test the receiver sphere on the next segment (analytically up to the next surface)
+      // 1) find the next surface by ray marching
       let tHit = -1, kind = null;
       let px = x, py = y, pz = z;
       let traveled = 0;
@@ -83,7 +83,7 @@ function trace(cfg) {
         else if (nz > T.roofH(nx, ny)) outside = 'roof';
         else if (nz < T.floorH(nx, ny)) outside = 'floor';
         if (outside) {
-          // Bisektion zwischen traveled und traveled+step
+          // Bisection between traveled and traveled+step
           let a = traveled, b = traveled + step;
           for (let it = 0; it < 12; it++) {
             const m = (a + b) / 2, mx = x + dx * m, my = y + dy * m, mz = z + dz * m;
@@ -96,7 +96,7 @@ function trace(cfg) {
         if (len + traveled > maxLen) break;
       }
       if (tHit < 0) break;
-      // 2) Empfänger auf dem Segment [0, tHit]?
+      // 2) receiver on the segment [0, tHit]?
       const ox = x - rec.x, oy = y - rec.y, oz = z - rec.z;
       const bq = ox * dx + oy * dy + oz * dz;
       const cq = ox * ox + oy * oy + oz * oz - rr2;
@@ -107,17 +107,17 @@ function trace(cfg) {
           const tt = (len + tr) / C;
           if (order === 0) { directE += 1; directN++; }
           else {
-            const ax = -dx, ay = -dy, az = -dz; // Ankunftsrichtung: woher der Schall kommt
+            const ax = -dx, ay = -dy, az = -dz; // arrival direction: where the sound comes from
             hits.push({ t: tt, az: Math.atan2(ay, ax), el: az, dep, order, E: E.slice() });
           }
         }
       }
-      // 3) Reflexion
+      // 3) reflection
       const hx = x + dx * tHit, hy = y + dy * tHit, hz = z + dz * tHit;
       len += tHit;
       let nx, ny, nz, mat;
       if (kind === 'wall') {
-        // Normale der Stadionform: vom nächsten Punkt der Mastlinie nach außen
+        // Normal of the stadium shape: outward from the nearest point on the mast line
         const ddx = Math.max(Math.abs(hx - T.cx) - g.Ls / 2, 0) * Math.sign(hx - T.cx), ddy = hy - T.cy;
         const l = Math.hypot(ddx, ddy) || 1; nx = -ddx / l; ny = -ddy / l; nz = 0; mat = MATS.canvas;
       } else if (kind === 'roof') {
@@ -131,7 +131,7 @@ function trace(cfg) {
       }
       const dot = dx * nx + dy * ny + dz * nz;
       dx -= 2 * dot * nx; dy -= 2 * dot * ny; dz -= 2 * dot * nz;
-      // Streuung (Falten in der Plane, Stufen der Tribüne)
+      // Scattering (folds in the canvas, steps of the tiers)
       const sc = kind === 'floor' && mat === trib ? scat * 2 : scat;
       dx += (rnd() - 0.5) * sc; dy += (rnd() - 0.5) * sc; dz += (rnd() - 0.5) * sc;
       const l2 = Math.hypot(dx, dy, dz); dx /= l2; dy /= l2; dz /= l2;
@@ -142,10 +142,10 @@ function trace(cfg) {
       if (E[1] < 1e-5 && E[2] < 1e-5 && E[0] < 1e-5) alive = false;
     }
   }
-  // Kalibrierung: Direktschall-Treffer entsprechen 1/d²
+  // Calibration: direct-sound hits correspond to 1/d²
   const dd = Math.hypot(src.x - rec.x, src.y - rec.y, src.z - rec.z);
   const calib = directN > 0 ? (1 / (dd * dd)) / directE : (Math.PI * rr2) / (4 * Math.PI * N) * 0 + (1 / N) * (4 / (Math.PI * rr2)) * 0.25;
-  // Treffer zu Taps bündeln: 1-ms-Raster, 15°-Richtung, oben/unten, Ordnung
+  // Bundle hits into taps: 1 ms grid, 15° direction, above/below, order
   const bins = new Map();
   for (const h of hits) {
     const key = `${Math.round(h.t * 1000)}|${Math.round(h.az / (Math.PI / 12))}|${h.el > 0.3 ? 1 : h.el < -0.3 ? -1 : 0}|${Math.min(h.order, 4)}`;
@@ -162,7 +162,7 @@ function trace(cfg) {
     taps.push({ t: b.t / b.n, az: Math.atan2(b.ay, b.ax), el: b.el / b.n, dep: [b.dx / dl, b.dy / dl, b.dz / dl], order: b.order, E: b.E.map(e => e * calib) });
   }
   taps.sort((a, b) => a.t - b.t);
-  // Energie über Zeit (für Anzeige / Sabine-Ersatz)
+  // Energy over time (for display / Sabine substitute)
   let Etot = taps.reduce((s, t) => s + t.E[1], 0);
   return { taps, directN, hits: hits.length, Etot, dd };
 }

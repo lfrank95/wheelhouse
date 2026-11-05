@@ -1,15 +1,15 @@
 #pragma once
-// Wheelhouse – Federhall (Hammond/Accutronics-Tank, wie in A-100 und Leslie 122RV: in der Orgel, vor dem Leslie)
+// Wheelhouse – spring reverb (Hammond/Accutronics tank, as in the A-100 and Leslie 122RV: inside the organ, before the Leslie)
 //
-// Modell nach Välimäki, Parker & Abel („Parametric spring reverberation effect“, 2010) und Parker („Efficient
-// dispersion generation structures for spring reverb emulation“, 2011):
-//   * Jede Feder ist eine Rückkopplungsschleife aus Verzögerung (Laufzeit der Feder), einer langen Kette
-//     gedehnter Allpässe (Dispersion: tiefe Frequenzen kommen früher an als hohe → das typische „Zirpen“),
-//     Tiefpass an der Übergangsfrequenz und Dämpfung je Umlauf.
-//   * Die Laufzeit schwankt leicht (Federn sind nicht starr) – das gibt das lebendige „Tropfen“.
-//   * Zwei oder drei Federn mit verschiedenen Längen laufen parallel.
-//   * Treiberstufe vor dem Tank sättigt weich; der Wandler am Ausgang ist bandbegrenzt (ca. 100 Hz – 5 kHz).
-//   * „Anstoßen“: ein Stoß gegen den Tank – die Federn schlagen hart an (der berühmte Krach).
+// Model after Välimäki, Parker & Abel ("Parametric spring reverberation effect", 2010) and Parker ("Efficient
+// dispersion generation structures for spring reverb emulation", 2011):
+//   * Each spring is a feedback loop made of a delay (travel time along the spring), a long chain of
+//     stretched allpass filters (dispersion: low frequencies arrive earlier than high ones → the typical "chirp"),
+//     a lowpass at the transition frequency and damping per round trip.
+//   * The travel time wobbles slightly (springs are not rigid) – this gives the lively "drip".
+//   * Two or three springs of different lengths run in parallel.
+//   * The driver stage before the tank saturates softly; the pickup transducer at the output is band-limited (about 100 Hz – 5 kHz).
+//   * "Kick": a knock against the tank – the springs hit their stops hard (the famous crash).
 
 #include <cmath>
 #include <vector>
@@ -22,17 +22,24 @@ class SpringReverb {
 public:
     explicit SpringReverb(double sampleRate) : fs(sampleRate) { configure(); }
 
+    /** Enable/disable the reverb; when disabled, the tail is allowed to ring out. */
     void setEnabled(bool on) { enabled = on; }
+    /** Wet level 0..1 (the dry signal always passes through unchanged). */
     void setMix(double m) { mix = std::max(0.0, std::min(1.0, m)); }
+    /** Decay time T60 in seconds, 0.5..8. */
     void setDecay(double t60) { decay = std::max(0.5, std::min(8.0, t60)); updateGains(); }
+    /** Tone 0..1: lowpass on the wet signal, 2.2 kHz (dark) .. 5.5 kHz (bright). */
     void setTone(double t) { tone = std::max(0.0, std::min(1.0, t)); toneLp.set("lp", 2200 + 3300 * tone, 0.6, fs); }
+    /** Drive 0..1: saturation of the driver stage in front of the tank. */
     void setDrive(double d) { drive = std::max(0.0, std::min(1.0, d)); }
+    /** Number of parallel springs, 2 or 3. */
     void setSprings(int n) { n = std::max(2, std::min(3, n)); if (n != nSpr) { nSpr = n; updateGains(); } }
-    /** Stoß gegen den Tank */
+    /** Knock against the tank; strength 0.2..1.5 (default 1) */
     void kick(double strength = 1) { if (!enabled) return; kickEnv = std::max(kickEnv, std::max(0.2, std::min(1.5, strength))); kickPh = 0; }
+    /** True when the reverb is active. */
     bool isEnabled() const { return enabled; }
 
-    /** mono, in place: trocken bleibt, der Hall kommt dazu */
+    /** Mono, in place: the dry signal stays, the reverb is added on top */
     void process(float* x, int n) {
         if (!enabled && !ringing) return;
         const double wet = mix;
@@ -40,10 +47,10 @@ public:
         double peak = 0;
         for (int i = 0; i < n; i++) {
             double dry = x[i];
-            // Treiber (Röhre auf den Wandler): weich begrenzt, Bässe schon vorher schwach (Wandler)
+            // driver (tube into the transducer): soft limiting; bass is already weak before that (transducer)
             double in = enabled ? inHp.run(dry) : 0;
             in = std::tanh(in * kDrv) / kDrv * 1.4;
-            // Stoß: kurzer, sehr lauter Rauschburst plus tiefer Schlag
+            // kick: short, very loud noise burst plus a low thump
             if (kickEnv > 1e-4) {
                 double nz = rnd() * 2 - 1;
                 kickPh += 1 / fs;
@@ -62,11 +69,11 @@ public:
 
 private:
     static constexpr double TWO_PI_S = 6.283185307179586;
-    static constexpr int NAP = 90;      // Allpässe je Feder
+    static constexpr int NAP = 90;      // allpass stages per spring
 
     struct Spring {
         std::vector<float> dl; int len = 1000, idx = 0;
-        std::vector<float> apX, apY; int K = 6, apIdx = 0;   // gedehnte Allpässe: gemeinsamer Ringpuffer der Länge K je Stufe
+        std::vector<float> apX, apY; int K = 6, apIdx = 0;   // stretched allpass filters: shared ring buffer of length K per stage
         double a = 0.6, g = 0.7, fbz = 0;
         Biquad lp1, lp2, dcb;
         double modPh = 0, modInc = 0, modDepth = 0, modZ = 0, td = 0.035;
@@ -74,20 +81,20 @@ private:
     };
 
     double springTick(Spring& S, double in) {
-        // Laufzeit leicht schwankend (gefiltertes Rauschen + langsamer Sinus)
+        // travel time wobbles slightly (filtered noise + slow sine)
         S.modPh += S.modInc; if (S.modPh > 1) S.modPh -= 1;
         S.modZ += 0.0008 * ((rnd() * 2 - 1) - S.modZ);
         double off = S.len - 2 - S.modDepth * (0.5 + 0.35 * std::sin(TWO_PI_S * S.modPh) + 6 * S.modZ);
         double rp = S.idx - off; const int L = (int) S.dl.size(); while (rp < 0) rp += L;
         int i0 = (int) rp; double fr = rp - i0;
         double d = S.dl[(size_t) (i0 % L)] + (S.dl[(size_t) ((i0 + 1) % L)] - S.dl[(size_t) (i0 % L)]) * fr;
-        // Dispersion: Kaskade gedehnter Allpässe  H(z) = (a + z^-K) / (1 + a z^-K)
+        // dispersion: cascade of stretched allpass filters  H(z) = (a + z^-K) / (1 + a z^-K)
         const int K = S.K, j = S.apIdx; const double a = S.a;
         double v = d;
         float* X = S.apX.data(); float* Y = S.apY.data();
         for (int k = 0; k < NAP; k++) {
             const int base = k * K;
-            double xk = X[base + j], yk = Y[base + j];       // Werte von vor K Takten
+            double xk = X[base + j], yk = Y[base + j];       // values from K samples ago
             double y = a * v + xk - a * yk;
             X[base + j] = (float) v; Y[base + j] = (float) y;
             v = y;
@@ -95,22 +102,22 @@ private:
         S.apIdx = (j + 1) % K;
         v = S.lp2.run(S.lp1.run(v));
         v = S.dcb.run(v);
-        // Rückkopplung mit Dämpfung, Eingang dazu
+        // feedback with damping, plus the input
         double w = in + v * S.g;
         S.dl[(size_t) S.idx] = (float) w; S.idx = (S.idx + 1) % L;
         return v;
     }
 
     void configure() {
-        // Übergangsfrequenz der Dispersion ~4,3 kHz: Dehnung K = fs / (2·fc)
+        // transition frequency of the dispersion ~4.3 kHz: stretch factor K = fs / (2·fc)
         const double fc = 4300;
         int K = std::max(1, (int) std::lround(fs / (2 * fc)));
-        const double TD[3] = {0.0331, 0.0397, 0.0289};    // Laufzeiten der Federn (Typ 4, lang)
+        const double TD[3] = {0.0331, 0.0397, 0.0289};    // travel times of the springs in seconds (type 4, long)
         const double AA[3] = {0.62, 0.58, 0.66};
         for (int s = 0; s < 3; s++) {
             Spring& S = spr[s];
             S.td = TD[s]; S.K = K; S.a = AA[s];
-            // die Allpasskette verzögert selbst: Gruppenlaufzeit bei tiefen Frequenzen abziehen
+            // the allpass chain adds delay of its own: subtract its low-frequency group delay
             double apDelay = NAP * K * (1 - S.a) / (1 + S.a);
             S.len = std::max(16, (int) std::lround(S.td * fs - apDelay));
             S.dl.assign((size_t) S.len + 64, 0.f); S.idx = 0;
@@ -126,7 +133,7 @@ private:
         updateGains();
     }
     void updateGains() {
-        for (int s = 0; s < 3; s++) spr[s].g = std::pow(10.0, -3.0 * spr[s].td * 1.3 / decay);   // 1,3: Kette und Tiefpässe verlängern die effektive Umlaufzeit
+        for (int s = 0; s < 3; s++) spr[s].g = std::pow(10.0, -3.0 * spr[s].td * 1.3 / decay);   // 1.3: the allpass chain and lowpasses lengthen the effective round-trip time
         outGain = 0.55 / std::sqrt((double) nSpr);
     }
     double rnd() { seed = seed * 1664525u + 1013904223u; return seed / 4294967296.0; }

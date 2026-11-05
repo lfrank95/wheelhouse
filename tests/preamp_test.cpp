@@ -18,8 +18,8 @@ int main() {
         printf("Q%d:", q);
         for (double a : {0.02, 0.1, 0.2, 0.3, 0.5}) { OrganPreamp p(fs); p.setQuality(q); p.setGain(0.5); double g; double t = thd(p, fs, a, 220, &g); printf("  a=%.2f THD %.1f%% g %.2f", a, t, g); }
         printf("\n");
-        // Frequenzgang
-        printf("   FG:");
+        // Frequency response
+        printf("   FR:");
         for (double f : {40.0, 100.0, 1000.0, 5000.0, 10000.0, 15000.0}) { OrganPreamp p(fs); p.setQuality(q); double g; thd(p, fs, 0.02, f, &g); printf(" %g Hz %.1f dB", f, 20 * std::log10(g)); }
         printf("\n");
         OrganPreamp p(fs); p.setQuality(q); std::vector<float> x(48000); for (int i = 0; i < 48000; i++) x[i] = 0.3f * std::sin(i * 0.03f);

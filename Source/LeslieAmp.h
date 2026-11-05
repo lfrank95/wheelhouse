@@ -1,20 +1,20 @@
-// Wheelhouse – Leslie-Endstufe (122 / 122 früh / 147) als Schaltung.
+// Wheelhouse – Leslie power amplifier (122 / early 122 / 147) modelled as a circuit.
 //
-// Aufbau nach dem 122: symmetrischer Eingang → 12AU7 als Gegentakt-Treiber (beim 147: Phasendreher als Long-Tailed-Pair)
-// → Koppelkondensatoren mit Gitterableitwiderstand → 2 × 6550 im Gegentakt, Klasse AB, gemeinsamer Kathodenwiderstand
-// 150 Ω (ca. 25 V Kathodenspannung) → Ausgangsübertrager → Weiche/Lautsprecher. Schirmgitter an der OC3-stabilisierten 310 V,
-// Anoden an ca. 415 V hinter Gleichrichter und Drossel (122 früh: Gleichrichterröhre 5U4, sonst Dioden).
+// Topology follows the 122: balanced input → 12AU7 as push-pull driver (147: phase splitter as a long-tailed pair)
+// → coupling capacitors with grid-leak resistor → 2 × 6550 in push-pull, class AB, shared cathode resistor
+// 150 Ω (about 25 V cathode voltage) → output transformer → crossover/speakers. Screen grids on the OC3-regulated 310 V,
+// plates on about 415 V behind the rectifier and choke (early 122: 5U4 rectifier tube, otherwise diodes).
 //
-// Röhren nach Koren (Triode und Pentode), Gitterstrom, Kathoden- und Netzteil-Dynamik; Kern des Übertragers mit
-// H(B) = B / (1 − (B/Bs)²) und Hysterese über Play-Operatoren. Die Rechenwege (Koren je Takt mit Newton, Gitterstrom,
-// Kern mit Play-Operatoren, Kaiser-Oversampling) folgen Amberwave Glow HQ/Ultra und Iron HQ/Ultra (dsp/glow.c, dsp/iron.c,
-// AGPL-3.0, The Amberwave contributors) und sind hier für eine Gegentakt-Endstufe neu aufgebaut.
+// Tubes per Koren (triode and pentode), grid current, cathode and power-supply dynamics; transformer core with
+// H(B) = B / (1 − (B/Bs)²) and hysteresis via play operators. The numerical methods (Koren solved per sample with Newton,
+// grid current, core with play operators, Kaiser-windowed oversampling) follow Amberwave Glow HQ/Ultra and Iron HQ/Ultra
+// (dsp/glow.c, dsp/iron.c, AGPL-3.0, The Amberwave contributors) and are rebuilt here for a push-pull power stage.
 //
-// Qualität:
-//   0 Standard – statische Gegentakt-Kennlinie mit Bias-Verschiebung und Sag (sehr sparsam)
-//   1 HQ       – Schaltung je Takt (2× Oversampling): Treiber, Gitterstrom/Blocking, Kathoden-Bias, Sag, Übertrager mit Hysterese
-//   2 Ultra    – 4×, Drossel-Netzteil (Nachschwingen), Treiber-Versorgung über 10 kΩ, Schirmstrom, Lautsprecherlast
-//                (Schwingspule + Resonanz der Trommel), Röhrenstreuung mit Drift, Wirbelstrom im Kern
+// Quality levels:
+//   0 Standard – static push-pull transfer curve with bias shift and sag (very cheap)
+//   1 HQ       – circuit solved per sample (2× oversampling): driver, grid current/blocking, cathode bias, sag, transformer with hysteresis
+//   2 Ultra    – 4×, choke-input supply (ringing), driver supply through 10 kΩ, screen current, loudspeaker load
+//                (voice coil + drum resonance), tube tolerance with drift, eddy currents in the core
 #pragma once
 #include <cmath>
 #include <vector>
@@ -29,7 +29,7 @@ constexpr double PI = 3.14159265358979323846;
 
 struct Triode { double mu, ex, kg1, kp, kvb, rgi, vth, w; };
 struct Pentode { double mu, ex, kg1, kg2, kp, kvb, rgi, vth, w; };
-// 12AU7 wie in Amberwave Glow, 6550 nach Koren
+// 12AU7 as in Amberwave Glow, 6550 per Koren
 static const Triode T_12AU7 { 21.5, 1.3, 1180, 84, 300, 2000, -0.7, 0.12 };
 static const Pentode P_6550 { 7.9, 1.35, 890, 4200, 60, 24, 1000, -0.7, 0.18 };
 
@@ -39,7 +39,7 @@ static inline void softplus(double x, double& L, double& sig) {
     else { double e = std::exp(x); L = std::log1p(e); sig = e / (1 + e); }
 }
 
-/** Triode: Anodenstrom und Ableitungen nach Vpk und Vgk */
+/** Triode: plate current and its derivatives with respect to Vpk and Vgk */
 static inline void triode(const Triode& T, double Vgk, double Vpk, double& ip, double& gp, double& gm) {
     if (Vpk < 1e-3) Vpk = 1e-3;
     double s = std::sqrt(T.kvb + Vpk * Vpk);
@@ -53,7 +53,7 @@ static inline void triode(const Triode& T, double Vgk, double Vpk, double& ip, d
     gm = k * Vpk * sig / s;
 }
 
-/** Pentode: Teil, der nur von den Gittern abhängt (einmal je Takt) */
+/** Pentode: the part that depends only on the grids (evaluated once per sample) */
 struct PentGrid { double a, da; };   // a = 2·E1^ex/kg1, da = d a / d Vg1k
 static inline PentGrid pentGrid(const Pentode& P, double Vg1k, double Vg2k, double kgScale) {
     if (Vg2k < 1) Vg2k = 1;
@@ -71,7 +71,7 @@ static inline double screenCurrent(const Pentode& P, double Vg1k, double Vg2k, d
     return x > 0 ? std::exp(P.ex * std::log(x)) / (P.kg2 * kgScale) : 0;
 }
 
-/** Gitterstrom (weich einsetzend ab etwa vth) */
+/** Grid current (sets in softly from about vth) */
 static inline void gridCurrent(double rgi, double vth, double w, double Vgk, double& ig, double& dig) {
     double xg = (Vgk - vth) / w;
     if (xg > 30) { ig = (Vgk - vth) / rgi; dig = 1 / rgi; return; }
@@ -80,12 +80,12 @@ static inline void gridCurrent(double rgi, double vth, double w, double Vgk, dou
     ig = w * std::log1p(e) / rgi; dig = (e / (1 + e)) / rgi;
 }
 
-// ---------------- Oversampling (Kaiser-gefensterter Sinc, polyphas hoch, an Phase 0 runter) ----------------
+// ---------------- Oversampling (Kaiser-windowed sinc, polyphase upsampling, downsampling tapped at phase 0) ----------------
 static inline double besselI0(double x) { double s = 1, t = 1; for (int k = 1; k < 30; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; } return s; }
 
 struct Oversampler {
     int os = 1, taps = 1, ph = 1, delay = 0;
-    std::vector<double> h, up, down;   // h: Länge ph*os
+    std::vector<double> h, up, down;   // h: length ph*os
     std::vector<double> ringUp, ringDown;
     int posUp = 0, posDown = 0;
     void init(int factor) {
@@ -100,22 +100,22 @@ struct Oversampler {
             h[(size_t) i] = sinc * besselI0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / besselI0(beta);
             sum += h[(size_t) i];
         }
-        for (auto& v : h) v *= os / sum;   // Verstärkung os beim Hochtasten (Nullen eingefügt)
+        for (auto& v : h) v *= os / sum;   // gain of os when upsampling (zeros are inserted)
         ringUp.assign((size_t) ph * 2, 0.0); ringDown.assign((size_t) taps * 2, 0.0); posUp = posDown = 0;
     }
-    // ein Eingangswert → os Werte
+    // one input sample → os output samples
     void upsample(double x, double* out) {
         if (os == 1) { out[0] = x; return; }
         ringUp[(size_t) posUp] = x; ringUp[(size_t) (posUp + ph)] = x;
         for (int k = 0; k < os; k++) {
             double s = 0;
-            // Ausgang k: Summe über j von h[k + j*os] * x[n - j]
+            // output k: sum over j of h[k + j*os] * x[n - j]
             for (int j = 0; j < ph; j++) s += h[(size_t) (k + j * os)] * ringUp[(size_t) (posUp + ph - j)];
             out[k] = s;
         }
         posUp = posUp == ph - 1 ? 0 : posUp + 1;
     }
-    // os Werte → ein Ausgang (Tiefpass, an Phase 0 abgegriffen)
+    // os samples → one output (lowpass, tapped at phase 0)
     double downsample(const double* in) {
         if (os == 1) return in[0];
         double y = 0;
@@ -132,29 +132,41 @@ struct Oversampler {
     }
 };
 
-// ---------------- die Endstufe ----------------
+// ---------------- the power amplifier ----------------
 class LeslieAmp {
 public:
     enum Model { M122 = 0, M122_EARLY = 1, M147 = 2 };
 
     explicit LeslieAmp(double sampleRate) : fs(sampleRate) { configure(); }
 
+    /** Amp model: 0 = 122, 1 = early 122 (tube rectifier), 2 = 147 (long-tailed-pair splitter, cathode feedback). Rebuilds the circuit. */
     void setModel(int m) { if (m != model) { model = std::max(0, std::min(2, m)); updateKin(); configure(); } }
+    /** Quality level 0..2 (Standard / HQ / Ultra), see file header. Rebuilds the circuit. */
     void setQuality(int q) { if (q != quality) { quality = std::max(0, std::min(2, q)); configure(); } }
+    /** Drive 0..1: input level into the driver grid (log scale, 1.2 V .. 36 V); changes only saturation, not loudness. */
     void setDrive(double d) { drive = std::max(0.0, std::min(1.0, d)); updateKin(); }
+    /** Recomputes the input scaling (volts at the driver grid per unit input) from drive and model. */
     void updateKin() { kin = 1.2 * std::pow(30.0, drive) * (model == M147 ? 1.8 : 1.0); }
+    /** Sag 0..1: power-supply source resistance (0 = stiff supply, 1 = soft, strong compression). Rebuilds the circuit. */
     void setSag(double s) { if (std::fabs(s - sag) > 1e-6) { sag = std::max(0.0, std::min(1.0, s)); configure(); } }
+    /** Tube age 0..1: reduced emission of the output tubes (0 = new, 1 = worn). Rebuilds the circuit. */
     void setAge(double a) { if (std::fabs(a - age) > 1e-6) { age = std::max(0.0, std::min(1.0, a)); configure(); } }
+    /** Current amp model (see Model). */
     int getModel() const { return model; }
+    /** Current quality level 0..2. */
     int getQuality() const { return quality; }
+    /** Latency in samples introduced by the oversampling filters (0 without oversampling). */
     int latency() const { return ovs.delay; }
 
-    // Zustand zur Anzeige (Volt / mA)
+    // State for display (volts / mA)
+    /** Plate supply voltage Vb in volts (sags under load). */
     double plateSupply() const { return Vb; }
+    /** Shared cathode voltage of the output tubes in volts (about 25 V at idle). */
     double cathodeVoltage() const { return Vko; }
+    /** Total plate current of both output tubes in mA. */
     double plateCurrentMA() const { return 1000 * (lastIp[0] + lastIp[1]); }
 
-    /** mono, in place. x: Signal des Orgel-Vorverstärkers (etwa ±0,3) */
+    /** Mono, in place. x: signal from the organ preamp (roughly ±0.3) */
     void process(float* x, int n) {
         if (quality == 0) { processStandard(x, n); return; }
         double up[8], dn[8];
@@ -163,7 +175,7 @@ public:
             ovs.upsample((double) x[i] * kin, up);
             for (int k = 0; k < OS; k++) dn[k] = tick(up[k]);
             double y = ovs.downsample(dn);
-            // Hochpass gegen Gleichanteil (4 Hz)
+            // highpass to remove DC (4 Hz)
             double w = y - dcX + dcR * dcY; dcX = y; dcY = w;
             x[i] = (float) (w * outNorm / kin);
         }
@@ -177,11 +189,11 @@ private:
         const double atk = 1 - std::exp(-1 / (0.03 * fs)), rel = 1 - std::exp(-1 / (0.25 * fs));
         const double sagK = 0.15 + 0.6 * sag;
         for (int i = 0; i < n; i++) {
-            double u = (double) x[i] * kin * stdGain;            // normiert: 1 ≈ Vollaussteuerung
+            double u = (double) x[i] * kin * stdGain;            // normalised: 1 ≈ full drive
             double a = std::fabs(u);
             stdEnv += (a > stdEnv ? atk : rel) * (a - stdEnv);
             double us = u / (1 + sagK * stdEnv);
-            double b = 0.35 + 0.25 * stdEnv;                      // Klasse AB, Kathoden-Bias wandert kälter
+            double b = 0.35 + 0.25 * stdEnv;                      // class AB, cathode bias drifts colder under load
             double g1 = std::tanh(us + b) - std::tanh(b), g2 = std::tanh(-us + b) - std::tanh(b);
             double y = 0.5 * (g1 - 0.96 * g2);
             double w = y - dcX + dcR * dcY; dcX = y; dcY = w;
@@ -189,14 +201,14 @@ private:
         }
     }
 
-    // ---------- Schaltung: ein Takt bei os·fs; u = Volt am Treibergitter (symmetrisch: +u / −u) ----------
+    // ---------- Circuit: one step at os·fs; u = volts at the driver grid (balanced: +u / −u) ----------
     double tick(double u) {
         const double h = dt;
-        // --- Treiber (12AU7, zwei Systeme) ---
+        // --- Driver (12AU7, two triode sections) ---
         double ipd[2], vpoc[2], rout[2];
         double ltpShift = 0;
         if (model == M147) {
-            // Long-Tailed-Pair: Steuerspannung teilt sich über den gemeinsamen Schweif, leicht unsymmetrisch
+            // long-tailed pair: the control voltage splits across the shared tail, slightly asymmetric
             ltpShift = 0.5 * u;
         }
         for (int j = 0; j < 2; j++) {
@@ -216,11 +228,11 @@ private:
             drvVp[j] = Vp; vpoc[j] = Vp; ipd[j] = ip;
             rout[j] = quality == 2 ? 1 / (1 / Ra + std::max(gp, 1e-7)) : drvRout;
         }
-        // --- Koppelkondensator → Gitter der 6550 (mit Gitterstrom, Blocking) ---
+        // --- Coupling capacitor → 6550 grid (with grid current, blocking distortion) ---
         double Vg[2], ig[2];
         for (int j = 0; j < 2; j++) {
             double Req = rout[j] + h / Cc;
-            double src = vpoc[j] - ccQ[j];                     // was über dem Kondensator „übrig“ bleibt
+            double src = vpoc[j] - ccQ[j];                     // what is "left over" across the capacitor (plate voltage minus capacitor charge)
             double Vgj = src * Rg / (Rg + Req);
             double igj = 0, dig = 0;
             const double VkoJ = Vko + (j == 0 ? beta : -beta) * vPrev;
@@ -238,18 +250,18 @@ private:
             ccQ[j] += h * I / Cc;
             Vg[j] = Vgj; ig[j] = igj;
         }
-        // --- Endröhren im Gegentakt: v = halbe Primärspannung (Newton) ---
+        // --- Output tubes in push-pull: v = half the primary voltage (Newton iteration) ---
         double Vg2k = Vscreen - Vko;
         PentGrid pg0 = pentGrid(P_6550, Vg[0] - Vko, Vg2k, kgTube[0]);
         PentGrid pg1 = pentGrid(P_6550, Vg[1] - Vko, Vg2k, kgTube[1]);
-        // Magnetisierungsstrom aus dem Kernfluss (explizit, Takt davor)
+        // magnetising current from the core flux (explicit, from the previous step)
         double Im = magnetizingCurrent();
-        // Last: Ifull = 2v·G + Ih
+        // load: Ifull = 2v·G + Ih
         double G, Ih;
         loadCompanion(G, Ih);
         double v = vPrev;
         double ip0 = 0, ip1 = 0;
-        const double be = beta;   // 147: Kathoden-Gegenkopplung aus der Sekundärwicklung (Mittelanzapfung)
+        const double be = beta;   // 147: cathode feedback from the secondary winding (centre tap)
         for (int it = 0; it < itOut; it++) {
             if (be > 0) {
                 pg0 = pentGrid(P_6550, Vg[0] - Vko - be * v, Vg2k + be * v, kgTube[0]);
@@ -271,17 +283,17 @@ private:
         lastIp[0] = ip0; lastIp[1] = ip1;
         loadUpdate(2 * v);
         coreUpdate(2 * v);
-        // --- Kathode (gemeinsam, überbrückt) ---
+        // --- Cathode (shared, bypassed) ---
         double is0 = screenCurrent(P_6550, Vg[0] - Vko, Vg2k, kgTube[0]), is1 = screenCurrent(P_6550, Vg[1] - Vko, Vg2k, kgTube[1]);
         double Ik = ip0 + ip1 + is0 + is1 + ig[0] + ig[1];
         Vko += h * (Ik - Vko / Rko) / Cko;
-        // Treiber-Kathode (gemeinsam, überbrückt) und -Versorgung
+        // driver cathode (shared, bypassed) and driver supply
         Vkd += h * (ipd[0] + ipd[1] - Vkd / Rkd) / Ckd;
         if (quality == 2) Vbd += h * ((Vreg - Vbd) / 10e3 - (ipd[0] + ipd[1])) / 20e-6;
-        // --- Netzteil ---
+        // --- Power supply ---
         double Ip = ip0 + ip1;
         if (quality == 2) {
-            // Gleichrichter → C1 → Drossel → C2 (Anoden)
+            // rectifier → C1 → choke → C2 (plates)
             V1 += h * ((V0 - V1) / Rs - iL) / C1;
             iL += h * (V1 - Vb - RL * iL) / Lch;
             Vb += h * (iL - Ip - is0 * 0 - Ireg) / C2;
@@ -291,7 +303,7 @@ private:
         return 2 * v;
     }
 
-    // ---------- Ausgangsübertrager: Kern mit Hysterese (Play-Operatoren) ----------
+    // ---------- Output transformer: core with hysteresis (play operators) ----------
     double coreH(double p, bool commit) {
         double b = p;
         if (hystW > 0) {
@@ -310,13 +322,13 @@ private:
     double magnetizingCurrent() { return (coreH(phi, false) + eddy) * imScale; }
     void coreUpdate(double vPrimary) {
         double dphi = dt * vPrimary * fluxK;
-        if (quality == 2) eddy = eddyK * dphi / dt * 1e-3;   // Wirbelstrom ∝ dΦ/dt
+        if (quality == 2) eddy = eddyK * dphi / dt * 1e-3;   // eddy current ∝ dΦ/dt
         phi += dphi;
         if (phi > bs * 0.98) phi = bs * 0.98; else if (phi < -bs * 0.98) phi = -bs * 0.98;
         coreH(phi, true);
     }
 
-    // ---------- Lautsprecherlast (Primärseite, ganze Wicklung) ----------
+    // ---------- Loudspeaker load (referred to the primary, full winding) ----------
     void loadCompanion(double& G, double& Ih) {
         if (quality < 2) { G = 1 / Raa; Ih = 0; return; }
         const double h = dt;
@@ -337,49 +349,49 @@ private:
     }
 
     void drift() {
-        // Ultra: Röhren laufen langsam auseinander (Erwärmung), ±1 %
+        // Ultra: the tubes slowly drift apart (warming up), ±1 %
         driftPh += 0.05;
         kgTube[0] = kgBase[0] * (1 + 0.008 * std::sin(driftPh));
         kgTube[1] = kgBase[1] * (1 - 0.006 * std::sin(driftPh * 1.31 + 1));
     }
 
-    // ---------- Aufbau ----------
+    // ---------- Setup ----------
     void configure() {
         int os = quality == 0 ? 1 : quality == 1 ? (fs >= 75000 ? 1 : 2) : (fs >= 150000 ? 1 : fs >= 75000 ? 2 : 4);
         ovs.init(os);
         dt = 1 / (fs * os);
         itDrv = quality == 2 ? 6 : 3; itOut = quality == 2 ? 8 : 4;
         dcR = 1 - 2 * PI * 4 / fs;
-        // Schaltung
+        // circuit values
         drvRa = 47e3; Rkd = 1500; Ckd = 25e-6; Vreg = 310; Vbd = 260;
         Cc = 0.1e-6; Rg = 100e3;
         beta = model == M147 ? 0.061 : 0;
         Vscreen = 310; Rko = 150; Cko = 50e-6;
         Raa = 4300;
-        Ireg = 0.012;   // Querstrom der OC3-Stabilisierung und Treiber aus derselben Versorgung
+        Ireg = 0.012;   // bleed current of the OC3 regulator plus the driver, fed from the same supply
         bool tubeRect = model == M122_EARLY;
         V0 = tubeRect ? 455 : 438;
         Rs = (tubeRect ? 190 : 55) * (0.5 + 1.5 * sag);
-        RsEff = Rs + 60;   // HQ: Drossel-Widerstand mit eingerechnet
+        RsEff = Rs + 60;   // HQ: choke resistance folded in
         C1 = 30e-6; C2 = 40e-6; Lch = 4; RL = 60;
         ltpImbalance = 0.94;
-        // Röhren: Streuung (fest) und Alter (weniger Emission)
+        // tubes: fixed tolerance mismatch and age (reduced emission)
         double emis = 1 + 0.7 * age;
         kgBase[0] = 1.00 * emis; kgBase[1] = (quality >= 1 ? 1.045 : 1.0) * emis;
         kgTube[0] = kgBase[0]; kgTube[1] = kgBase[1];
-        // Übertrager: Eisenkern (Iron „eisen“), Primärinduktivität ~25 H
+        // transformer: iron core (Amberwave Iron core model), primary inductance ~25 H
         bs = 1.5; hystW = quality >= 1 ? 0.45 : 0; double hyst = 0.07 * (quality == 2 ? 1.2 : 1);
         double ws = 0; for (int j = 1; j <= PLAYS; j++) { playR[j - 1] = hyst * j / PLAYS; playW[j - 1] = j; ws += j; }
         for (int j = 0; j < PLAYS; j++) playW[j] /= ws;
-        fluxK = 0.8 * bs * 2 * PI * 35 / 700;     // 700 V Spitze bei 35 Hz → 80 % von Bs
+        fluxK = 0.8 * bs * 2 * PI * 35 / 700;     // 700 V peak at 35 Hz → 80 % of Bs
         imScale = 1 / (fluxK * 25.0);             // Lp = 25 H
         eddyK = quality == 2 ? 0.02 : 0;
-        // Last (Ultra): Schwingspule + Resonanz des 15″ in der Trommel, auf die Primärseite übersetzt
-        // Gesamtlast (Weiche + 15″ + Horntreiber): oberhalb der Weiche nimmt der Horntreiber über, die Schwingspulen-Induktivität
-        // des 15″ liegt hinter der Weichendrossel – übrig bleibt ein leichter Anstieg ganz oben und die Resonanz der Trommel
+        // load (Ultra): voice coil + resonance of the 15" woofer in the drum, referred to the primary side
+        // total load (crossover + 15" + horn driver): above the crossover the horn driver takes over, and the voice-coil inductance
+        // of the 15" sits behind the crossover inductor – what remains is a slight rise at the very top and the drum resonance
         R0 = Raa; L0 = R0 / (2 * PI * 30000);
         double f0 = 48, Q = 1.6, w0 = 2 * PI * f0; Rm = 0.6 * Raa; Lm = Rm / (Q * w0); Cm = Q / (Rm * w0);
-        // Ruhezustand einschwingen lassen
+        // let the circuit settle to its operating point
         settle();
         calibrate();
     }
@@ -388,26 +400,26 @@ private:
         Vb = V0 - 0.2 * (V0 - 415); V1 = Vb; iL = 0.19; Vko = 25; Vkd = 4; Vbd = quality == 2 ? 258 : 260;
         drvVp[0] = drvVp[1] = 140; ccQ[0] = ccQ[1] = 140; vPrev = 0; phi = 0; eddy = 0;
         std::memset(play, 0, sizeof play); li = liLm = lvm = 0;
-        // Ruhepunkt: einige hundert Millisekunden ohne Signal rechnen (Kondensatoren, Netzteil, Bias)
+        // operating point: run a few hundred milliseconds without signal (capacitors, power supply, bias)
         if (quality == 0) return;
         int steps = (int) (0.6 / dt);
         for (int i = 0; i < steps; i++) tick(0);
-        // Ausgangsimpedanz des Treibers (HQ): Ra ∥ rp am Ruhepunkt
+        // driver output impedance (HQ): Ra ∥ rp at the operating point
         double ip, gp, gm; triode(T_12AU7, -Vkd, drvVp[0] - Vkd, ip, gp, gm);
         drvRout = 1 / (1 / drvRa + std::max(gp, 1e-7));
         dcX = dcY = 0;
     }
 
-    /** Kleinsignal-Verstärkung messen (1 kHz, sehr leise), damit „Drive“ nur die Sättigung ändert, nicht die Lautstärke */
+    /** Measure the small-signal gain (1 kHz, very quiet) so that "Drive" changes only the saturation, not the loudness */
     void calibrate() {
         if (quality == 0) {
-            // Standard: Steigung der Kennlinie bei 0 auf 1 normieren
+            // Standard: normalise the slope of the transfer curve at 0 to 1
             double b = 0.35, d = 1e-4;
             double g = 0.5 * ((std::tanh(d + b) - std::tanh(b)) - 0.96 * (std::tanh(-d + b) - std::tanh(b))) / d;
             stdGain = 361.0 / 700.0; stdNorm = 2.0 / (g * stdGain); stdEnv = 0;
             return;
         }
-        // Zustand sichern
+        // save the state
         auto save = snapshot();
         Oversampler o2 = ovs;
         double amp = 0.01, sIn = 0, sOut = 0;
@@ -449,24 +461,24 @@ private:
     double dt = 1e-5;
     int itDrv = 3, itOut = 4;
     double dcX = 0, dcY = 0, dcR = 0.9995, outNorm = 1;
-    // Standard
+    // Standard quality
     double stdGain = 0.5, stdNorm = 1, stdEnv = 0;
-    // Schaltung
+    // circuit values
     double drvRa = 47e3, Rkd = 1500, Ckd = 25e-6, Vreg = 310, Vbd = 260, drvRout = 8000;
     double Cc = 0.047e-6, Rg = 100e3, Vscreen = 310, Rko = 150, Cko = 50e-6, Raa = 4300, Ireg = 0.012;
     double beta = 0;
     double V0 = 450, Rs = 55, RsEff = 115, C1 = 30e-6, C2 = 40e-6, Lch = 4, RL = 60, ltpImbalance = 0.94;
     double kgBase[2] = {1, 1}, kgTube[2] = {1, 1};
-    // Zustände
+    // state variables
     double Vb = 415, V1 = 420, iL = 0.19, Vko = 25, Vkd = 4;
     double drvVp[2] = {140, 140}, ccQ[2] = {140, 140}, vPrev = 0, lastIp[2] = {0, 0};
-    // Kern
+    // transformer core
     static constexpr int PLAYS = 6;
     double bs = 1.5, hystW = 0.45, playR[PLAYS] = {0}, playW[PLAYS] = {0}, play[PLAYS] = {0};
     double phi = 0, fluxK = 0.38, imScale = 0.1, eddy = 0, eddyK = 0;
-    // Last
+    // loudspeaker load
     double R0 = 3600, L0 = 0.26, Rm = 11000, Lm = 0.016, Cm = 0.6e-6, li = 0, liLm = 0, lvm = 0;
-    // Drift
+    // tube drift
     double driftPh = 0; int driftCount = 0;
 };
 

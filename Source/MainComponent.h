@@ -26,7 +26,7 @@ private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void timerCallback() override;
 
-    // Oberfläche
+    // UI (WebView bridge)
     void handleDspMessage(const juce::var& m);
     std::optional<juce::WebBrowserComponent::Resource> getResource(const juce::String& url);
     void openAudioSettings();
@@ -41,17 +41,18 @@ private:
     int currentOutputs = 0;
     std::unique_ptr<juce::WebBrowserComponent> web;
 
-    // Kanaltest
+    // Channel test tone (see "chantest" native function)
     std::atomic<int> testChannel { -1 };
     int testSamplesLeft = 0;
     double testPhase = 0;
 
-    // Pegel
+    // Output level meters
     std::array<std::atomic<float>, 16> meterRms {};
     std::array<float, 16> meterAcc {};
     int meterCount = 0;
 
     std::vector<float> scratch[16];
+    // MIDI channels per manual (0 = omni for the upper manual) and controller numbers for Leslie speed / swell pedal
     std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, leslieCC { 1 }, swellCC { 11 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
