@@ -19,6 +19,36 @@ namespace leslie {
 constexpr double TWO_PI = 6.283185307179586;
 constexpr double C_SOUND = 343.0;
 
+/** Fractional delay read for the rotating paths: 8-tap Kaiser-windowed sinc (beta 6), 1024 phases.
+    A cubic's treble loss depends on the fractional position; with the Doppler sweeping that position ~100 times a
+    second on Slow, the high harmonics fluttered (2.6 % at 8 kHz, 12 % at 12 kHz). This one stays flat within
+    0.1 % up to 12 kHz. Taps i1-3 .. i1+4 around rp = i1 + fr, no added delay. */
+struct SincInterp {
+    static constexpr int PH = 1024, T = 8;
+    float h[PH + 1][T];
+    SincInterp() {
+        auto i0 = [](double x) { double s = 1, t = 1; for (int k = 1; k < 30; k++) { t *= (x / (2 * k)) * (x / (2 * k)); s += t; } return s; };
+        const double beta = 6.0, ib = 1 / i0(beta);
+        for (int p = 0; p <= PH; p++) {
+            const double fr = (double) p / PH; double sum = 0, w[T];
+            for (int k = 0; k < T; k++) {
+                const double x = (k - 3) - fr, r = x / 4.0;
+                const double win = std::fabs(r) >= 1 ? 0 : i0(beta * std::sqrt(1 - r * r)) * ib;
+                const double sn = std::fabs(x) < 1e-12 ? 1 : std::sin(3.141592653589793 * x) / (3.141592653589793 * x);
+                w[k] = sn * win; sum += w[k];
+            }
+            for (int k = 0; k < T; k++) h[p][k] = (float) (w[k] / sum);
+        }
+    }
+    static const SincInterp& get() { static const SincInterp t; return t; }
+    /** buf is a ring of size mask + 1; reads at i1 + fr (0 <= fr < 1). */
+    inline double read(const float* buf, int mask, int i1, double fr) const {
+        const float* c = h[(int) (fr * PH + 0.5)]; const int b = i1 - 3;
+        double v = 0; for (int k = 0; k < T; k++) v += (double) c[k] * buf[(b + k) & mask];
+        return v;
+    }
+};
+
 struct Biquad {
     double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
     Biquad& set(const char* type, double f, double q, double fs, double gainDb = 0) {
@@ -51,7 +81,7 @@ struct Path {
     double kOn = 1, kOff = 1, kAir = 1, kDrum = 1, kc = 1, kb = 1, lp = 0, zd = 0, zlo = 0;
     double icx = 0, icy = 0, iz = 0, jit = 0;
     double d0 = 0, d1 = 0, g0 = 0, g1 = 0, dl0 = 0, dl1 = 0, cab0 = 0, cab1 = 0, hf = 1, hfPrev = 1;
-    int bP = 0, bN = 0;
+    double bx0 = 0, bx1 = 0;   // direction as a continuous bucket coordinate (0..NB) at the start/end of the sub-block
     std::array<float, 8> gPrev{}, gNext{};
     // Fields used only by ray-traced taps (tent shape): fixed distance, departure direction, arrival azimuth/elevation
     double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, glr = 1, kTrace = 1;
@@ -66,7 +96,8 @@ struct FastPathRT {
     float g, dg;        // gain (path gain x cabinet) and its increment
     float u, du;        // drum directivity 0..1 and increment (drum paths only)
     float kb, zd, lp, zlo, glr, hf;
-    int bP, bN;
+    float bx, dbx;      // continuous bucket coordinate and its per-sample increment
+    int bi, bj; float bf;   // bucket pair and weight when the whole sub-block stays within one cell (bi < 0: generic path)
     uint8_t horn, trace;
 };
 
@@ -263,9 +294,16 @@ private:
         radiates like a 9 cm piston: the cut-off falls with the sine of the off-axis angle, behind the horn it keeps falling. */
     double hornKExact(double cosE) const {
         const double PI = 3.14159265358979;
-        double th = std::acos(std::max(-1.0, std::min(1.0, cosE)));
-        double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2);
-        return kOf(std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06))));
+        // Piston beaming: cutoff ~ c / (pi a sin(theta)) in front, falling further towards the back.
+        // Built without corners (smooth in the rotor angle): a corner here was heard as a "jag" in the sweep,
+        // twice per turn, on Slow with a dry room close up.
+        const double c = std::max(-1.0, std::min(1.0, cosE));
+        double s2;
+        if (c >= 0) s2 = std::sqrt(1 - c * c + 0.0036);                     // = max(sin, 0.06), rounded off
+        else { const double s90 = std::sqrt(1.0036), u = (std::acos(c) - PI / 2) / (PI / 2);
+               s2 = s90 + (2 - s90) * 0.5 * (1 - std::cos(PI * u)); }       // to 2 at the back, level at 90 and 180 deg
+        const double f = C_SOUND / (PI * 0.045 * s2);
+        return kOf(1 / std::sqrt(std::sqrt(1 / (f * f * f * f) + 1 / (16000.0 * 16000.0 * 16000.0 * 16000.0))));   // soft 16 kHz cap
     }
     static constexpr int HORNK_N = 1024;
     std::array<float, HORNK_N + 1> hornKTab{};   // hornKExact sampled over cosE in [-1, 1]
@@ -383,6 +421,7 @@ private:
     std::vector<FastPathRT> fastRT; std::vector<int> fastIdx, exactIdx;   // rebuilt every sub-block from `paths`
     // ---- parallel room rendering: per-sample values of the sub-block and one partial sum per job ----
     static constexpr int SUB = 64;
+    const SincInterp& sinc = SincInterp::get();
     WorkerPool pool;
     int blockN = 0, listenerJobs = 0; bool blockLisOn = true, blockMicsOn = false;
     std::array<int, SUB> wiArr{};
@@ -407,6 +446,19 @@ private:
     std::array<float, 8> spkTrim{};   // per speaker slot, applied at the output
     int centerCh = -1, centerL = -1, centerR = -1;
     static constexpr int NB = 24;
+    /** Direction -> continuous bucket coordinate in [0, NB). A path is spread over the two nearest buckets with a
+        sliding weight, so a moving image glides from one bucket to the next instead of being switched over (that
+        switch, within one sub-block and into a different diffuser, was audible as a jag on Slow, close up, dry). */
+    static double bucketX(double az) { double x = az / TWO_PI * NB; x -= std::floor(x / NB) * NB; return x >= NB ? 0 : x; }
+    static void setBx(Path& p, double x) { if (!p.init) p.bx0 = p.bx1 = x; else { p.bx0 = p.bx1; double d = x - p.bx0; if (d > NB / 2.0) d -= NB; else if (d < -NB / 2.0) d += NB; p.bx1 = p.bx0 + d; } }
+    /** Adds a sharp part vh and a wide part ve at coordinate x (linear weights: both are panned coherently; the wide
+        part is decorrelated afterwards, per speaker channel). */
+    static inline void addBuckets(float* bk, double x, float vh, float ve) {
+        while (x >= NB) x -= NB; while (x < 0) x += NB;
+        const int i = (int) x; const int j = i + 1 == NB ? 0 : i + 1; const float f = (float) (x - i);
+        if (vh != 0) { bk[i] += vh * (1 - f); bk[j] += vh * f; }
+        if (ve != 0) { bk[NB + i] += ve * (1 - f); bk[NB + j] += ve * f; }
+    }
     struct Partial { double acc[SUB][8]; float bucket[SUB][2 * NB]; double lfe[SUB]; };   // one per rendering job; buckets 0..NB-1 horizontal, NB..2NB-1 elevated (wide)
     std::vector<Partial> partials;
     std::vector<std::array<float, 8>> bucketG;
@@ -415,9 +467,9 @@ private:
     // bounces reach the ears from other elevations than the direct sound and do not comb-filter it; mixed into the
     // same loudspeaker channel they would, so they are decorrelated here first (energy preserved).
     static constexpr int DIFF_LEN = 512, DIFF_ST = 4;
-    std::vector<float> diffBuf;                      // NB buckets x DIFF_ST stages x DIFF_LEN
+    std::vector<float> diffBuf;                      // one diffuser per speaker channel (indices 0..7 used) x DIFF_ST stages x DIFF_LEN
     std::array<int, DIFF_ST * NB> diffLen{}; int diffIdx = 0;
-    std::array<int, NB> diffActive{};                // samples left until a silent bucket's diffuser can be skipped
+    std::array<int, NB> diffActive{};                // samples left until a silent channel diffuser can be skipped
     inline float diffuse(int k, float x) {           // four allpasses in series (g 0.6): the coherent remainder is 0.6^4
         int& act = diffActive[(size_t) k];
         if (x != 0) act = 24 * DIFF_LEN;
@@ -853,11 +905,12 @@ inline void LeslieRoomDSP::prepSpeakers() {
     centerCh = centerL = centerR = -1;
     if (!spk.stereo && n >= 3) for (int i = 0; i < n; i++) if (std::fabs(spkSorted[(size_t) i].a) < 1e-6) { centerCh = spkSorted[(size_t) i].ch; centerL = spkSorted[(size_t) ((i + 1) % n)].ch; centerR = spkSorted[(size_t) ((i - 1 + n) % n)].ch; }
     diffBuf.assign((size_t) DIFF_ST * NB * DIFF_LEN, 0.f);
-    {   // delays 0.5 .. 6 ms, a different prime set per bucket and stage
+    {   // delays 0.5 .. 6 ms, a different prime per stage; the same set in every channel, so the wide part keeps the
+        // left/right coherence of its panning (it is decorrelated from the direct sound, not between the speakers)
         static const int pr[] = {23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293};
         const double sc = fs / 48000, stMul[DIFF_ST] = {0.45, 0.8, 1.0, 0.65};
         for (int k = 0; k < NB; k++) for (int st = 0; st < DIFF_ST; st++)
-            diffLen[(size_t) (DIFF_ST * k + st)] = std::max(1, std::min(DIFF_LEN - 1, (int) std::lround(pr[(k * 11 + st * 17) % 54] * sc * stMul[st])));
+            diffLen[(size_t) (DIFF_ST * k + st)] = std::max(1, std::min(DIFF_LEN - 1, (int) std::lround(pr[(st * 17) % 54] * sc * stMul[st])));
     }
     bucketG.assign(2 * NB, {});
     for (int k = 0; k < NB; k++) { panGains(k * TWO_PI / NB, 1, bucketG[k].data()); panGains(k * TWO_PI / NB, 0, bucketG[NB + k].data()); }
@@ -1071,7 +1124,6 @@ inline void LeslieRoomDSP::micFdnRows() {
 
 /** Per-block update: close-mic positions (they follow the Leslie), delays / gains / directivity of the room paths */
 inline void LeslieRoomDSP::micBlock(double bt) {
-    const double PI = 3.14159265358979;
     micPlaceClose(1 - std::exp(-bt / 0.12));
     for (int i = 0; i < 6; i++) {
         MicRt& m = mic[i]; if (!micNeed(i)) continue;
@@ -1096,7 +1148,7 @@ inline void LeslieRoomDSP::micBlock(double bt) {
                 if (e) { p.d1 = d; p.g1 = g; } else { p.d0 = d; p.g0 = g; }
                 if (e) {
                     double k;
-                    if (horn) { double th = std::acos(std::max(-1.0, std::min(1.0, cosE))); double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2); k = kOf(std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06)))); }
+                    if (horn) k = hornK(cosE);
                     else k = p.kDrum;
                     p.kb = std::min(k, p.kc);
                 }
@@ -1149,8 +1201,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             // cabinet directivity along the real departure direction (no mirroring needed for traced rays)
             double cg, cfc; cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
             p.cab0 = p.init ? p.cab1 : cg; p.cab1 = cg; p.kb = std::min(p.kb, kOf(cfc));
-            int k = (int) std::lround((p.azRoom - H.yaw) / TWO_PI * NB) % NB; if (k < 0) k += NB;
-            p.bP = p.init ? p.bN : k; p.bN = k; p.hf = std::min(1.0, std::max(0.0, 1 - p.el * p.el) * 1.3) * std::pow(1 - roomScatter, p.order); p.init = true;
+            setBx(p, bucketX(p.azRoom - H.yaw)); p.hf = std::min(1.0, std::max(0.0, 1 - p.el * p.el) * 1.3) * std::pow(1 - roomScatter, p.order); p.init = true;
             continue;
         }
         p.icx = p.sx * L.x + p.ox; p.icy = p.sy * L.y + p.oy; p.iz = p.sz * r.h + p.oz;
@@ -1173,7 +1224,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
                 if (e) { p.d1 = d; p.g1 = g; p.dl1 = u; } else { p.d0 = d; p.g0 = g; p.dl0 = u; }
                 if (e) {
                     double k;
-                    if (horn) { double th = std::acos(std::max(-1.0, std::min(1.0, cosE))); double s2 = th <= PI / 2 ? std::sin(th) : 1 + (th - PI / 2) / (PI / 2); k = kOf(std::min(16000.0, C_SOUND / (PI * 0.045 * std::max(s2, 0.06)))); }
+                    if (horn) k = hornK(cosE);
                     else k = p.kDrum;
                     p.kb = std::min(k, p.kc);
                 }
@@ -1186,7 +1237,7 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         // the direct sound that it does not comb-filter it; mixed into the same channel it would, so it goes wide + diffused)
         const double ce = hd / std::max(dist, 1e-6);
         double hfr = std::min(1.0, ce * ce * 1.3) * std::pow(1 - roomScatter, p.order);
-        { int k = (int) std::lround(az / TWO_PI * NB) % NB; if (k < 0) k += NB; p.bP = p.init ? p.bN : k; p.bN = k; }
+        setBx(p, bucketX(az));
         if (p.fast) { p.hf = hfr; p.init = true; }
         else {   // sharp part: pairwise gains; the wide part goes through the diffuser with the scattered sound (see 3c)
             p.hfPrev = p.init ? p.hf : hfr; p.hf = hfr;
@@ -1208,7 +1259,13 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
             r.ds = ds0; r.dds = (ds1 - ds0) / N; r.g = g0; r.dg = (g1 - g0) * invN;
             r.u = (float) p.dl0; r.du = (float) (p.dl1 - p.dl0) * invN;
             r.kb = (float) p.kb; r.zd = (float) p.zd; r.lp = (float) p.lp; r.zlo = (float) p.zlo; r.glr = (float) p.glr; r.hf = (float) p.hf;
-            r.bP = p.bP; r.bN = p.bN; r.horn = p.rotor == 0; r.trace = p.trace;
+            r.bx = (float) p.bx0; r.dbx = (float) ((p.bx1 - p.bx0) / N);
+            {   // same cell at both ends of the sub-block: fixed pair, only the weight slides
+                double x0 = p.bx0, x1 = p.bx1; const double sh = std::floor(std::min(x0, x1) / NB) * NB; x0 -= sh; x1 -= sh;
+                const int c0 = (int) x0, c1 = (int) x1;
+                if (c0 == c1) { r.bi = c0 % NB; r.bj = (r.bi + 1) % NB; r.bf = (float) (x0 - c0); } else r.bi = -1;
+            }
+            r.horn = p.rotor == 0; r.trace = p.trace;
             fastRT.push_back(r); fastIdx.push_back((int) q);
         }
     }
@@ -1394,7 +1451,12 @@ inline void LeslieRoomDSP::processBlock(float* const* out, int nCh, int N) {
         }
         if (lisOn) {
             for (int k = 0; k < NB; k++) { double bv = bucket[k]; if (bv == 0) continue; const auto& bg = bucketG[k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
-            for (int k = 0; k < NB; k++) { double bv = diffuse(k, bucket[NB + k]); if (bv == 0) continue; const auto& bg = bucketG[NB + k]; for (int c = 0; c < nSp; c++) acc[c] += bv * bg[c]; }
+            // wide part: panned first (continuously, coherent), then decorrelated per speaker channel. One diffuser per
+            // channel, so a reflection spread over two buckets never runs through two different diffusers into the same
+            // channel (their phases would partly cancel it, mostly in the bass).
+            double wch[8] = {};
+            for (int k = 0; k < NB; k++) { const double bv = bucket[NB + k]; if (bv == 0) continue; const auto& bg = bucketG[NB + k]; for (int c = 0; c < nSp; c++) wch[c] += bv * bg[c]; }
+            for (int c = 0; c < nSp; c++) acc[c] += diffuse(c, (float) wch[c]);
             diffIdx = (diffIdx + 1) & (DIFF_LEN - 1);
         }
         // static sources at the listener: the cabinet body (panels, motors) and the organ console
@@ -1602,18 +1664,14 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
             int i1 = (int) rp; double fr = rp - i1;
             double v;
             if (p.lin) { double y1 = buf[i1 & DM]; v = y1 + (buf[(i1 + 1) & DM] - y1) * fr; }
-            else {
-                double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
-                double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
-                v = ((c3 * fr + c2) * fr + c1) * fr + y1;
-            }
+            else v = sinc.read(buf, DM, i1, fr);
             double dirG, k;
             if (horn) {
                 dirG = 0.3 + 0.7 * u;
                 k = hornK(cosE);
                 if (p.order == 0 || p.order == 1) {
-                    double backness = std::max(0.0, -(dxp * cabC + dyp * cabS));
-                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * backness * hornBoxLevel / std::max(0.05, dirG); }
+                    double backness = std::max(0.0, -(dxp * cabC + dyp * cabS)); backness *= backness * (3 - 2 * backness);   // no corner at the onset
+                    if (backness > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; const int j = (int) rp2; v += sinc.read(bufC.data(), DM, j, rp2 - j) * backness * hornBoxLevel / std::max(0.05, dirG); }
                 }
             } else {
                 p.zd += kDrumLo * (v - p.zd);
@@ -1627,7 +1685,7 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
             if (!horn) P.lfe[n] += v;
             const double hf = p.hfPrev + (p.hf - p.hfPrev) * tt, vs = v * hf;
             for (int c = 0; c < nSp; c++) { double gg = p.gPrev[c] + (p.gNext[c] - p.gPrev[c]) * tt; if (gg != 0) P.acc[n][c] += vs * gg; }
-            if (hf < 1) { const float ve = (float) (v - vs); P.bucket[n][NB + p.bP] += ve * (float) (1 - tt); P.bucket[n][NB + p.bN] += ve * (float) tt; }
+            if (hf < 1) addBuckets(P.bucket[n], p.bx0 + (p.bx1 - p.bx0) * tt, 0.f, (float) (v - vs));
         }
     }
     // slice of the fast paths (float working set, see FastPathRT)
@@ -1638,7 +1696,6 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
         FastPathRT& r = fastRT[qi];
         const float* buf = r.horn ? bh : bd;
         for (int n = 0; n < N; n++) {
-            const float w1 = (float) ((n + 1.0) / N), w0 = 1.0f - w1;
             r.ds += r.dds; r.g += r.dg;
             double rp = wiArr[(size_t) n] - r.ds; if (rp < 0) rp += DM + 1;
             int i1 = (int) rp; float fr = (float) (rp - i1);
@@ -1651,7 +1708,8 @@ inline void LeslieRoomDSP::renderListenerJob(int job) {
             if (!r.horn) P.lfe[n] += v;
             float vh = v * r.hf;
             float* bk = P.bucket[n];
-            bk[r.bP] += vh * w0; bk[r.bN] += vh * w1; const float ve = v - vh; bk[NB + r.bP] += ve * w0; bk[NB + r.bN] += ve * w1;
+            if (r.bi >= 0) { r.bf += r.dbx; const float ve = v - vh; bk[r.bi] += vh * (1 - r.bf); bk[r.bj] += vh * r.bf; bk[NB + r.bi] += ve * (1 - r.bf); bk[NB + r.bj] += ve * r.bf; }
+            else { r.bx += r.dbx; addBuckets(bk, r.bx, vh, v - vh); }
         }
     }
 }
@@ -1678,16 +1736,14 @@ inline void LeslieRoomDSP::renderMicJob(int i) {
                 double cosE = (dxp * wx + dyp * wy) / d, u = 0.5 + 0.5 * cosE;
                 double rp = wi - d * fsc; if (rp < 0) rp += DM + 1;
                 int i1 = (int) rp; double fr = rp - i1;
-                double y0 = buf[(i1 - 1) & DM], y1 = buf[i1 & DM], y2 = buf[(i1 + 1) & DM], y3 = buf[(i1 + 2) & DM];
-                double c1 = 0.5 * (y2 - y0), c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
-                v = ((c3 * fr + c2) * fr + c1) * fr + y1;
+                v = sinc.read(buf, DM, i1, fr);
                 double dirG, k;
                 if (horn) {
                     dirG = 0.3 + 0.7 * u;
                     k = hornK(cosE);
                     // when the horn points away, sound reaches the mic via the horn compartment (reflection inside the cabinet)
-                    double back = std::max(0.0, -cosE);
-                    if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; v += bufC[((int) rp2) & DM] * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
+                    double back = std::max(0.0, -cosE); back *= back * (3 - 2 * back);
+                    if (back > 0) { double rp2 = rp - cabDelay; if (rp2 < 0) rp2 += DM + 1; const int j = (int) rp2; v += sinc.read(bufC.data(), DM, j, rp2 - j) * back * hornBoxLevel * 0.6 / std::max(0.05, dirG); }
                 } else {
                     p.zd += kDrumLo * (v - p.zd);
                     v = p.zd * (0.85 + 0.15 * u) + (v - p.zd) * (0.3 + 0.7 * u);

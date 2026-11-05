@@ -85,6 +85,12 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   verschiedenen Richtungen auf die Ohren und löschen sich nicht aus; im selben Lautsprecherkanal elektrisch summiert
   würden sie kammfiltern und die Drehung vorne verschmieren. Jeder Wandkontakt nimmt dem Hornstrahl Höhen. Der
   Nachhall ist auf die Summe aller Lautsprecher normiert, damit Stereo, Quad und 5.1 gleich viel Raum haben.
+* **Bewegung**: alle drehenden Schallwege folgen dem Rotor ohne Stufen. Die Laufzeit (Doppler) wird pro Sample mit
+  einem 8-Tap-Sinus-Interpolator gelesen (bis 12 kHz unabhängig von der Nachkommastelle, ein kubischer ließ die Obertöne
+  auf Slow mit ~100 Hz flattern); die Richtung einer Reflexion gleitet zwischen den 15°-Richtungsfächern, statt
+  umgeschaltet zu werden; der breite Anteil wird erst gepannt und dann je Lautsprecherkanal dekorreliert (gleicher
+  Diffusor in allen Kanälen, damit L/R so zusammenhängend bleiben wie vorher). Hornabstrahlung und Hornfach-Anteil
+  haben keine Knicke über den Drehwinkel.
 * **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Leslie und Swell. Alle MIDI-Eingänge sind aktiv.
 * **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Lower | Upper, „3“ = Pedal | Lower | Upper, auf dem
   Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
