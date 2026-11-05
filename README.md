@@ -54,6 +54,8 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Pult mit drei Gruppen (Horn, Trommel, Raum): Stereo-Kanal mit Balance und Breite oder Mono-Kanal mit Panorama, dazu
   Fader, Polarität, Stumm/Solo, Laufzeit und Ziel (vorne/hinten oder Einzelausgang bis 16). Beim Wechsel Mono ↔ Stereo
   wandern die Mikros, das zweite blendet ein oder aus.
+* **Raum**: Genauigkeit „Exakt“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
+  Richtwirkung, Panorama); „Schnell“ vereinfacht ab der 2. Ordnung. Exakt mit 4.–5. Ordnung ist für starke Rechner.
 * **Raum**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest.
@@ -61,6 +63,11 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Audio**: Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
 * PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
+
+## Geplant für die VST3-Version
+
+* Offline-Rendern in maximaler Qualität: beim Bounce/Einfrieren meldet der Host „nicht Echtzeit“, dann rechnet das
+  Plugin mit eigenen Render-Einstellungen (Ordnung, Exakt, Ultra), unabhängig davon, was in Echtzeit möglich ist.
 
 ## Endstufe
 

@@ -153,6 +153,10 @@ public:
     void setLeslie(const std::string& mode) { leslieMode = mode; for (auto& r : rot) r.tgt = mode == "fast" ? r.fast : mode == "slow" ? r.slow : 0; }
     /** Replaces the room description (dimensions in metres, absorption, material, shape) and rebuilds all paths. */
     void setRoom(const Room& r) { room = r; rebuildRoom(); }
+    /** Precision of the reflections: false = fast (higher orders ramped per sub-block, direction buckets),
+        true = exact per-sample rendering of every image up to room.order. Exact at order >= 4 is for offline rendering. */
+    void setExactPaths(bool exact) { if (exact != exactPaths) { exactPaths = exact; rebuildRoom(); } }
+    bool exactPathsEnabled() const { return exactPaths; }
     /** Direct access to the room for in-place edits; call roomChanged() afterwards. */
     Room& roomRef() { return room; }
     /** Rebuilds image sources and reverb after the room was edited via roomRef(). */
@@ -300,6 +304,7 @@ private:
     std::vector<Path> paths;
     std::vector<FastPathRT> fastRT; std::vector<int> fastIdx;   // rebuilt every sub-block from `paths`
     int nRefl = 0;
+    bool exactPaths = false;
     RoomInfo roomInfo;
     double rt60[3] = {0, 0, 0};
 
@@ -559,7 +564,9 @@ inline void LeslieRoomDSP::rebuildRoom() {
                         p.ox = 2 * nx * R.Lx; p.oy = 2 * ny * R.Ly; p.oz = 2 * nz * R.Lz;
                         p.g = std::pow(reflG, order) * (order > 0 ? 0.9 : 1);
                         p.kOn = kOf(14000 * hf); p.kOff = kOf(1500 * hf); p.kDrum = kOf(std::min(20000.0, 6000 * hf * 3));
-                        p.lin = order > 1; p.fast = order > 1;
+                        // exact mode: every image is rendered per sample (position, Doppler, directivity, panning);
+                        // fast mode: order >= 2 uses the block-ramped float path with direction buckets
+                        p.lin = order > 1 && !exactPaths; p.fast = order > 1 && !exactPaths;
                         p.jit = order > 0 ? (((r * 977 + (int) np.size() * 131) % 97) / 97.0) * 0.9 * order : 0;
                         np.push_back(p);
                     }

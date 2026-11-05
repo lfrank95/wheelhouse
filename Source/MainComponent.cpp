@@ -257,6 +257,7 @@ void MainComponent::handleDspMessage(const var& m) {
         else if (type == "amp") { ampRequest = { (int) numProp(m, "model", 0), (int) numProp(m, "quality", 1), numProp(m, "sag", 0.5) }; d.setAmpSag(ampRequest.sag); }
         else if (type == "rotor") d.setRotor((int) numProp(m, "r", 0), numProp(m, "slow", 0.75), numProp(m, "fast", 6.8), numProp(m, "up", 0.8), numProp(m, "down", 1.4));
         else if (type == "spring") d.setSpring(numProp(m, "mix", 0) > 0.001, numProp(m, "mix", 0.2), numProp(m, "decay", 2.8), numProp(m, "tone", 0.5), numProp(m, "drive", 0.3), (int) numProp(m, "springs", 3));
+        else if (type == "precision") d.setExactPaths((bool) m.getProperty("exact", false));
         else if (type == "springKick") d.kickSpring(numProp(m, "v", 1));
         else if (type == "preamp") d.setPreamp((bool) m.getProperty("on", true), numProp(m, "gain", 0.5));
         else if (type == "mics") {

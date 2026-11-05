@@ -565,6 +565,7 @@ self.onmessage = (e) => {
   // DEF holds the defaults, S is the live state; all keys of DEF are persisted via saveUi/loadUi.
   const DEF = {
     room: { Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, order: 2, reverb: 1, material: 'wood', shape: 'box' },
+    exact: false,
     chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
     tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, ring: 13, audience: 0.8, tip: 3.5, mast: 10, dome: 14.1, sagPct: 0.45, ground: 'grass', ringFloor: 'sand' },
     lesliePos: { x: 4.2, y: 6.3 }, listener: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
@@ -748,6 +749,7 @@ self.onmessage = (e) => {
   const sendMidi = () => send(Object.assign({ type: 'midiChannels' }, S.midi));
   const sendPre = () => send(Object.assign({ type: 'preamp' }, S.pre));
   const sendSpring = () => send(Object.assign({ type: 'spring' }, S.spring));
+  const sendPrecision = () => send({ type: 'precision', exact: S.exact });
   const sendMics = () => send({ type: 'mics', v: S.mics });
 
   // ---------------- Tabs and settings cards ----------------
@@ -1066,10 +1068,12 @@ self.onmessage = (e) => {
       rowVal('Strahlen', () => tInfoText),
     ], '', { id: 'secTent', span: 2, kcols: 6, rcols: 2 }));
     p.appendChild(sec('Berechnung · Vorlagen', [], [
-      rowSeg('Reflexionen', [1, 2, 3, 4, 5].map(v => [v, String(v)]), () => S.room.order, v => { S.room.order = v; send({ type: 'room', v: { order: v } }); scheduleTrace(); }, 2),
+      rowSeg('Reflexionen', [1, 2, 3, 4, 5].map(v => [v, String(v)]), () => S.room.order, v => { S.room.order = v; send({ type: 'room', v: { order: v } }); scheduleTrace(); syncAll(); }, 2),
+      rowSeg('Genauigkeit', [[false, 'Schnell'], [true, 'Exakt']], () => S.exact, v => { S.exact = v; sendPrecision(); syncAll(); }, false),
+      rowVal('Schallwege', () => roomInfo ? `${roomInfo.paths} · ${S.exact ? 'alle exakt' : 'ab 2. Ordnung vereinfacht'}` : '–'),
       rowSel('Raum laden', () => [['', matchRoom() !== null ? '–' : 'Eigener Raum'], ...ROOMS.map((r, i) => [i, r.n])], () => { const i = matchRoom(); return i === null ? '' : i; }, v => { if (v !== '') loadRoom(+v); }),
       rowVal('Rechenlast', () => cpuText),
-    ], 'Höhere Ordnung = dichtere frühe Reflexionen, kostet Rechenzeit.'));
+    ], 'Exakt rechnet jede Reflexion pro Sample mit Position, Doppler, Richtwirkung und Panorama. Ab 4. Ordnung braucht das sehr viel Rechenzeit – die Last steht im Audio-Tab.'));
   });
   reg({ sync() { const z = S.room.shape === 'tent'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
 
@@ -1619,7 +1623,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
     send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
-    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendSpring(); sendMics();
+    sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendSpring(); sendPrecision(); sendMics();
     applyMode();
   }
 
