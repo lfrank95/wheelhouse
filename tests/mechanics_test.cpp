@@ -3,13 +3,13 @@
 #include <cstdio>
 // panel resonances (plywood vs particle board), pedal harmonics (complex tonewheels + B-3 pedal wiring).
 #define private public
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
 
-using namespace leslie;
+using namespace rotary;
 
 struct Run {
-    LeslieRoomDSP d{48000};
+    RotaryRoomDSP d{48000};
     std::vector<std::vector<float>> out = std::vector<std::vector<float>>(8, std::vector<float>(64));
     float* p[8];
     Run(double motor, double keys, double mech, int board = 0, double res = 0.5) {
@@ -43,11 +43,11 @@ int main() {
     }
     // 2) Idle noise, organ silent, per source
     for (const char* sp : {"slow", "fast"}) {
-        Run a(0.0, 0.0, 0.0); a.d.setLeslie(sp); a.block(3000);
+        Run a(0.0, 0.0, 0.0); a.d.setRotary(sp); a.block(3000);
         double base = a.block(1500);
-        Run b(0.0, 0.0, 0.5); b.d.setLeslie(sp); b.block(3000);
-        Run c(0.5, 0.0, 0.0); c.d.setLeslie(sp); c.block(3000);
-        printf("idle %-4s: base (hum/leak) %6.1f  Leslie mech 0.5 %6.1f  organ motor 0.5 %6.1f dBFS\n", sp, base, b.block(1500), c.block(1500));
+        Run b(0.0, 0.0, 0.5); b.d.setRotary(sp); b.block(3000);
+        Run c(0.5, 0.0, 0.0); c.d.setRotary(sp); c.block(3000);
+        printf("idle %-4s: base (hum/leak) %6.1f  Rotary mech 0.5 %6.1f  organ motor 0.5 %6.1f dBFS\n", sp, base, b.block(1500), c.block(1500));
     }
     // 3) Key action without sound: drawbars all in
     {
@@ -61,8 +61,8 @@ int main() {
     }
     // 4) Speed change: relay click and slow-motor clunk
     {
-        Run r(0.0, 0.0, 0.6); r.d.setLeslie("fast"); r.block(4000);
-        double pk; r.d.setLeslie("slow"); r.block(60, &pk);
+        Run r(0.0, 0.0, 0.6); r.d.setRotary("fast"); r.block(4000);
+        double pk; r.d.setRotary("slow"); r.block(60, &pk);
         printf("fast->slow (relay + clunk): peak %6.1f dBFS\n", pk);
     }
     // 5) Panel resonances: energy of the cabinet body on a pedal + lower chord, compared with resonance 0

@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <chrono>
 #include <vector>
-using namespace leslie::amp;
+using namespace rotary::amp;
 double thd(OrganPreamp& p, double fs, double a, double f0, double* gainOut) {
     int n = (int) (fs * 0.5); std::vector<float> x(n);
     for (int i = 0; i < n; i++) x[i] = (float) (a * std::sin(2 * M_PI * f0 * i / fs));

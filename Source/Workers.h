@@ -31,7 +31,7 @@ extern "C" __declspec(dllimport) int __stdcall AvSetMmThreadPriority(void* handl
 #include <sched.h>
 #endif
 
-namespace leslie {
+namespace rotary {
 
 class WorkerPool {
 public:
@@ -135,4 +135,4 @@ private:
     std::condition_variable cv;
 };
 
-} // namespace leslie
+} // namespace rotary

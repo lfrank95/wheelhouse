@@ -37,9 +37,23 @@ int main() {
         std::vector<std::pair<int, float>> told;
         e.onUiParam = [&](int i, float v) { told.push_back({ i, v }); };
         e.handleMessage(msg("{\"type\":\"drawbars\",\"man\":0,\"v\":[8,8,8,8,0,0,0,0,0]}"));
-        e.handleMessage(msg("{\"type\":\"leslie\",\"v\":\"fast\"}"));
+        e.handleMessage(msg("{\"type\":\"rotary\",\"v\":\"fast\"}"));
         bool db3 = false, les = false; for (auto& t : told) { if (t.first == 3 && t.second == 8) db3 = true; if (t.first == 20 && t.second == 2) les = true; }
-        CHECK(db3 && les, "UI drawbar and Leslie changes are reported as parameter changes");
+        CHECK(db3 && les, "UI drawbar and Rotary changes are reported as parameter changes");
+    }
+    // 2b) projects saved before the rename ("leslie" in message types and keys) still load
+    {
+        WheelhouseEngine e(true);
+        std::vector<std::pair<int, float>> told;
+        e.onUiParam = [&](int i, float v) { told.push_back({ i, v }); };
+        e.handleMessage(msg("{\"type\":\"leslie\",\"v\":\"fast\"}"));
+        e.handleMessage(msg("{\"type\":\"pos\",\"lesliePos\":{\"x\":2,\"y\":3}}"));
+        bool les = false; for (auto& t : told) if (t.first == 20 && t.second == 2) les = true;
+        var st = e.saveState(); bool renamed = false, pos = false, legacy = false;
+        if (auto* m = st.getProperty("messages", var()).getArray())
+            for (auto& x : *m) { const String t = x.getProperty("type", "").toString(); if (t == "rotary") renamed = true; if (t == "leslie" || x.hasProperty("lesliePos")) legacy = true; if (t == "pos" && x.hasProperty("rotaryPos")) pos = true; }
+        CHECK(les && renamed && pos && !legacy, "old 'leslie' messages are translated to 'rotary' and stored under the new names");
+        CHECK(WheelhouseEngine::params()[20].id == std::string("leslie"), "host parameter ID unchanged (existing automation keeps working)");
     }
     // 3) project state round trip: settings recorded, partial room updates merged, replayed into a fresh engine
     {

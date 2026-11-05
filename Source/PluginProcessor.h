@@ -1,6 +1,6 @@
 #pragma once
 // Wheelhouse as a VST3 instrument: MIDI in; main output stereo, quad or 5.1 (whatever the track offers) plus four
-// optional stereo buses for the mic direct outs 9-16. Automatable: drawbars, Leslie, swell, drive, vibrato,
+// optional stereo buses for the mic direct outs 9-16. Automatable: drawbars, Rotary, swell, drive, vibrato,
 // percussion. Everything else is stored with the project as the UI's settings.
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_extra/juce_gui_extra.h>

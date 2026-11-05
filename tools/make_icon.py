@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wheelhouse app icon (design "E - Leslie above drawbars").
+"""Wheelhouse app icon (design "E - Rotary above drawbars").
 
 Writes the vector sources and renders the PNGs the build uses:
   Resources/icon/wheelhouse-icon.svg        detailed (large sizes, 48 px and up)

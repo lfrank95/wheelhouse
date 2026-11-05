@@ -9,7 +9,7 @@
 #include <functional>
 #include <map>
 #include <string>
-#include "LeslieRoomDSP.h"
+#include "RotaryRoomDSP.h"
 
 class WheelhouseEngine {
 public:
@@ -72,11 +72,11 @@ private:
 
     const bool isPlugin;
     double fs = 48000;
-    std::unique_ptr<leslie::LeslieRoomDSP> dsp;
+    std::unique_ptr<rotary::RotaryRoomDSP> dsp;
     std::mutex dspLock;
 
     struct PlayCmd { uint8_t type = 0; int8_t man = 0; int16_t key = 0; int16_t value = 0; };
-    enum PlayType : uint8_t { NOTE_ON = 1, NOTE_OFF, LESLIE, SWELL, PANIC };
+    enum PlayType : uint8_t { NOTE_ON = 1, NOTE_OFF, ROTARY, SWELL, PANIC };
     juce::AbstractFifo playFifo { 512 };
     std::array<PlayCmd, 512> playBuf {};
     std::mutex playWriteLock;
@@ -92,7 +92,7 @@ private:
     std::array<std::atomic<float>, 6> teleMicMeter {};
     std::atomic<int> droppedBlocks { 0 };
 
-    std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, leslieCC { 1 }, swellCC { 11 };
+    std::atomic<int> midiUpper { 1 }, midiLower { 2 }, midiPedal { 3 }, rotaryCC { 1 }, swellCC { 11 };
 
     // Keyboard split (one keyboard on the upper channel plays pedal | lower | upper) and octave transposition per
     // manual. A note-off always goes where its note-on went, even if split or transposition changed in between.

@@ -1,16 +1,16 @@
 // Multi-threaded room rendering: output must match the single-threaded result, and it should be faster.
 //   g++ -O2 -std=c++17 -pthread -ISource tests/threads_test.cpp
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
 #include <chrono>
-using namespace leslie;
+using namespace rotary;
 static std::vector<float> render(int threads, int order, bool exact, bool mics, double* ms) {
-    LeslieRoomDSP d(48000); d.setThreads(threads);
+    RotaryRoomDSP d(48000); d.setThreads(threads);
     Speakers s; s.az = {30, -30, 0, 110, -110}; s.ch = {0, 1, 2, 4, 5}; s.lfe = 3; d.setSpeakers(s);
     Room r; r.order = order; d.setRoom(r); d.setExactPaths(exact); d.setAmp(0, 1, 0.5); d.setPos(true, 4.2, 6.3, true, 2.6, 2.4, true, 1.5708, true);
     Character c; c.motor = 0; d.setCharacter(c);
     if (mics) { MicSetup m; m.on = true; m.roomX = 3; m.roomY = 3.5; m.grp[0].out = 6; d.setMics(m); }
-    for (int k : {24, 28, 31, 36}) d.noteOn(k, 0); d.noteOn(0, 2); d.setLeslie("fast");
+    for (int k : {24, 28, 31, 36}) d.noteOn(k, 0); d.noteOn(0, 2); d.setRotary("fast");
     std::vector<std::vector<float>> out(16, std::vector<float>(128)); float* p[16]; for (int c = 0; c < 16; c++) p[c] = out[c].data();
     std::vector<float> all;
     for (int b = 0; b < 50; b++) d.process(p, 16, 128);

@@ -8,7 +8,7 @@ static double numProp(const var& v, const char* name, double def) { auto x = v.g
 static bool hasProp(const var& v, const char* name) { return v.hasProperty(name); }
 
 // ---------------- Parameters ----------------
-// Only what one really automates in a song: drawbars, Leslie switch, swell, drive, vibrato and percussion.
+// Only what one really automates in a song: drawbars, Rotary switch, swell, drive, vibrato and percussion.
 // Everything else is part of the stored settings.
 const std::vector<WheelhouseEngine::ParamDef>& WheelhouseEngine::params() {
     static const std::vector<ParamDef> P = [] {
@@ -19,7 +19,7 @@ const std::vector<WheelhouseEngine::ParamDef>& WheelhouseEngine::params() {
         for (int i = 0; i < 9; i++) v.push_back({ "db_l_" + std::to_string(i), std::string("Lower ") + ft[i], 1, 0, 8, dl[i] });
         v.push_back({ "db_p_0", "Pedal 16'", 1, 0, 8, 6 });
         v.push_back({ "db_p_1", "Pedal 8'", 1, 0, 8, 3 });
-        v.push_back({ "leslie", "Leslie", 3, 0, 2, 1 });
+        v.push_back({ "leslie", "Rotary", 3, 0, 2, 1 });   // ID kept from earlier versions: existing host automation stays valid
         v.push_back({ "swell", "Swell", 0, 0, 1, 0.8f });
         v.push_back({ "drive", "Drive", 0, 0, 1, 0.35f });
         v.push_back({ "vib", "Vibrato/Chorus", 3, 0, 5, 5 });
@@ -33,13 +33,13 @@ const std::vector<WheelhouseEngine::ParamDef>& WheelhouseEngine::params() {
     }();
     return P;
 }
-enum { P_DB_U = 0, P_DB_L = 9, P_DB_P = 18, P_LESLIE = 20, P_SWELL, P_DRIVE, P_VIB, P_VIB_U, P_VIB_L, P_PERC_ON, P_PERC_SOFT, P_PERC_FAST, P_PERC_THIRD, P_COUNT };
+enum { P_DB_U = 0, P_DB_L = 9, P_DB_P = 18, P_ROTARY = 20, P_SWELL, P_DRIVE, P_VIB, P_VIB_U, P_VIB_L, P_PERC_ON, P_PERC_SOFT, P_PERC_FAST, P_PERC_THIRD, P_COUNT };
 static const char* VIB_IDS[6] = {"v1", "v2", "v3", "c1", "c2", "c3"};
-static const char* LESLIE_IDS[3] = {"stop", "slow", "fast"};
+static const char* ROTARY_IDS[3] = {"stop", "slow", "fast"};
 
 const StringArray& WheelhouseEngine::choices(int index) {
-    static const StringArray leslie { "Stop", "Slow", "Fast" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
-    return index == P_LESLIE ? leslie : index == P_VIB ? vib : none;
+    static const StringArray rotary { "Stop", "Slow", "Fast" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
+    return index == P_ROTARY ? rotary : index == P_VIB ? vib : none;
 }
 
 int WheelhouseEngine::autoThreads(bool plugin) {
@@ -50,7 +50,7 @@ int WheelhouseEngine::autoThreads(bool plugin) {
 
 WheelhouseEngine::WheelhouseEngine(bool plugin) : isPlugin(plugin), applied(params().size()) {
     std::memset(heldMan, -1, sizeof(heldMan)); std::memset(heldKey, 0, sizeof(heldKey));
-    dsp = std::make_unique<leslie::LeslieRoomDSP>(fs);
+    dsp = std::make_unique<rotary::RotaryRoomDSP>(fs);
     dsp->setThreads(autoThreads(plugin));
     for (size_t i = 0; i < applied.size(); i++) applied[i] = params()[i].def;
 }
@@ -61,7 +61,7 @@ bool WheelhouseEngine::prepare(double sampleRate, int) {
         if (std::abs(dsp->fs - sampleRate) <= 0.5) { fs = sampleRate; return false; }
         fs = sampleRate;
         int threads = dsp->getThreads();
-        dsp = std::make_unique<leslie::LeslieRoomDSP>(sampleRate);
+        dsp = std::make_unique<rotary::RotaryRoomDSP>(sampleRate);
         dsp->setThreads(threads);
         paramsInit = false;   // the host parameters are applied again in the next block
     }
@@ -86,7 +86,7 @@ void WheelhouseEngine::drainPlay() {
         switch (c.type) {
             case NOTE_ON: dsp->noteOn(c.key, c.man, c.value); break;
             case NOTE_OFF: dsp->noteOff(c.key, c.man, c.value); break;
-            case LESLIE: dsp->setLeslie(LESLIE_IDS[jlimit(0, 2, (int) c.value)]); break;
+            case ROTARY: dsp->setRotary(ROTARY_IDS[jlimit(0, 2, (int) c.value)]); break;
             case SWELL: dsp->setVolume(c.value / 127.0); break;
             case PANIC: dsp->panic(); break;
             default: break;
@@ -135,7 +135,7 @@ var WheelhouseEngine::midiFromDevice(const MidiMessage& m) {
     if (m.isController()) {
         int cc = m.getControllerNumber(), v = m.getControllerValue();
         auto* o = new DynamicObject();
-        if (cc == leslieCC.load()) { pushPlay(LESLIE, 0, 0, v >= 64 ? 2 : 1); o->setProperty("type", "leslie"); o->setProperty("v", v >= 64 ? "fast" : "slow"); return var(o); }
+        if (cc == rotaryCC.load()) { pushPlay(ROTARY, 0, 0, v >= 64 ? 2 : 1); o->setProperty("type", "rotary"); o->setProperty("v", v >= 64 ? "fast" : "slow"); return var(o); }
         if (cc == swellCC.load()) { pushPlay(SWELL, 0, 0, v); o->setProperty("type", "volume"); o->setProperty("v", v / 127.0); return var(o); }
         if (cc == 123) { pushPlay(PANIC, 0, 0, 0); o->setProperty("type", "panic"); return var(o); }
         delete o;
@@ -170,7 +170,7 @@ void WheelhouseEngine::render(float* const* out, int n, const MidiBuffer* midi) 
                 } else if (m.isNoteOn()) pushUi({ 4, 0, 0, (int16_t) m.getNoteNumber() });
             } else if (m.isController()) {
                 int cc = m.getControllerNumber(), v = m.getControllerValue();
-                if (cc == leslieCC.load()) dsp->setLeslie(v >= 64 ? "fast" : "slow");
+                if (cc == rotaryCC.load()) dsp->setRotary(v >= 64 ? "fast" : "slow");
                 else if (cc == swellCC.load()) dsp->setVolume(v / 127.0);
                 else if (cc == 123 || cc == 120) dsp->panic();
             }
@@ -191,8 +191,8 @@ void WheelhouseEngine::applyHostParams() {
         if (!first && v == applied[(size_t) i].load()) continue;
         applied[(size_t) i] = v;
         if (!first) pushUi({ 3, 0, (int16_t) i });
-        if (i < P_DB_L) db[0] = true; else if (i < P_DB_P) db[1] = true; else if (i < P_LESLIE) db[2] = true;
-        else if (i == P_LESLIE) dsp->setLeslie(LESLIE_IDS[jlimit(0, 2, (int) std::lround(v))]);
+        if (i < P_DB_L) db[0] = true; else if (i < P_DB_P) db[1] = true; else if (i < P_ROTARY) db[2] = true;
+        else if (i == P_ROTARY) dsp->setRotary(ROTARY_IDS[jlimit(0, 2, (int) std::lround(v))]);
         else if (i == P_SWELL) dsp->setVolume(v);
         else if (i == P_DRIVE) dsp->setDrive(v);
         else if (i == P_VIB) dsp->setVib(VIB_IDS[jlimit(0, 5, (int) std::lround(v))]);
@@ -204,7 +204,7 @@ void WheelhouseEngine::applyHostParams() {
         dsp->setDrawbars(v, m);
     }
     if (perc) {
-        leslie::Perc p; p.on = applied[P_PERC_ON] > 0.5f; p.soft = applied[P_PERC_SOFT] > 0.5f; p.fast = applied[P_PERC_FAST] > 0.5f; p.third = applied[P_PERC_THIRD] > 0.5f;
+        rotary::Perc p; p.on = applied[P_PERC_ON] > 0.5f; p.soft = applied[P_PERC_SOFT] > 0.5f; p.fast = applied[P_PERC_FAST] > 0.5f; p.third = applied[P_PERC_THIRD] > 0.5f;
         dsp->setPerc(p); dsp->setVibRouting(applied[P_VIB_U] > 0.5f, applied[P_VIB_L] > 0.5f);
     }
     paramsInit = true;
@@ -225,9 +225,9 @@ void WheelhouseEngine::uiParamsFromMessage(const String& type, const var& m) {
     } else if (type == "vib") {
         const String s = m.getProperty("v", "c3").toString();
         for (int k = 0; k < 6; k++) if (s == VIB_IDS[k]) set(P_VIB, (float) k);
-    } else if (type == "leslie") {
+    } else if (type == "rotary") {
         const String s = m.getProperty("v", "slow").toString();
-        for (int k = 0; k < 3; k++) if (s == LESLIE_IDS[k]) set(P_LESLIE, (float) k);
+        for (int k = 0; k < 3; k++) if (s == ROTARY_IDS[k]) set(P_ROTARY, (float) k);
     } else if (type == "drive") set(P_DRIVE, (float) numProp(m, "v", 0.35));
     else if (type == "volume") set(P_SWELL, (float) numProp(m, "v", 0.8));
 }
@@ -279,7 +279,7 @@ var WheelhouseEngine::makeRotEvent(double cpu) {
     return var(o);
 }
 var WheelhouseEngine::makeRoomInfoEvent() {
-    leslie::RoomInfo ri; { std::lock_guard<std::mutex> lock(dspLock); ri = dsp->info(); }
+    rotary::RoomInfo ri; { std::lock_guard<std::mutex> lock(dspLock); ri = dsp->info(); }
     auto* o = new DynamicObject();
     Array<var> rt; rt.add(ri.rt60[0]); rt.add(ri.rt60[1]); rt.add(ri.rt60[2]);
     o->setProperty("rt60", rt); o->setProperty("rc", ri.rc); o->setProperty("paths", ri.paths);
@@ -336,7 +336,22 @@ void WheelhouseEngine::restoreState(const var& state) {
 }
 
 // ---------------- Messages from the UI (same JSON format as the browser prototype) ----------------
-bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
+// Settings saved by earlier versions used "leslie" in message types and keys: translate them on the way in.
+static var upgradeLegacy(const var& in) {
+    auto* src = in.getDynamicObject(); if (!src) return in;
+    bool old = in.getProperty("type", "").toString() == "leslie";
+    for (auto& p : src->getProperties()) if (p.name.toString().startsWith("leslie")) old = true;
+    if (!old) return in;
+    auto* o = new DynamicObject();
+    for (auto& p : src->getProperties()) {
+        String k = p.name.toString(); if (k.startsWith("leslie")) k = "rotary" + k.substring(6);
+        o->setProperty(Identifier(k), p.value);
+    }
+    if (o->getProperty("type").toString() == "leslie") o->setProperty("type", "rotary");
+    return var(o);
+}
+bool WheelhouseEngine::handleMessage(const var& mIn, bool rec) {
+    const var m = upgradeLegacy(mIn);
     const String type = m.getProperty("type", "").toString();
     const int man = (int) m.getProperty("man", 0);
     if (type == "noteOn") { pushPlay(NOTE_ON, man, (int) m.getProperty("key", 0), (int) numProp(m, "vel", 100)); return false; }
@@ -350,7 +365,7 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
         auto& d = *dsp;
         if (type == "drawbars") { int v[9] = {0}; if (auto* a = m.getProperty("v", var()).getArray()) for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i]; d.setDrawbars(v, man); }
         else if (type == "perc") {
-            leslie::Perc p; auto v = m.getProperty("v", var());
+            rotary::Perc p; auto v = m.getProperty("v", var());
             p.on = (bool) v.getProperty("on", true); p.third = (bool) v.getProperty("third", true); p.fast = (bool) v.getProperty("fast", true); p.soft = (bool) v.getProperty("soft", false);
             d.setPerc(p); d.setVibRouting((bool) v.getProperty("vibU", true), (bool) v.getProperty("vibL", false));
         }
@@ -363,7 +378,7 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
         else if (type == "preamp") d.setPreamp((bool) m.getProperty("on", true), numProp(m, "gain", 0.5));
         else if (type == "offlineMax") offlineMax = (bool) m.getProperty("v", true);
         else if (type == "mics") {
-            leslie::MicSetup ms; auto v = m.getProperty("v", var());
+            rotary::MicSetup ms; auto v = m.getProperty("v", var());
             auto b = [&](const char* k, bool def) { auto x = v.getProperty(k, var()); return x.isVoid() ? def : (bool) x; };
             auto n = [&](const char* k, double def) { return numProp(v, k, def); };
             ms.on = b("on", false);
@@ -374,7 +389,7 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
             ms.roomArr = (int) n("roomArr", 0); ms.roomX = n("roomX", 3); ms.roomY = n("roomY", 3); ms.roomZ = n("roomZ", 2); ms.roomYaw = n("roomYaw", 1.5708);
             ms.roomSpacing = n("roomSpacing", 0.6); ms.roomType = (int) n("roomType", 4); ms.roomPattern = (int) n("roomPattern", 1); ms.roomOrder = (int) n("roomOrder", 2);
             if (auto* a = v.getProperty("grp", var()).getArray())
-                for (int g = 0; g < leslie::MIC_GRP && g < a->size(); g++) {
+                for (int g = 0; g < rotary::MIC_GRP && g < a->size(); g++) {
                     auto& G = ms.grp[g]; auto x = (*a)[g];
                     G.gainDb = numProp(x, "gain", G.gainDb); G.pan = numProp(x, "pan", 0); G.width = numProp(x, "width", 1); G.delayMs = numProp(x, "delay", 0);
                     G.pol = (bool) x.getProperty("pol", false); G.mute = (bool) x.getProperty("mute", false); G.solo = (bool) x.getProperty("solo", false);
@@ -397,13 +412,13 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
             splitMode = jlimit(0, 2, (int) numProp(m, "mode", 0)); splitHi = jlimit(1, 127, (int) numProp(m, "hi", 60)); splitLo = jlimit(0, 126, (int) numProp(m, "lo", 48));
             if (auto* a = m.getProperty("oct", var()).getArray()) for (int i = 0; i < 3 && i < a->size(); i++) octShift[i] = jlimit(-3, 3, (int) (*a)[i]);
         }
-        else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); leslieCC = (int) numProp(m, "leslieCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
+        else if (type == "midiChannels") { midiUpper = (int) numProp(m, "upper", 1); midiLower = (int) numProp(m, "lower", 2); midiPedal = (int) numProp(m, "pedal", 3); rotaryCC = (int) numProp(m, "rotaryCC", 1); swellCC = (int) numProp(m, "swellCC", 11); }
         else if (type == "vib") d.setVib(m.getProperty("v", "c3").toString().toStdString());
         else if (type == "drive") d.setDrive(numProp(m, "v", 0.35));
         else if (type == "click") d.setClick(numProp(m, "v", 0.5));
         else if (type == "volume") d.setVolume(numProp(m, "v", 0.8));
         else if (type == "balance") d.setBalance(numProp(m, "v", 0.5));
-        else if (type == "leslie") d.setLeslie(m.getProperty("v", "slow").toString().toStdString());
+        else if (type == "rotary") d.setRotary(m.getProperty("v", "slow").toString().toStdString());
         else if (type == "lfe") d.setLfe(numProp(m, "v", 0.5));
         else if (type == "cabYaw") d.setCabYaw(numProp(m, "v", 0), (bool) m.getProperty("jump", false));
         else if (type == "room") {
@@ -425,17 +440,17 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
         else if (type == "mains") d.setMains(numProp(m, "hz", 50));
         else if (type == "velocityClick") d.setVelocityClick((bool) m.getProperty("v", true));
         else if (type == "character") {
-            leslie::Character c; auto v = m.getProperty("v", var());
+            rotary::Character c; auto v = m.getProperty("v", var());
             c.cond = numProp(v, "cond", 0.5); c.leak = numProp(v, "leak", 0.5); c.contact = numProp(v, "contact", 0.5); c.motor = numProp(v, "motor", 0.4);
             c.gearTune = (bool) v.getProperty("gearTune", true); c.busComp = (bool) v.getProperty("busComp", true);
             d.setCharacter(c);
         }
         else if (type == "pos") {
-            auto lesliePos = m.getProperty("lesliePos", var()), listener = m.getProperty("listener", var());
-            d.setPos(!lesliePos.isVoid(), numProp(lesliePos, "x", 0), numProp(lesliePos, "y", 0), !listener.isVoid(), numProp(listener, "x", 0), numProp(listener, "y", 0), hasProp(listener, "yaw"), numProp(listener, "yaw", 0), (bool) m.getProperty("jump", false));
+            auto rotaryPos = m.getProperty("rotaryPos", var()), listener = m.getProperty("listener", var());
+            d.setPos(!rotaryPos.isVoid(), numProp(rotaryPos, "x", 0), numProp(rotaryPos, "y", 0), !listener.isVoid(), numProp(listener, "x", 0), numProp(listener, "y", 0), hasProp(listener, "yaw"), numProp(listener, "yaw", 0), (bool) m.getProperty("jump", false));
         }
         else if (type == "speakers") {
-            leslie::Speakers s;
+            rotary::Speakers s;
             if (auto* a = m.getProperty("az", var()).getArray()) for (auto& x : *a) s.az.push_back((double) x);
             if (auto* a = m.getProperty("ch", var()).getArray()) for (auto& x : *a) s.ch.push_back((int) x);
             s.lfe = (int) m.getProperty("lfe", -1); s.stereo = (bool) m.getProperty("stereo", false);
@@ -445,9 +460,9 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
             if (valid) d.setSpeakers(s);
         }
         else if (type == "taps") {
-            std::vector<leslie::Tap> taps;
+            std::vector<rotary::Tap> taps;
             if (auto* a = m.getProperty("taps", var()).getArray()) for (auto& t : *a) {
-                leslie::Tap tp; tp.t = numProp(t, "t", 0); tp.az = numProp(t, "az", 0); tp.el = numProp(t, "el", 0); tp.order = (int) numProp(t, "order", 1);
+                rotary::Tap tp; tp.t = numProp(t, "t", 0); tp.az = numProp(t, "az", 0); tp.el = numProp(t, "el", 0); tp.order = (int) numProp(t, "order", 1);
                 if (auto* dp = t.getProperty("dep", var()).getArray(); dp && dp->size() >= 3) for (int i = 0; i < 3; i++) tp.dep[i] = (double) (*dp)[i];
                 if (auto* e = t.getProperty("E", var()).getArray(); e && e->size() >= 3) for (int i = 0; i < 3; i++) tp.E[i] = (double) (*e)[i];
                 taps.push_back(tp);
@@ -463,11 +478,11 @@ bool WheelhouseEngine::handleMessage(const var& m, bool rec) {
 // dspLock would stall the audio thread, so the new amplifier is prepared on a copy and swapped in afterwards.
 void WheelhouseEngine::applyAmpModelOffLock() {
     const AmpRequest req = ampRequest;
-    std::unique_ptr<leslie::amp::LeslieAmp> ampCopy; std::unique_ptr<leslie::amp::OrganPreamp> preCopy;
+    std::unique_ptr<rotary::amp::RotaryAmp> ampCopy; std::unique_ptr<rotary::amp::OrganPreamp> preCopy;
     {
         std::lock_guard<std::mutex> lock(dspLock);
-        if (dsp->ampModel().getModel() != req.model || dsp->ampModel().getQuality() != req.quality) ampCopy = std::make_unique<leslie::amp::LeslieAmp>(dsp->ampModel());
-        if (dsp->preampModel().getQuality() != req.quality) preCopy = std::make_unique<leslie::amp::OrganPreamp>(dsp->preampModel());
+        if (dsp->ampModel().getModel() != req.model || dsp->ampModel().getQuality() != req.quality) ampCopy = std::make_unique<rotary::amp::RotaryAmp>(dsp->ampModel());
+        if (dsp->preampModel().getQuality() != req.quality) preCopy = std::make_unique<rotary::amp::OrganPreamp>(dsp->preampModel());
     }
     if (!ampCopy && !preCopy) return;
     if (ampCopy) { ampCopy->setModel(req.model); ampCopy->setQuality(req.quality); ampCopy->setSag(req.sag); }

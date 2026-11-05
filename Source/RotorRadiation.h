@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "RotorDirectivity.h"
 
-namespace leslie {
+namespace rotary {
 
 /** In-phase band split (Linkwitz-Riley 4th order with all-pass compensation): x -> nb bands whose sum is an
     all-pass of x. Run once per rotor; every path then only mixes the bands. */
@@ -59,4 +59,4 @@ struct RotorDir {
     }
 };
 
-} // namespace leslie
+} // namespace rotary

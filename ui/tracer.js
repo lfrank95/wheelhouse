@@ -1,7 +1,7 @@
 // Ray tracing for non-rectangular rooms (runs in a Web Worker).
 // Geometry: oval tent (stadium plan: two half circles + straight middle section), cone/ridge roof over a
 // row of masts with a kink at the intermediate poles, round wall, ring (sand) and a tier of seating with audience.
-// Result: taps {t (s), az (rad, room coordinates), el (-1..1), dep (departure direction at the Leslie), order, E[3 bands]}.
+// Result: taps {t (s), az (rad, room coordinates), el (-1..1), dep (departure direction at the Rotary), order, E[3 bands]}.
 
 function makeTent(g) {
   const R = g.W / 2, Ls = g.Ls, hw = g.hw, hm = g.hm, hq = g.hq, rq = g.rq * R;

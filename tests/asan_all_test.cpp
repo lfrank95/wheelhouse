@@ -1,12 +1,12 @@
 // Memory check of all operating modes: g++ -O1 -g -std=c++17 -fsanitize=address,undefined -ISource tests/asan_all_test.cpp
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
-using namespace leslie;
+using namespace rotary;
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0})
     for (int mode = 0; mode < 3; mode++)
     for (int q = 0; q < 3; q++) {
-        LeslieRoomDSP dsp(fs);
+        RotaryRoomDSP dsp(fs);
         Speakers s;
         if (mode == 0) { s.az = {30, -30}; s.ch = {0, 1}; s.stereo = true; }
         else if (mode == 1) { s.az = {45, -45, 135, -135}; s.ch = {0, 1, 2, 3}; }
@@ -15,7 +15,7 @@ int main() {
         Room r; r.order = 3; dsp.setRoom(r);
         dsp.setAmp(q % 3, q, 0.5); dsp.setPreamp(true, 0.7); dsp.setSpring(true, 0.3, 2.8, 0.5, 0.4, q == 1 ? 2 : 3);
         for (int k : {0, 24, 28, 31, 60}) dsp.noteOn(k, 0); dsp.noteOn(12, 1); dsp.noteOn(0, 2); dsp.noteOn(24, 2);
-        dsp.setLeslie("fast");
+        dsp.setRotary("fast");
         const int N = 256; std::vector<std::vector<float>> out(16, std::vector<float>(N)); float* p[16]; for (int c = 0; c < 16; c++) p[c] = out[c].data();
         int nan = 0;
         auto run = [&](int b) { for (int i = 0; i < b; i++) { dsp.process(p, 16, N); for (int c = 0; c < 16; c++) for (int j = 0; j < N; j++) if (!std::isfinite(out[c][j])) nan++; } };

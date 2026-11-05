@@ -1,4 +1,4 @@
-// Wheelhouse – Leslie power amplifier (122 / early 122 / 147) modelled as a circuit.
+// Wheelhouse – Rotary power amplifier (122 / early 122 / 147) modelled as a circuit.
 //
 // Topology follows the 122: balanced input → 12AU7 as push-pull driver (147: phase splitter as a long-tailed pair)
 // → coupling capacitors with grid-leak resistor → 2 × 6550 in push-pull, class AB, shared cathode resistor
@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace leslie {
+namespace rotary {
 namespace amp {
 
 constexpr double PI = 3.14159265358979323846;
@@ -143,11 +143,11 @@ struct Oversampler {
 };
 
 // ---------------- the power amplifier ----------------
-class LeslieAmp {
+class RotaryAmp {
 public:
     enum Model { M122 = 0, M122_EARLY = 1, M147 = 2 };
 
-    explicit LeslieAmp(double sampleRate) : fs(sampleRate) { configure(); }
+    explicit RotaryAmp(double sampleRate) : fs(sampleRate) { configure(); }
 
     /** Amp model: 0 = 122, 1 = early 122 (tube rectifier), 2 = 147 (long-tailed-pair splitter, cathode feedback). Rebuilds the circuit. */
     void setModel(int m) { if (m != model) { model = std::max(0, std::min(2, m)); updateKin(); configure(); } }
@@ -501,4 +501,4 @@ private:
 };
 
 } // namespace amp
-} // namespace leslie
+} // namespace rotary

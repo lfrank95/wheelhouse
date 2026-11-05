@@ -1,10 +1,10 @@
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
 #include <chrono>
-using namespace leslie;
+using namespace rotary;
 int main() {
     for (int mode = 0; mode < 2; mode++) {
-        LeslieRoomDSP dsp(48000);
+        RotaryRoomDSP dsp(48000);
         Speakers s; s.az = {30, -30}; s.ch = {0, 1}; dsp.setSpeakers(s);
         Room r; r.Lx = 6; r.Ly = 8; r.Lz = 2.8; r.absorb = 0.3; r.order = 3; dsp.setRoom(r);
         dsp.setPos(true, 4.2, 6.3, true, 2.6, 2.4, true, 1.5708, true);
@@ -14,7 +14,7 @@ int main() {
         m.grp[0].out = 2; m.grp[1].out = 4; m.grp[2].out = 5;   // horn -> 3/4, drum (mono) -> 5, room -> 6/7
         dsp.setMics(m);
         for (int k : {24, 28, 31, 36}) dsp.noteOn(k, 0); dsp.noteOn(0, 2);
-        dsp.setLeslie("fast");
+        dsp.setRotary("fast");
         const int N = 128, blocks = 4 * 48000 / N; std::vector<std::vector<float>> out(8, std::vector<float>(N)); float* p[8]; for (int c = 0; c < 8; c++) p[c] = out[c].data();
         double e[8] = {0}, mn[8], mx[8]; for (int c = 0; c < 8; c++) { mn[c] = 1e9; mx[c] = 0; } int nan = 0; double win[8] = {0}; int wn = 0;
         auto t0 = std::chrono::steady_clock::now();

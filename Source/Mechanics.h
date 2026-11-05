@@ -1,13 +1,13 @@
 #pragma once
-// Wheelhouse - the parts of the instrument that are not loudspeakers: the Leslie cabinet as a wooden box, and the
-// mechanical noises of Leslie and organ. Everything here produces *static* sound sources (they do not rotate);
-// LeslieRoomDSP places them in the room and at the microphones.
+// Wheelhouse - the parts of the instrument that are not loudspeakers: the Rotary cabinet as a wooden box, and the
+// mechanical noises of Rotary and organ. Everything here produces *static* sound sources (they do not rotate);
+// RotaryRoomDSP places them in the room and at the microphones.
 //
 // Sources for the numbers (see README, "Gehäuse und Mechanik"):
-//   * Leslie 122: 41" x 29" x 20.5" cabinet, three compartments; the middle one holds the drivers and works as a
+//   * Rotary 122: 41" x 29" x 20.5" cabinet, three compartments; the middle one holds the drivers and works as a
 //     vented box for the 15" woofer; the louvres in the top and bottom compartments let the sound out. Early
 //     cabinets are plywood, later ones particle board, which flexes more and buzzes more easily.
-//   * Leslie motors are AC induction motors (one fast and one slow per rotor); the slow motor's armature drops onto
+//   * Rotary motors are AC induction motors (one fast and one slow per rotor); the slow motor's armature drops onto
 //     a rubber rim on the fast motor pulley when it is switched on ("clunk"), speed changes go through a relay
 //     ("definite click"), belts, idler and rotor bearings rumble, the drum's scrim cloth rustles at fast speed.
 //   * Hammond generator: synchronous run motor (two torque pulses per mains cycle), main drive shaft at 20 rev/s
@@ -20,7 +20,7 @@
 #include <array>
 #include <cstdint>
 
-namespace leslie {
+namespace rotary {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Cabinet body: woofer vented box, air modes of the lower compartment, plate modes of the wooden panels
@@ -82,9 +82,9 @@ struct CabinetBody {
 };
 
 // ---------------------------------------------------------------------------------------------------------------
-// Leslie mechanics: motors, belts and bearings, drum scrim, relay and slow-motor engagement
+// Rotary mechanics: motors, belts and bearings, drum scrim, relay and slow-motor engagement
 // ---------------------------------------------------------------------------------------------------------------
-struct LeslieMechanics {
+struct RotaryMechanics {
     void prepare(double sampleRate) {
         fs = sampleRate;
         rumble[0].set("lp", 180, 0.8, fs); rumble[1].set("lp", 140, 0.8, fs);
@@ -230,4 +230,4 @@ struct OrganMechanics {
     Lcg rnd{0x0B3Bu};
 };
 
-} // namespace leslie
+} // namespace rotary

@@ -1,8 +1,8 @@
-#include "../Source/LeslieAmp.h"
+#include "../Source/RotaryAmp.h"
 #include <cstdio>
 #include <chrono>
 #include <complex>
-using namespace leslie::amp;
+using namespace rotary::amp;
 static double thd(const std::vector<float>& y, double fs, double f0, int start, double* h2r=nullptr, double* h3r=nullptr) {
     // Harmonics via DFT (Hann window), relative to the fundamental
     int n = (int) y.size() - start; double P[8] = {0};
@@ -20,7 +20,7 @@ int main() {
     for (int q = 0; q <= 2; q++) {
         for (int m = 0; m <= 2; m++) {
             if (q == 0 && m > 0) continue;
-            LeslieAmp a(fs); a.setQuality(q); a.setModel(m);
+            RotaryAmp a(fs); a.setQuality(q); a.setModel(m);
             printf("Q%d model %d: idle Vb=%.0f V Vk=%.1f V Ianode=%.0f mA\n", q, m, a.plateSupply(), a.cathodeVoltage(), a.plateCurrentMA());
             for (double drv : {0.1, 0.35, 0.6, 0.85}) {
                 a.setDrive(drv);

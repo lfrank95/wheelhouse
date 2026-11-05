@@ -101,7 +101,7 @@ HEAD = """// Wheelhouse - radiation of the rotating horn and the bass rotor, fro
 // the mean power over the horizontal circle per third-octave equals the previous hand-made model: the diffuse-field
 // tone stays, the directivity changes.
 #pragma once
-namespace leslie { namespace rotordir {
+namespace rotary { namespace rotordir {
 
 """
 
@@ -113,6 +113,6 @@ if __name__ == '__main__':
     s += 'static const float HORN_EDGES[3] = {' + ', '.join(str(e) for e in HORN_EDGES) + '};\n'
     s += 'static const float DRUM_EDGES[2] = {' + ', '.join(str(e) for e in DRUM_EDGES) + '};\n'
     s += table('HORN_DEFLECTOR', hd) + table('HORN_OPEN', ho) + table('DRUM', dr)
-    s += '\n}} // namespace leslie::rotordir\n'
+    s += '\n}} // namespace rotary::rotordir\n'
     open(OUT, 'w').write(s)
     print('wrote', os.path.normpath(OUT))

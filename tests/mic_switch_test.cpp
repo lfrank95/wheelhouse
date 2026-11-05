@@ -1,9 +1,9 @@
 // Switching mono <-> stereo and listener <-> mics: largest jump between two consecutive samples (click hunting)
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
-using namespace leslie;
+using namespace rotary;
 int main() {
-    LeslieRoomDSP dsp(48000);
+    RotaryRoomDSP dsp(48000);
     Speakers s; s.az = {30, -30}; s.ch = {0, 1}; dsp.setSpeakers(s);
     Room r; r.order = 2; dsp.setRoom(r);
     dsp.setPos(true, 4.2, 6.3, true, 2.6, 2.4, true, 1.5708, true);

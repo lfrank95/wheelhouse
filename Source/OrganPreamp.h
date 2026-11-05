@@ -2,7 +2,7 @@
 // Wheelhouse – organ preamp modelled on the Hammond AO-28 (output section after the swell/expression pedal)
 //
 // Signal path in the original: matching transformer → input stages (12AX7, 6AU6) → vibrato scanner → swell pedal →
-// voltage amplifier → 12BH7 push-pull output stage → output transformer → Leslie (balanced input).
+// voltage amplifier → 12BH7 push-pull output stage → output transformer → Rotary (balanced input).
 // Only the part after the swell pedal is simulated, because that is where overdrive occurs: the further the swell
 // pedal is open and the more drawbars are pulled, the more level reaches the 12AX7 and the 12BH7.
 //
@@ -15,9 +15,9 @@
 // The tube and core models are based on dsp/glow.c and dsp/iron.c from Amberwave (AGPL-3.0, © The Amberwave
 // contributors). 12AX7 tube data per Koren; 12BH7 approximated (μ ≈ 16.5, roughly twice the current of a 12AU7).
 
-#include "LeslieAmp.h"
+#include "RotaryAmp.h"
 
-namespace leslie {
+namespace rotary {
 namespace amp {
 
 static const Triode T_12AX7 { 100, 1.4, 1060, 600, 300, 2000, -0.2, 0.06 };
@@ -169,7 +169,7 @@ private:
         Raa = 10e3; Rsup = 2200; Csup = 20e-6; Iq = 0.002;
         // Miller: Cgp 1.6 pF × (1 + gain ≈ 60) against about 150 kΩ source impedance → corner around 10 kHz
         double fM = 14000; millerK = 1 - std::exp(-2 * PI * fM * dt);
-        // transformer: smaller core than in the Leslie, primary inductance ~60 H
+        // transformer: smaller core than in the Rotary, primary inductance ~60 H
         bs = 1.3; hystW = 0.4; double hyst = 0.06;
         double ws = 0; for (int j = 1; j <= PLAYS; j++) { playR[j - 1] = hyst * j / PLAYS; playW[j - 1] = j; ws += j; }
         for (int j = 0; j < PLAYS; j++) playW[j] /= ws;
@@ -232,4 +232,4 @@ private:
 };
 
 } // namespace amp
-} // namespace leslie
+} // namespace rotary

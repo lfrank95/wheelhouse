@@ -1,10 +1,10 @@
 // AM depth from runout, measured on the organ signal itself (orgBuf), against the same organ with runout disabled
 #define private public
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
-using namespace leslie;
+using namespace rotary;
 static std::vector<float> organ(double cond, int key, bool runout) {
-    LeslieRoomDSP d(48000);
+    RotaryRoomDSP d(48000);
     Character c; c.cond = cond; c.leak = 0; c.contact = 0; c.motor = 0; d.setCharacter(c);
     if (!runout) d.runScale = 0;
     d.setAmp(0, 0, 0); d.setPreamp(false, 0.5); d.leakHum = 0;

@@ -1,4 +1,4 @@
-"""Leslie 122 treble horn (estimated geometry), axisymmetric BEM: polar response per third-octave band.
+"""Rotary 122 treble horn (estimated geometry), axisymmetric BEM: polar response per third-octave band.
 Usage: python3 horn.py <variant> [out.npz]   variant: none (no deflector) | g<gap>h<depth>, e.g. g-8h30 (deflector apex <gap> mm in front of the mouth, negative = inside; cone depth <depth> mm). Wheelhouse uses g-8h30.
 """
 import numpy as np, sys, json

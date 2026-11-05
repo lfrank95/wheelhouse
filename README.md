@@ -1,10 +1,10 @@
 # Wheelhouse
 
-Open-source Hammond tonewheel organ with a physically modelled Leslie standing in a real room.
+Open-source Hammond tonewheel organ with a physically modelled rotary speaker standing in a real room.
 Stereo, quad and 5.1 output, ASIO. Windows program (VST3 later).
 
-Hammond-Tonradorgel mit Leslie 122 als rotierende Schallquellen in einem simulierten Raum. Die Oberfläche
-läuft in einem eingebetteten Browserfenster, die Klangberechnung nativ in C++ (`Source/LeslieRoomDSP.h`).
+Hammond-Tonradorgel mit Rotary-Lautsprecher (Typ 122): Horn und Trommel als rotierende Schallquellen in einem simulierten Raum. Die Oberfläche
+läuft in einem eingebetteten Browserfenster, die Klangberechnung nativ in C++ (`Source/RotaryRoomDSP.h`).
 
 ## Bauen über GitHub Actions
 
@@ -35,15 +35,15 @@ Die Oberfläche ist englisch, mit den üblichen Begriffen aus Studio, Bühne und
 Direct Outs …). Jeder Regler, Schalter und jede Anzeige hat einen Tooltip (Maus kurz darüber halten): was er tut,
 bei Reglern zusätzlich die Bedienung.
 
-**Instrument-Presets** (Menü oben links, Gruppe „Instrument“) stellen Orgel, Vorverstärker, Leslie und Hall auf einmal
+**Instrument-Presets** (Menü oben links, Gruppe „Instrument“) stellen Orgel, Vorverstärker, Rotary und Hall auf einmal
 ein, Raum, Mikros, Ausgabe und MIDI bleiben unberührt:
 
-* **B3 + 122 (Stock)** – gepflegte B3 der 60er; Leslie-Drehzahlen nach Messungen an echten Leslies
+* **B3 + 122 (Stock)** – gepflegte B3 der 60er; Rotary-Drehzahlen nach Messungen an echten Rotary-Kabinetten
   (Horn 48/400 rpm, Drum 40/342 rpm), Serien-122 ohne Stopp, kein Hall. Startzustand beim ersten Start.
 * **B3 + 147 (Rock)**, **A-100 + Spring Reverb**, **Road-worn B3**.
 
 Das Fenster ist auf 1600 × 900 ausgelegt und skaliert mit. Oben die Registerkarten, darunter das Gehäuse
-mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Pedal mit 25 Tönen.
+mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Pedal mit 25 Tönen.
 
 * **Play**: 9 Zugriegel Upper, 2 Pedal (16′/8′), 9 Lower; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
   Zugriegel und Knöpfe ziehen oder Mausrad, Umschalt = fein, Doppelklick = Standardwert.
@@ -58,7 +58,7 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   mit höherer Stufe mehr Laufzeit und etwas mehr Höhenverlust.
 * **Anschlag**: MIDI-Velocity steuert Key-Click (Kontakte schließen schneller und härter, mehr Prellen) beim Drücken und
   Loslassen. Mit der Maus: Klick vorne auf der Taste = hart, hinten = weich.
-* **Leslie**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
+* **Rotary**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Gehäuse (Hornfach, Resonanz, Mechanik, Unrund, Sperrholz/Spanplatte,
   Deflektoren In/Out), Aufstellung (Balance, Ausrichtung).
 * **Pedal**: wie in B-3/C-3 verdrahtet – acht Kontakte je Pedal auf vier Sammelschienen (Grundton + 3., 2. + 4.,
@@ -74,7 +74,7 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   wandern die Mikros, das zweite blendet ein oder aus.
 * **Room**: Precision „Exact“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
   Richtwirkung, Panorama); „Fast“ fasst ab der 2. Ordnung nach Richtung zusammen. Exact mit 4.–5. Ordnung ist für starke Rechner.
-* **Room**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
+* **Room**: großer Grundriss (Rotary und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
 * **Output**: Stereo / Quad / 5.1, LFE, Master, freie Kanalzuordnung (Routing), Kanaltest. Monitoring (Quad/5.1): Trimm für
   die hinteren Kanäle und den Center, Divergence (Quelle vor dir zusätzlich als Phantom auf L/R).
@@ -103,7 +103,7 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   keine falsche Tonhöhenmodulation. Dasselbe Modell gilt für Direktschall, Spiegelbilder, Wandfelder, Zelt, Mikros
   und die Einspeisung in den Nachhall. Mit Deflektor (Serie) schwankt das Horn über 2 kHz um ~7–13 dB, ohne um
   20–40 dB; die Trommel unter 200 Hz um < 2,5 dB, von 250–800 Hz um 6–17 dB.
-* **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Leslie und Swell. Alle MIDI-Eingänge sind aktiv.
+* **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Rotary und Swell. Alle MIDI-Eingänge sind aktiv.
 * **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Lower | Upper, „3“ = Pedal | Lower | Upper, auf dem
   Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
   lernen) und in der Karte MIDI. Jedes Manual und das Pedal lässt sich rechts daneben um ±3 Oktaven verschieben.
@@ -111,7 +111,7 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   in der Karte MIDI). Ein losgelassener Ton geht immer dorthin, wo er angeschlagen wurde.
 * **Audio**: Kerne (Auto = halbe Kernzahl, höchstens 8, oder 1–16): Raum und Mikros rechnen auf mehreren Threads,
   jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio Settings …“ öffnet den Dialog (ASIO / Windows Audio).
-* QWERTY-Tasten: Z–M und Q–P (auf QWERTZ Y–M), wählbar für Upper, Lower oder Pedal. Leertaste = Leslie, Esc = Panic.
+* QWERTY-Tasten: Z–M und Q–P (auf QWERTZ Y–M), wählbar für Upper, Lower oder Pedal. Leertaste = Rotary, Esc = Panic.
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
 * **Dropouts** (Karte Audio) zählt Blöcke, die still ausgegeben wurden, weil eine Einstellung gerade den Klangkern belegt hat (sollte bei normalem Spielen 0 bleiben).
 
@@ -123,9 +123,9 @@ Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren
 * **Ausgänge**: Hauptbus Stereo, Quad oder 5.1 (je nach Spur der DAW) plus vier optionale Stereo-Busse
   „Direct 9/10“ … „Direct 15/16“ für die Mikro-Einzelausgänge (Ziel im Mixer der Karte Mics). Der Hauptbus heißt „Main“.
 * **MIDI** vom Host, Noten sampelgenau. Kanalzuordnung für Upper/Lower/Pedal wie in der App (Karte MIDI).
-* **Automation**: alle 20 Zugriegel, Leslie (Stop/Slow/Fast), Swell, Drive, Vibrato/Chorus, Vibrato
+* **Automation**: alle 20 Zugriegel, Rotary (Stop/Slow/Fast), Swell, Drive, Vibrato/Chorus, Vibrato
   Upper/Lower, Percussion (On, Soft, Fast, 3rd). Die Parameter-IDs sind unverändert, ältere Automation bleibt erhalten. Bewegungen in der Oberfläche werden als Automation aufgezeichnet.
-* **Projekt**: alle übrigen Einstellungen (Raum, Mikros, Orgel, Leslie …) werden mit dem Projekt gespeichert und
+* **Projekt**: alle übrigen Einstellungen (Raum, Mikros, Orgel, Rotary …) werden mit dem Projekt gespeichert und
   auch ohne geöffnetes Fenster geladen.
 * **Latenz** der Röhren-Oversampling-Filter wird an den Host gemeldet (Ausgleich durch die DAW).
 * **Bounce**: meldet der Host „nicht Echtzeit“, rechnet Wheelhouse mit 5. Ordnung, Exakt und Ultra-Endstufe
@@ -134,7 +134,7 @@ Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren
 
 ## Endstufe
 
-`Source/LeslieAmp.h` rechnet die Leslie-Endstufe als Schaltung: 12AU7-Treiber, Gegentakt-Endstufe mit 2 × 6550,
+`Source/RotaryAmp.h` rechnet die Rotary-Endstufe als Schaltung: 12AU7-Treiber, Gegentakt-Endstufe mit 2 × 6550,
 gemeinsamer Kathodenwiderstand, Ausgangsübertrager mit Kern-Hysterese, Netzteil mit Sag (beim 5U4 deutlich weicher).
 **HQ** löst die Röhren mit Newton-Iteration bei 2-fachem Oversampling, **Ultra** zusätzlich mit dynamischer Last
 (Streuinduktivität, Trommelresonanz), Drossel-Netzteil, Wirbelströmen und 4-fachem Oversampling. **Eco** ist eine
@@ -148,7 +148,7 @@ der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende
 
 ## Federhall
 
-`Source/SpringReverb.h`: Hammond-Tank wie in A-100 und 122RV, in der Orgel vor dem Leslie. Zwei oder drei Federn als
+`Source/SpringReverb.h`: Hammond-Tank wie in A-100 und 122RV, in der Orgel vor dem Rotary. Zwei oder drei Federn als
 Rückkopplungsschleifen mit Ketten gedehnter Allpässe (Dispersion – das typische Zirpen), leicht schwankender Laufzeit,
 weich sättigendem Treiber und bandbegrenztem Wandler; „Kick“ schlägt die Federn an. Modell nach Välimäki, Parker &
 Abel (2010) und Parker (2011). Regler: Reverb (vorne), in der Karte Organ Mix, Decay, Tone, Drive, Springs.
@@ -163,7 +163,7 @@ Gehäuse selbst in den Raum gestellt (Laufzeit, Abstand, Richtung zum Hörer und
   Tieftönerfachs, Boden) schwingen als Platten: Eigenfrequenzen aus Maßen, Stärke und Material berechnet
   (Sperrholz 19 mm / 12,7 mm, E ≈ 8 GPa; Spanplatte E ≈ 3,2 GPa, stärker gedämpft), je drei Moden, angeregt vom
   Druck im Horn- bzw. Tieftönerfach.
-* **Leslie-Mechanik**: Induktionsmotoren brummen mit doppelter Netzfrequenz (die kleinen Langsam-Motoren
+* **Rotary-Mechanik**: Induktionsmotoren brummen mit doppelter Netzfrequenz (die kleinen Langsam-Motoren
   schnarrender), Riemen, Spannrolle und Lager rumpeln mit der Drehzahl, die Bespannung der Trommel rauscht im
   Quadrat der Drehzahl, beim Umschalten klickt das Relais und der Langsam-Motor kuppelt mit einem Klonk ein und aus.
 * **Orgel-Mechanik**: Laufmotor (zwei Drehmomentstöße je Netzperiode), Zahneingriff der 12 Antriebsräder auf der
@@ -192,12 +192,12 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 
 ## Dateien
 
-* `Source/LeslieRoomDSP.h` – Klangkern (Orgel, Leslie, Raum, Hall), ohne JUCE-Abhängigkeit
-* `Source/LeslieAmp.h` – Röhrenendstufe und Ausgangsübertrager
+* `Source/RotaryRoomDSP.h` – Klangkern (Orgel, Rotary, Raum, Hall), ohne JUCE-Abhängigkeit
+* `Source/RotaryAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
 * `Source/SpringReverb.h` – Federhall
-* `Source/Mechanics.h` – Leslie-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Leslie und Orgel
-* `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `LeslieRoomDSP.h`)
+* `Source/Mechanics.h` – Rotary-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Rotary und Orgel
+* `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `RotaryRoomDSP.h`)
 * `Source/RotorRadiation.h`, `Source/RotorDirectivity.h` – Bandzerlegung und Abstrahltabellen von Horn und Trommel
 * `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
 * `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
@@ -206,7 +206,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 * `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
-* `Resources/icon/` – App-Icon (Leslie über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu
+* `Resources/icon/` – App-Icon (Rotary über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),

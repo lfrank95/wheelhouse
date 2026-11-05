@@ -256,15 +256,15 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
     <button type="button" class="btn big" id="panic" data-tip="All notes off and reset (MIDI CC 123). Shortcut: Esc.">Panic</button>
   </header>
 
-  <!-- ============ Cabinet: Leslie, organ, room panels ============ -->
+  <!-- ============ Cabinet: Rotary, organ, room panels ============ -->
   <section class="case wood">
     <div class="play">
 
-      <!-- Leslie panel (SVG cabinet, speed buttons) -->
+      <!-- Rotary panel (SVG cabinet, speed buttons) -->
       <div class="panel lesP">
-        <div class="ph"><span>Leslie</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Model 122</span></div>
+        <div class="ph"><span>Rotary</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Model 122</span></div>
         <div style="display: flex; gap: 16px; align-items: stretch">
-          <svg width="140" height="200" viewBox="0 0 140 200" role="img" aria-label="Leslie cabinet with open front" data-tip="Live view of horn and drum." style="flex: none; display: block">
+          <svg width="140" height="200" viewBox="0 0 140 200" role="img" aria-label="Rotary cabinet with open front" data-tip="Live view of horn and drum." style="flex: none; display: block">
             <defs>
               <linearGradient id="lw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3b1f0d"/><stop offset="0.12" stop-color="#6e3d1d"/><stop offset="0.5" stop-color="#7c4724"/><stop offset="0.88" stop-color="#6a3a1b"/><stop offset="1" stop-color="#341b0b"/></linearGradient>
               <linearGradient id="lcap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5430"/><stop offset="1" stop-color="#4a2611"/></linearGradient>
@@ -309,7 +309,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
             <div style="font-size: 12.5px; color: #a8977c; line-height: 1.35" id="lesHint">Space bar or mod wheel toggles speed</div>
           </div>
         </div>
-        <div class="speed" id="speed" aria-label="Leslie speed"></div>
+        <div class="speed" id="speed" aria-label="Rotary speed"></div>
       </div>
 
       <!-- Organ panel (drawbars, front knobs, tablets) -->
@@ -325,7 +325,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
       <!-- Room panel (small floor plan, room presets) -->
       <div class="panel roomP">
         <div class="ph"><span>Room</span><button type="button" class="linkbtn" id="openRoom" data-tip="Room settings: size, surfaces, reflections, circus tent.">Settings ›</button></div>
-        <div class="rview"><canvas id="roomS" data-tip="Floor plan. Drag the Leslie or your head · right-drag: facing · scroll: rotate."></canvas><div class="rinfo" id="rinfoS"></div></div>
+        <div class="rview"><canvas id="roomS" data-tip="Floor plan. Drag the Rotary or your head · right-drag: facing · scroll: rotate."></canvas><div class="rinfo" id="rinfoS"></div></div>
         <div class="rpre" id="roomPre"></div>
       </div>
     </div>
@@ -341,7 +341,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
       </div>
       <div class="cbody" id="cbody">
         <div class="bigroom" id="bigRoom" hidden>
-          <div class="rview"><canvas id="roomB" data-tip="Floor plan. Drag the Leslie or your head (or the mics) · right-drag: facing · scroll: rotate."></canvas><div class="rhint">Floor plan · Drag: Leslie / head · Right-drag: facing · Scroll: rotate</div></div>
+          <div class="rview"><canvas id="roomB" data-tip="Floor plan. Drag the Rotary or your head (or the mics) · right-drag: facing · scroll: rotate."></canvas><div class="rhint">Floor plan · Drag: Rotary / head · Right-drag: facing · Scroll: rotate</div></div>
           <div class="rstats">
             <span data-tip="Reverb time (Eyring) in the low, mid and high band.">RT60 low / mid / high <b id="stRt">–</b></span>
             <span data-tip="Critical distance: here direct sound and room are equally loud.">Critical distance <b id="stRc">–</b></span>
@@ -403,7 +403,7 @@ Mics: close mics and a room pair through the mixer, like in the studio."></div>
 // Ray tracing for non-rectangular rooms (runs in a Web Worker).
 // Geometry: oval tent (stadium plan: two half circles + straight middle section), cone/ridge roof over a
 // row of masts with a kink at the intermediate poles, round wall, ring (sand) and a tier of seating with audience.
-// Result: taps {t (s), az (rad, room coordinates), el (-1..1), dep (departure direction at the Leslie), order, E[3 bands]}.
+// Result: taps {t (s), az (rad, room coordinates), el (-1..1), dep (departure direction at the Rotary), order, E[3 bands]}.
 
 function makeTent(g) {
   const R = g.W / 2, Ls = g.Ls, hw = g.hw, hm = g.hm, hq = g.hq, rq = g.rq * R;
@@ -615,7 +615,7 @@ self.onmessage = (e) => {
     exact: false, threads: 0,
     chr: { cond: 0.5, leak: 0.5, contact: 0.5, motor: 0.4, gearTune: true, busComp: true },
     tent: { W: 30, Ls: 0, hm: 8.5, hw: 4, hb: 1.3, ring: 13, audience: 0.8, tip: 3.5, mast: 10, dome: 14.1, sagPct: 0.45, ground: 'grass', ringFloor: 'sand' },
-    lesliePos: { x: 4.2, y: 6.3 }, listener: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
+    rotaryPos: { x: 4.2, y: 6.3 }, listener: { x: 2.6, y: 2.4, yaw: Math.PI / 2 }, cabYaw: -Math.PI / 2,
     db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] },
     perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false },
     vib: 'c3', drive: 0.35, click: 0.5, volume: 0.8, balance: 0.5, lfe: 0.5,
@@ -631,9 +631,9 @@ self.onmessage = (e) => {
       roomArr: 0, roomX: 3, roomY: 3.5, roomZ: 2, roomYaw: Math.PI / 2, roomSpacing: 0.6, roomType: 4, roomPattern: 1, roomOrder: 2, placed: false,
       grp: [{ gain: 0 }, { gain: 0 }, { gain: -6 }].map(c => Object.assign({ pan: 0, width: 1, delay: 0, pol: false, mute: false, solo: false, out: -1 }, c)) },
     out: { masterDb: 0, lfeHz: 100, rearDb: 0, centerDb: 0, centerDiv: 0 }, chmap: { stereo: null, quad: null, s51: null },
-    midi: { upper: 1, lower: 2, pedal: 3, leslieCC: 1, swellCC: 11 },
+    midi: { upper: 1, lower: 2, pedal: 3, rotaryCC: 1, swellCC: 11 },
     split: { mode: 0, hi: 60, lo: 48, oct: [0, 0, 0], kb: 61 },
-    leslie: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
+    rotary: 'slow', mode: 'stereo', octave: 0, pcMan: 0, halfMoon: 'stop',
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const S = clone(DEF);
@@ -690,7 +690,7 @@ self.onmessage = (e) => {
     { n: 'Perc 2nd', u: [8, 4, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: false, fast: false, soft: false, vibU: true, vibL: false }, vib: 'c2', drive: 0.3 },
   ];
   // Rotor times are time constants: the rotor reaches speed after about 3 τ
-  // (measured on real Leslies: horn ~1.5 s up / 2.5 s down, drum ~5 s / 7.5 s; 48/400 and 40/342 rpm)
+  // (measured on real rotary cabinets: horn ~1.5 s up / 2.5 s down, drum ~5 s / 7.5 s; 48/400 and 40/342 rpm)
   const rpmHz = (r) => r / 60;
   const INSTRUMENTS = [
     { n: 'B3 + 122 (Stock)', note: 'well-kept 60s B3, stock 122 without stop, no reverb',
@@ -771,7 +771,7 @@ self.onmessage = (e) => {
     'Character/Leakage': 'Tone-wheel crosstalk: neighbouring wheels bleed into the pickups and wiring – the faint "hiss and whistle" under every B3.',
     'Character/Contacts': 'Key contact wear: dirty busbar contacts bounce and crackle, so the click gets dirtier and less even.',
     'Character/Motor': 'Hum and whir of the generator and run motor, audible between notes.',
-    'Generator/Key noise': 'Mechanical key noise: keys bottoming out on the felt. The console sits right in front of you, so it is acoustic, not through the Leslie.',
+    'Generator/Key noise': 'Mechanical key noise: keys bottoming out on the felt. The console sits right in front of you, so it is acoustic, not through the Rotary.',
     'Generator/Tuning': 'Gears: the slightly off equal temperament of the real gear train. Equal: mathematically exact tuning.',
     'Generator/Busbar load': 'Loading of the generator: the more drawbars and keys you add, the more each one sags in level (the classic "compression" of a full registration).',
     'Generator/Low wheels': 'Complex: the lowest wheels are nearly square, with odd harmonics (pedal only). Sine: idealised.',
@@ -782,24 +782,24 @@ self.onmessage = (e) => {
     'Percussion · Vibrato · Click/Slow decay': 'Decay time of the percussion when set to Slow.',
     'Percussion · Vibrato · Click/Vibrato': 'Scanner vibrato/chorus. V1–V3: vibrato. C1–C3: chorus (vibrato mixed with dry). C3 is the classic.',
     'Percussion · Vibrato · Click/Click': 'Velocity: a fast stroke closes all nine contacts almost at once and hard, a slow press one after another and softer. Fixed: always the same.',
-    'Preamp AO-28/Gain': 'Preamp gain after the swell: 12AX7 into a 12BH7 push-pull and transformer. With the swell wide open and full drawbars the organ breaks up before the Leslie.',
+    'Preamp AO-28/Gain': 'Preamp gain after the swell: 12AX7 into a 12BH7 push-pull and transformer. With the swell wide open and full drawbars the organ breaks up before the Rotary.',
     'Preamp AO-28/Tubes': 'Bypass skips the tube stages for a clean, line-level organ.',
     'Preamp AO-28/Quality': 'Uses the same oversampling quality as the power amp.',
-    'Spring Reverb/Mix': 'Wet/dry mix of the spring tank. It sits inside the organ, before the Leslie – so the reverb spins too.',
+    'Spring Reverb/Mix': 'Wet/dry mix of the spring tank. It sits inside the organ, before the Rotary – so the reverb spins too.',
     'Spring Reverb/Decay': 'Decay time of the springs.',
     'Spring Reverb/Tone': 'Tone of the tank return: dark to bright.',
     'Spring Reverb/Drive': 'Drive into the tank driver: more drive = more boing and splash.',
     'Spring Reverb/Springs': 'Number of springs: 2 is sparser and twangier, 3 is denser.',
     'Spring Reverb/Tank': 'Kick the tank – the springs crash, like bumping the organ.',
-    // Leslie
+    // Rotary
     'Horn/Slow': 'Horn speed on Slow.', 'Horn/Fast': 'Horn speed on Fast.',
     'Horn/Rise': 'Ramp-up time of the horn from Slow to Fast. The light horn gets there in under a second.',
     'Horn/Fall': 'Ramp-down time of the horn from Fast to Slow.',
     'Drum/Slow': 'Drum (bass rotor) speed on Slow.', 'Drum/Fast': 'Drum speed on Fast.',
-    'Drum/Rise': 'Ramp-up time of the heavy drum – it lags behind the horn, which is a big part of the Leslie sound.',
+    'Drum/Rise': 'Ramp-up time of the heavy drum – it lags behind the horn, which is a big part of the Rotary sound.',
     'Drum/Fall': 'Ramp-down time of the drum.',
     'Drum/Brake': 'On: the rotors stop on Stop. Off: they coast to a halt.',
-    'Power Amp/Drive': 'How hard the organ hits the Leslie power amp – from clean to growl.',
+    'Power Amp/Drive': 'How hard the organ hits the Rotary power amp – from clean to growl.',
     'Power Amp/Sag': 'Power-supply sag: the rectifier voltage dips under load – softer attack, more compression when driven.',
     'Power Amp/Model': '122: 2 × 6550, tight. 122 early: 5U4 tube rectifier, more sag. 147: with negative feedback, cleaner and stiffer.',
     'Power Amp/Quality': 'Eco: static curve, low CPU. HQ: tubes and output transformer as a circuit, 2× oversampling. Ultra: 4× oversampling.',
@@ -811,9 +811,9 @@ self.onmessage = (e) => {
     'Cabinet/Build': 'Early cabinets are plywood, later ones chipboard – softer, more damped.',
     'Cabinet/Deflectors': 'The cone-shaped deflectors in the horn mouths. In (stock) spreads the treble – gentle, wide swirl. Out beams the highs – a sharper, more pronounced sweep, as some players mod their cabinets.',
     'Placement/Balance': 'Horn/drum level balance: 50/50 = both at full level, left = more horn, right = more drum.',
-    'Placement/Facing': 'Which way the Leslie front points in the room. You can also turn it in the floor plan with the scroll wheel.',
-    'Placement/Quick turn': 'Turn the Leslie front towards the listener (or the room pair in Mics mode).',
-    'Placement/Back to the wall': 'Put the Leslie against the nearest wall, front facing into the room.',
+    'Placement/Facing': 'Which way the Rotary front points in the room. You can also turn it in the floor plan with the scroll wheel.',
+    'Placement/Quick turn': 'Turn the Rotary front towards the listener (or the room pair in Mics mode).',
+    'Placement/Back to the wall': 'Put the Rotary against the nearest wall, front facing into the room.',
     'Control/Switch via': 'Which MIDI controller toggles Slow/Fast. The space bar always works.',
     'Control/Half-moon': '2-way: Slow/Fast. With Stop: the 3-way half-moon switch with a stop position in the middle.',
     // Room
@@ -823,7 +823,7 @@ self.onmessage = (e) => {
     'Surfaces · Listener/Absorption': 'How much the surfaces soak up. Low = live and splashy, high = dry and dead.',
     'Surfaces · Listener/Facing': 'Which way your head points. Turning shifts the image – just like turning your head in a real room.',
     'Surfaces · Listener/Material': 'Wall material: sets the frequency response and scattering of the reflections.',
-    'Surfaces · Listener/Head': 'Turn your head towards the Leslie.',
+    'Surfaces · Listener/Head': 'Turn your head towards the Rotary.',
     'Circus Tent/Ø Round': 'Diameter of the round ends.', 'Circus Tent/Mid section': 'Straight section between the two round ends (0 = round tent).',
     'Circus Tent/Pole dist.': 'Distance between the king poles.', 'Circus Tent/Dome Ø': 'Diameter of the dome between the poles.',
     'Circus Tent/Crown ht.': 'Height of the crown (where the canvas meets the poles).', 'Circus Tent/Crown band': 'Height of the crown band.',
@@ -834,7 +834,7 @@ self.onmessage = (e) => {
     'Circus Tent/Rays': 'Ray tracer status: found paths and computation time.',
     'Engine · Presets/Reflections': 'Image-source order: how many bounces are rendered as discrete reflections. More = denser and more realistic, but more CPU.',
     'Engine · Presets/Precision': 'Fast: from the 2nd order, reflections are grouped by direction. Exact: every reflection per sample with position, Doppler, directivity and panning – very CPU-heavy from the 4th order.',
-    'Engine · Presets/Paths': 'Number of rendered sound paths.', 'Engine · Presets/Load room': 'Load a room preset (keeps the Leslie and listener positions).',
+    'Engine · Presets/Paths': 'Number of rendered sound paths.', 'Engine · Presets/Load room': 'Load a room preset (keeps the Rotary and listener positions).',
     '*/CPU': 'Audio CPU load. Running out of headroom? Raise the buffer, lower the reflections or set the power amp to HQ or Eco.',
     // Mics
     'Horn Mics/Angle': 'Where the horn mics sit around the cabinet: 0° = front. From the back (180°) you get more motor, from the front more cabinet.',
@@ -850,7 +850,7 @@ self.onmessage = (e) => {
     'Room Pair/Spacing': 'Distance between the two room mics (AB only).', 'Room Pair/Height': 'Height of the room pair.',
     'Room Pair/Aim': 'Which way the pair points.', 'Room Pair/Reflect.': 'Reflection order rendered for the room pair.',
     'Room Pair/Array': 'AB: spaced omnis/cardioids, wide and airy. XY: coincident, mono-safe. ORTF: 17 cm, 110° – the compromise.',
-    'Room Pair/Place in front': 'Place the room pair in front of the Leslie, aimed at it.',
+    'Room Pair/Place in front': 'Place the room pair in front of the Rotary, aimed at it.',
     'Mixer/head': 'Listener: you stand in the room. Mics: close mics and room pair through the mixer.',
     // Output
     'Format/LFE': 'Level of the LFE (.1) channel – 5.1 only.', 'Format/LFE x-over': 'Crossover frequency for the LFE – 5.1 only.',
@@ -867,7 +867,7 @@ self.onmessage = (e) => {
     'Split · Octaves/Keyboard': 'Size of your keyboard – only for the split display.',
     'Split · Octaves/Split point': 'Where the zones begin. ● learns from the next key you press.',
     'Split · Octaves/Upper octave': 'Octave shift of the upper manual (±3).', 'Split · Octaves/Lower octave': 'Octave shift of the lower manual (±3).', 'Split · Octaves/Pedal octave': 'Octave shift of the pedal (±3).',
-    'Controllers/Leslie': 'MIDI controller that toggles the Leslie speed.', 'Controllers/Swell': 'MIDI controller for the swell (expression) pedal.',
+    'Controllers/Rotary': 'MIDI controller that toggles the Rotary speed.', 'Controllers/Swell': 'MIDI controller for the swell (expression) pedal.',
     'Controllers/Devices': 'Connected MIDI inputs. Newly connected devices are enabled automatically.', 'Controllers/MIDI Inputs …': 'Choose which MIDI inputs are active.',
     'QWERTY Keys/Plays': 'Which manual the computer keyboard plays.', 'QWERTY Keys/Octave': 'Octave of the computer keyboard.', 'QWERTY Keys/Keys': 'Key layout of the computer keyboard.',
     // Audio
@@ -876,7 +876,7 @@ self.onmessage = (e) => {
     'Device/Bounce': 'Max quality: when rendering offline the plugin uses 5th order, Exact and Ultra – no matter what runs in real time. As set: renders exactly what you hear.',
     'Buffer/Sample rate': 'Current sample rate.', 'Buffer/Buffer': 'Buffer size: smaller = lower latency, larger = more CPU headroom.',
     'Buffer/Output': 'Output latency.', 'Buffer/Processing': 'Extra latency from the tube oversampling.',
-    'Buffer/Total': 'Total latency plus the acoustic sound path from the Leslie to the listener or nearest mic – as in a real room.',
+    'Buffer/Total': 'Total latency plus the acoustic sound path from the Rotary to the listener or nearest mic – as in a real room.',
     'Outputs · CPU/Active': 'Active device outputs.', 'Outputs · CPU/Channels': 'Channels rendered for the current format.',
     'Outputs · CPU/Dropouts': 'Skipped audio blocks.', 'Outputs · CPU/Power amp': 'Power amp quality – the biggest CPU lever after the reflections.',
     'Outputs · CPU/Cores': 'Room and mics run on several cores. Auto: standalone half the cores (max 8), plugin a quarter (max 4) – the DAW needs some too.',
@@ -940,10 +940,10 @@ self.onmessage = (e) => {
   const sendMics = () => send({ type: 'mics', v: S.mics });
 
   // ---------------- Tabs and settings cards ----------------
-  const TABS = [['spielen', 'Play'], ['orgel', 'Organ'], ['leslie', 'Leslie'], ['raum', 'Room'], ['mikros', 'Mics'], ['ausgabe', 'Output'], ['midi', 'MIDI'], ['audio', 'Audio']];
+  const TABS = [['spielen', 'Play'], ['orgel', 'Organ'], ['rotary', 'Rotary'], ['raum', 'Room'], ['mikros', 'Mics'], ['ausgabe', 'Output'], ['midi', 'MIDI'], ['audio', 'Audio']];
   const CARD_INFO = {
     orgel: ['Organ', 'Tone generator, contacts, preamp, spring reverb', 5],
-    leslie: ['Leslie', 'Rotors, power amp, cabinet and placement', 5],
+    rotary: ['Rotary', 'Rotors, power amp, cabinet and placement', 5],
     raum: ['Room', 'Shape, surfaces and reflections', 3],
     mikros: ['Mics', 'Close mics, room pair and mixer', 5],
     ausgabe: ['Output', 'Format, routing, monitoring', 4],
@@ -951,7 +951,7 @@ self.onmessage = (e) => {
     audio: ['Audio', 'Device, driver and latency', 3],
   };
   let tab = 'spielen';
-  const TAB_TIP = { spielen: 'Play: drawbars, Leslie and room at a glance.', orgel: 'Tone generator, contacts, percussion, preamp, spring reverb.', leslie: 'Rotors, power amp, cabinet and placement.', raum: 'Room shape, surfaces and reflections.',
+  const TAB_TIP = { spielen: 'Play: drawbars, Rotary and room at a glance.', orgel: 'Tone generator, contacts, percussion, preamp, spring reverb.', rotary: 'Rotors, power amp, cabinet and placement.', raum: 'Room shape, surfaces and reflections.',
     mikros: 'Close mics, room pair and mixer.', ausgabe: 'Output format, routing and monitoring.', midi: 'Channels, split, octaves, controllers and QWERTY keys.', audio: 'Device, driver, latency and CPU.' };
   const tabBtns = TABS.map(([id, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = TAB_TIP[id]; b.onclick = () => setTab(id); $('tabs').appendChild(b); return [id, b]; });
   const cardPages = {};
@@ -995,7 +995,7 @@ self.onmessage = (e) => {
   const presetSel = $('preset');
   (() => {
     const o0 = h('option', '', 'Custom'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0);
-    const g1 = h('optgroup'); g1.label = 'Instrument (organ + Leslie)'; INSTRUMENTS.forEach((p, i) => { const o = h('option', '', p.n); o.value = 'i' + i; o.title = p.note; g1.appendChild(o); }); presetSel.appendChild(g1);
+    const g1 = h('optgroup'); g1.label = 'Instrument (organ + Rotary)'; INSTRUMENTS.forEach((p, i) => { const o = h('option', '', p.n); o.value = 'i' + i; o.title = p.note; g1.appendChild(o); }); presetSel.appendChild(g1);
     const g2 = h('optgroup'); g2.label = 'Registration'; PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; g2.appendChild(o); }); presetSel.appendChild(g2);
   })();
   let curInst = null, instSig = '';
@@ -1005,10 +1005,10 @@ self.onmessage = (e) => {
     Object.assign(S.chr, P.chr); Object.assign(S.organ, P.organ); S.click = P.click; S.db = P.db; S.perc = P.perc; S.vib = P.vib;
     Object.assign(S.pre, P.pre); Object.assign(S.amp, P.amp); S.drive = P.drive; S.balance = P.balance; S.rotor = P.rotor; S.brake = P.brake;
     Object.assign(S.cab, P.cab); S.halfMoon = P.halfMoon; Object.assign(S.spring, P.spring);
-    if (S.halfMoon !== 'stop' && S.leslie === 'stop') S.leslie = 'slow';
+    if (S.halfMoon !== 'stop' && S.rotary === 'stop') S.rotary = 'slow';
     sendChr(); sendOrgan(); send({ type: 'click', v: S.click }); [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib });
     sendPre(); sendAmp(); send({ type: 'drive', v: S.drive }); send({ type: 'balance', v: S.balance }); sendRotor(0); sendRotor(1);
-    send({ type: 'brake', v: S.brake }); sendCab(); sendSpring(); send({ type: 'leslie', v: S.leslie });
+    send({ type: 'brake', v: S.brake }); sendCab(); sendSpring(); send({ type: 'rotary', v: S.rotary });
     curInst = i; instSig = instState(); syncAll();
   }
   presetSel.onchange = () => {
@@ -1020,7 +1020,7 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive });
     syncAll();
   };
-  const PRESET_TIP = 'Instruments set organ, preamp, Leslie and reverb. Registrations only set drawbars, percussion, vibrato and drive. Room, mics, output and MIDI stay as they are.';
+  const PRESET_TIP = 'Instruments set organ, preamp, Rotary and reverb. Registrations only set drawbars, percussion, vibrato and drive. Room, mics, output and MIDI stay as they are.';
   const markPreset = () => {
     if (curInst !== null && instState() === instSig) { presetSel.value = 'i' + curInst; presetSel.dataset.tip = INSTRUMENTS[curInst].note + '\n\n' + PRESET_TIP; return; }
     curInst = null; presetSel.dataset.tip = PRESET_TIP;
@@ -1070,22 +1070,22 @@ self.onmessage = (e) => {
   }
   const outName = (i) => { const n = audioInfo.channelNames && audioInfo.channelNames[i]; return `Out ${i + 1}` + (n ? ` · ${n}` : ''); };
 
-  // ---------------- Leslie panel on the play surface (SVG cabinet) ----------------
+  // ---------------- Rotary panel on the play surface (SVG cabinet) ----------------
   (() => {
     const top = $('slatsTop'), bot = $('slatsBot');
     const mk = (g, y, hgt, op) => { const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('x', 12); r.setAttribute('y', y); r.setAttribute('width', 116); r.setAttribute('height', hgt); r.setAttribute('fill', 'url(#lslat)'); r.setAttribute('opacity', op); g.appendChild(r); };
     [[21, .92], [28, .88], [35, .85], [42, .85], [49, .85], [56, .88], [63, .92]].forEach(([y, o]) => mk(top, y, 3.5, o)); mk(top, 70, 4, 1);
     [[103, .92], [110, .86], [117, .82], [124, .82], [131, .82], [138, .82], [145, .82], [152, .86], [159, .9]].forEach(([y, o]) => mk(bot, y, 3.5, o)); mk(bot, 166, 4, 1);
   })();
-  const SPEED_TIP = { slow: 'Slow (chorale): gentle swirl.', stop: 'Stop: rotors stop (or coast, see Leslie › Brake).', fast: 'Fast (tremolo): full spin. Space bar toggles Slow/Fast.' };
-  const speedBtns = [['slow', 'Slow'], ['stop', 'Stop'], ['fast', 'Fast']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = SPEED_TIP[v]; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
+  const SPEED_TIP = { slow: 'Slow (chorale): gentle swirl.', stop: 'Stop: rotors stop (or coast, see Rotary › Brake).', fast: 'Fast (tremolo): full spin. Space bar toggles Slow/Fast.' };
+  const speedBtns = [['slow', 'Slow'], ['stop', 'Stop'], ['fast', 'Fast']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = SPEED_TIP[v]; b.onclick = () => setRotary(v); $('speed').appendChild(b); return [v, b]; });
   reg({ sync() {
-    speedBtns.forEach(([v, b]) => { b.classList.toggle('on', v === S.leslie); if (v === 'stop') b.hidden = S.halfMoon !== 'stop'; });
+    speedBtns.forEach(([v, b]) => { b.classList.toggle('on', v === S.rotary); if (v === 'stop') b.hidden = S.halfMoon !== 'stop'; });
     $('speed').classList.toggle('two', S.halfMoon !== 'stop');
     $('lesModel').textContent = 'Model ' + ['122', '122 early', '147'][S.amp.model];
-    $('lesHint').textContent = `Space bar or ${S.midi.leslieCC === 64 ? 'sustain pedal' : S.midi.leslieCC === 1 ? 'mod wheel' : 'CC ' + S.midi.leslieCC} toggles speed`;
+    $('lesHint').textContent = `Space bar or ${S.midi.rotaryCC === 64 ? 'sustain pedal' : S.midi.rotaryCC === 1 ? 'mod wheel' : 'CC ' + S.midi.rotaryCC} toggles speed`;
   } });
-  function setLeslie(v) { if (v === 'stop' && S.halfMoon !== 'stop') v = 'slow'; S.leslie = v; send({ type: 'leslie', v }); syncAll(); }
+  function setRotary(v) { if (v === 'stop' && S.halfMoon !== 'stop') v = 'slow'; S.rotary = v; send({ type: 'rotary', v }); syncAll(); }
   const svgSet = (id, attrs) => { const e = $(id); for (const k in attrs) e.setAttribute(k, attrs[k]); };
   function drawCabinet(hornA, drumA) {
     const horn = (ang) => {
@@ -1167,11 +1167,11 @@ self.onmessage = (e) => {
 
   // Front knobs and rocker tablets
   const TIP_VIB = 'Scanner vibrato/chorus. V1–V3: vibrato in three depths. C1–C3: chorus (vibrato mixed with the dry signal). C3 is the classic.';
-  const TIP_DRIVE = 'How hard the organ hits the Leslie power amp – from clean to growl.';
+  const TIP_DRIVE = 'How hard the organ hits the Rotary power amp – from clean to growl.';
   const fk = $('frontKnobs');
   fk.appendChild(knob({ label: 'Vibrato', tip: TIP_VIB, opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
   fk.appendChild(knob({ label: 'Drive', tip: TIP_DRIVE, min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
-  fk.appendChild(knob({ label: 'Reverb', tip: 'Spring reverb mix (Hammond tank inside the organ – it spins through the Leslie).', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Reverb', tip: 'Spring reverb mix (Hammond tank inside the organ – it spins through the Rotary).', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
   fk.appendChild(knob({ label: 'Swell', tip: 'Swell / expression pedal: volume, plus the bass boost of the original pedal when it is closed down.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
   const TB = [['on', 'PERC\nON', 'PERC\nOFF', 'Percussion', 'Percussion on/off: a decaying 2nd or 3rd harmonic on the attack, upper manual only, single-trigger (retriggers only after all keys are released). Mutes the 1′ drawbar, like the original.'],
     ['soft', 'PERC\nSOFT', 'PERC\nNORM', 'Percussion volume', 'Percussion volume: Soft or Normal. Normal also pulls the upper manual down a little – just like the real thing.'],
@@ -1215,7 +1215,7 @@ self.onmessage = (e) => {
     ], [
       rowSeg('Tubes', [[true, 'on'], [false, 'bypass']], () => S.pre.on, v => { S.pre.on = v; sendPre(); }, true),
       rowVal('Quality', () => ['Eco', 'HQ', 'Ultra'][S.amp.quality] + ' (= power amp)'),
-    ], 'Post-swell: 12AX7 and a 12BH7 push-pull into a transformer. Swell wide open and full drawbars – the organ already breaks up before the Leslie.'));
+    ], 'Post-swell: 12AX7 and a 12BH7 push-pull into a transformer. Swell wide open and full drawbars – the organ already breaks up before the Rotary.'));
     const kickBtn = rowBtn('Tank', 'Kick', () => send({ type: 'springKick', v: 1 }));
     p.appendChild(sec('Spring Reverb', [
       knob({ label: 'Mix', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }),
@@ -1225,15 +1225,15 @@ self.onmessage = (e) => {
     ], [
       rowSeg('Springs', [[2, '2'], [3, '3']], () => S.spring.springs, v => { S.spring.springs = v; sendSpring(); }, 3),
       kickBtn,
-    ], 'Hammond tank as in the A-100 and 122RV: inside the organ, before the Leslie – so the reverb spins too.'));
+    ], 'Hammond tank as in the A-100 and 122RV: inside the organ, before the Rotary – so the reverb spins too.'));
   });
 
-  // ---------------- Card: Leslie ----------------
+  // ---------------- Card: Rotary ----------------
   const rpmFmt = (v) => Math.round(v * 60) + ' rpm';
   const secFmt = (v) => nf(v, 1) + ' s';
   function cabDeg() { let d = Math.round((S.cabYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
   function setCabYaw(rad, jump) { S.cabYaw = rad; send({ type: 'cabYaw', v: rad, jump: !!jump }); syncAll(); }
-  page('leslie', (p) => {
+  page('rotary', (p) => {
     const rk = (r, k, label, min, max, def, fmt, log) => knob({ label, min, max, def, fmt, log, get: () => S.rotor[r][k], set: v => { S.rotor[r][k] = v; sendRotor(r); } });
     p.appendChild(sec('Horn', [rk(0, 'slow', 'Slow', 0.5, 1.2, 0.8, rpmFmt), rk(0, 'fast', 'Fast', 5.5, 7.6, 6.67, rpmFmt), rk(0, 'up', 'Rise', 0.2, 3, 0.5, secFmt, true), rk(0, 'down', 'Fall', 0.3, 4, 0.85, secFmt, true)], [],
       'The light horn gets up to speed in under a second.'));
@@ -1260,13 +1260,13 @@ self.onmessage = (e) => {
       knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
       knob({ label: 'Facing', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
-      rowBtn('Quick turn', 'Face the listener', () => setCabYaw(Math.atan2(S.listener.y - S.lesliePos.y, S.listener.x - S.lesliePos.x))),
-      rowBtn('', 'Back to the wall', () => { const R = S.room, d = [[S.lesliePos.x, Math.PI], [R.Lx - S.lesliePos.x, 0], [S.lesliePos.y, -Math.PI / 2], [R.Ly - S.lesliePos.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
+      rowBtn('Quick turn', 'Face the listener', () => setCabYaw(Math.atan2(S.listener.y - S.rotaryPos.y, S.listener.x - S.rotaryPos.x))),
+      rowBtn('', 'Back to the wall', () => { const R = S.room, d = [[S.rotaryPos.x, Math.PI], [R.Lx - S.rotaryPos.x, 0], [S.rotaryPos.y, -Math.PI / 2], [R.Ly - S.rotaryPos.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
     ]));
     p.appendChild(sec('Control', [], [
-      rowSel('Switch via', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
-      rowSeg('Half-moon', [['two', '2-way'], ['stop', 'with Stop']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.leslie === 'stop') setLeslie('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
-    ], 'The space bar always toggles Slow/Fast. You can also turn the Leslie in the floor plan with the scroll wheel.'));
+      rowSel('Switch via', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.rotaryCC, v => { S.midi.rotaryCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSeg('Half-moon', [['two', '2-way'], ['stop', 'with Stop']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.rotary === 'stop') setRotary('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
+    ], 'The space bar always toggles Slow/Fast. You can also turn the Rotary in the floor plan with the scroll wheel.'));
   });
 
   // ---------------- Card: Room ----------------
@@ -1280,7 +1280,7 @@ self.onmessage = (e) => {
       knob({ label: 'Facing', min: -180, max: 180, step: 1, def: 0, fmt: v => v + '°', get: () => yawDeg(), set: v => setYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
       rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'wood'),
-      rowBtn('Head', 'Look at the Leslie', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
+      rowBtn('Head', 'Look at the Rotary', () => setYaw(Math.atan2(S.rotaryPos.y - S.listener.y, S.rotaryPos.x - S.listener.x))),
     ], '', { id: 'secSurf' }));
     // Circus tent section
     const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; if (S.room.shape === 'tent') applyTent(false); } });
@@ -1314,8 +1314,8 @@ self.onmessage = (e) => {
   const degFmt = (v) => (v === 0 ? '0° front' : Math.round(v) + '°');
   function placeRoomPair() {
     const f = S.cabYaw, d = Math.min(3, Math.max(1.5, Math.min(S.room.Lx, S.room.Ly) * 0.35));
-    S.mics.roomX = clamp(S.lesliePos.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.lesliePos.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
-    S.mics.roomYaw = Math.atan2(S.lesliePos.y - S.mics.roomY, S.lesliePos.x - S.mics.roomX); S.mics.placed = true;
+    S.mics.roomX = clamp(S.rotaryPos.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.rotaryPos.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
+    S.mics.roomYaw = Math.atan2(S.rotaryPos.y - S.mics.roomY, S.rotaryPos.x - S.mics.roomX); S.mics.placed = true;
   }
   function setMicsOn(v) { S.mics.on = v; if (v && !S.mics.placed) placeRoomPair(); sendMics(); syncAll(); }
   page('mikros', (p) => {
@@ -1468,7 +1468,7 @@ self.onmessage = (e) => {
       octRow('Upper octave', 0), octRow('Lower octave', 1), octRow('Pedal octave', 2),
     ], 'Split works on the upper channel · ● learns from the next key.'));
     p.appendChild(sec('Controllers', [], [
-      rowSel('Leslie', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSel('Rotary', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.rotaryCC, v => { S.midi.rotaryCC = +v; sendMidi(); syncAll(); }, 1),
       rowSel('Swell', [[11, 'CC 11 Expression'], [7, 'CC 7 Volume'], [4, 'CC 4 Foot controller']], () => S.midi.swellCC, v => { S.midi.swellCC = +v; sendMidi(); syncAll(); }, 11),
       rowVal('Devices', () => (audioInfo.midiDevices && audioInfo.midiDevices.length) ? audioInfo.midiDevices.join(', ') : 'none found'),
       rowBtn('', 'MIDI Inputs …', () => nativeInvoke('audioSettings')),
@@ -1477,7 +1477,7 @@ self.onmessage = (e) => {
       rowSeg('Plays', [[0, 'Upper'], [1, 'Lower'], [2, 'Pedal']], () => S.pcMan, v => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }, 0),
       rowVal('Octave', () => (S.octave > 0 ? '+' : '') + S.octave),
       rowVal('Keys', () => 'Z–M and Q–P, sharps above (Y–M on QWERTZ)'),
-    ], 'Space: toggle Leslie · Esc: panic.'));
+    ], 'Space: toggle Rotary · Esc: panic.'));
   });
 
   // ---------------- Card: Audio ----------------
@@ -1495,7 +1495,7 @@ self.onmessage = (e) => {
       rowVal('Output', () => audioInfo.sampleRate ? (isPlugin() ? `${nf(outMs(), 1)} ms buffer (output latency: host)` : `${nf(outMs(), 1)} ms (driver, incl. buffer)`) : '–'),
       rowVal('Processing', () => audioInfo.sampleRate ? `${nf(procLatency / audioInfo.sampleRate * 1000, 1)} ms (tube oversampling)` : '–'),
       rowVal('Total', () => audioInfo.sampleRate ? `${nf(outMs() + procLatency / audioInfo.sampleRate * 1000, 1)} ms + sound path ${nf(soundPathMs(), 1)} ms` : '–'),
-    ], 'Sound path: travel time from the Leslie to the listener or the nearest mic – as in a real room. Key-to-computer time (MIDI, USB) can\'t be measured.'));
+    ], 'Sound path: travel time from the Rotary to the listener or the nearest mic – as in a real room. Key-to-computer time (MIDI, USB) can\'t be measured.'));
     p.appendChild(sec('Outputs · CPU', [], [
       rowVal('Active', () => audioInfo.outputs ? `${audioInfo.outputs} outputs` : '–'),
       rowVal('Channels', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
@@ -1510,8 +1510,8 @@ self.onmessage = (e) => {
   function isPlugin() { return audioInfo.type === 'Plugin'; }
   function outMs() { return (audioInfo.outLatencySamples || audioInfo.bufferSize || 0) / (audioInfo.sampleRate || 48000) * 1000; }
   function soundPathMs() {
-    if (S.mics.on) { const M = S.mics; return Math.min(0.37 + M.hornDist, Math.hypot(M.roomX - S.lesliePos.x, M.roomY - S.lesliePos.y)) / 343 * 1000; }
-    return Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y) / 343 * 1000;
+    if (S.mics.on) { const M = S.mics; return Math.min(0.37 + M.hornDist, Math.hypot(M.roomX - S.rotaryPos.x, M.roomY - S.rotaryPos.y)) / 343 * 1000; }
+    return Math.hypot(S.rotaryPos.x - S.listener.x, S.rotaryPos.y - S.listener.y) / 343 * 1000;
   }
   // ---------------- Room presets ----------------
   function matchRoom() {
@@ -1523,10 +1523,10 @@ self.onmessage = (e) => {
     const r = ROOMS[i]; if (!r) return;
     if (r.tent) { setShape('tent'); return; }
     if (S.room.shape !== 'box') { S.room.shape = 'box'; send({ type: 'room', v: { shape: 'box', absBands: null } }); }
-    const fx = S.lesliePos.x / S.room.Lx, fy = S.lesliePos.y / S.room.Ly, gx = S.listener.x / S.room.Lx;
+    const fx = S.rotaryPos.x / S.room.Lx, fy = S.rotaryPos.y / S.room.Ly, gx = S.listener.x / S.room.Lx;
     Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material });
-    S.lesliePos.x = fx * r.Lx; S.lesliePos.y = Math.min(r.Ly - 1, fy * r.Ly);
-    S.listener.x = gx * r.Lx; S.listener.y = Math.max(0.6, S.lesliePos.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
+    S.rotaryPos.x = fx * r.Lx; S.rotaryPos.y = Math.min(r.Ly - 1, fy * r.Ly);
+    S.listener.x = gx * r.Lx; S.listener.y = Math.max(0.6, S.rotaryPos.y - Math.min(4 + r.Ly * 0.15, r.Ly * 0.6));
     clampPos(); send({ type: 'room', v: S.room }); sendPos(true);
     if (S.mics.placed) { S.mics.roomX = clamp(S.mics.roomX, 0.5, r.Lx - 0.5); S.mics.roomY = clamp(S.mics.roomY, 0.5, r.Ly - 0.5); sendMics(); }
     syncAll();
@@ -1547,7 +1547,7 @@ self.onmessage = (e) => {
     if (shape === S.room.shape) { syncAll(); return; }
     S.room.shape = shape;
     if (shape === 'tent') applyTent(true);
-    else { const r = ROOMS[1]; Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); S.lesliePos = { x: 4.2, y: 6.3 }; S.listener.x = 2.6; S.listener.y = 2.4; clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); }
+    else { const r = ROOMS[1]; Object.assign(S.room, { Lx: r.Lx, Ly: r.Ly, Lz: r.Lz, absorb: r.absorb, reverb: r.reverb, material: r.material }); S.rotaryPos = { x: 4.2, y: 6.3 }; S.listener.x = 2.6; S.listener.y = 2.4; clampPos(); send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) }); sendPos(true); }
     syncAll();
   }
   function applyTent(reposition) {
@@ -1560,7 +1560,7 @@ self.onmessage = (e) => {
     const aMan = Math.PI * g.rRing * g.rRing, aTrib = Math.PI * (g.rT2 * g.rT2 - g.rT1 * g.rT1), aGround = Math.max(0, area - aMan - aTrib), aPlane = area * 1.3 + perim * T.hw;
     const manRefl = T.ringFloor === 'ground' ? refl.ground : refl.sand;
     const absB = [0, 1, 2].map(i => (aPlane * (1 - refl.canvas[i]) + aMan * (1 - manRefl[i]) + aTrib * (1 - refl.trib[i]) + aGround * (1 - refl.ground[i])) / (aPlane + aMan + aTrib + aGround));
-    if (reposition) { S.lesliePos.x = S.room.Lx / 2; S.lesliePos.y = S.room.Ly / 2 + 2; S.listener.x = S.room.Lx / 2; S.listener.y = S.room.Ly / 2 - T.ring / 2 - 2.5; S.listener.yaw = Math.PI / 2; }
+    if (reposition) { S.rotaryPos.x = S.room.Lx / 2; S.rotaryPos.y = S.room.Ly / 2 + 2; S.listener.x = S.room.Lx / 2; S.listener.y = S.room.Ly / 2 - T.ring / 2 - 2.5; S.listener.yaw = Math.PI / 2; }
     clampPos();
     send({ type: 'room', v: { shape: 'tent', Lx: S.room.Lx, Ly: S.room.Ly, Lz: S.room.Lz, material: 'tent', absorb: 0.5, tentVolume: V, tentSurface: aPlane + aMan + aTrib + aGround, absBands: absB } });
     sendPos(!!reposition);
@@ -1575,7 +1575,7 @@ self.onmessage = (e) => {
     }
     traceId++;
     const caps = { 1: 10000, 2: 14000, 3: 18000, 4: 22000, 5: 28000 };
-    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.lesliePos.x, y: S.lesliePos.y, z: 0.8 }, rec: { x: S.listener.x, y: S.listener.y, z: 1.2 },
+    tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.rotaryPos.x, y: S.rotaryPos.y, z: 0.8 }, rec: { x: S.listener.x, y: S.listener.y, z: 1.2 },
       rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.audience, scatter: 0.15, ground: S.tent.ground, ringFloor: S.tent.ringFloor });
     tInfoText = 'tracing …';
   }
@@ -1585,10 +1585,10 @@ self.onmessage = (e) => {
   function setYaw(rad, jump) { S.listener.yaw = rad; sendPos(jump); syncAll(); }
   function clampPos() {
     const R = S.room, c = (v, hi) => clamp(v, 0.35, hi - 0.35);
-    S.lesliePos.x = c(S.lesliePos.x, R.Lx); S.lesliePos.y = c(S.lesliePos.y, R.Ly); S.listener.x = c(S.listener.x, R.Lx); S.listener.y = c(S.listener.y, R.Ly);
+    S.rotaryPos.x = c(S.rotaryPos.x, R.Lx); S.rotaryPos.y = c(S.rotaryPos.y, R.Ly); S.listener.x = c(S.listener.x, R.Lx); S.listener.y = c(S.listener.y, R.Ly);
     if (R.shape === 'tent') {
       const g = tentGeo();
-      for (const o of [S.lesliePos, S.listener]) {
+      for (const o of [S.rotaryPos, S.listener]) {
         const d = tentPlanD(o.x, o.y), lim = g.W / 2 - 0.6;
         if (d > lim) { const ax = clamp(o.x - g.cx, -g.Ls / 2, g.Ls / 2) + g.cx, ay = g.cy; o.x = ax + (o.x - ax) * lim / d; o.y = ay + (o.y - ay) * lim / d; }
       }
@@ -1596,9 +1596,9 @@ self.onmessage = (e) => {
   }
   let lastTracePos = '';
   function sendPos(jump) {
-    send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: !!jump });
+    send({ type: 'pos', rotaryPos: S.rotaryPos, listener: S.listener, jump: !!jump });
     if (S.room.shape !== 'tent') return;
-    const key = [S.lesliePos.x, S.lesliePos.y, S.listener.x, S.listener.y].map(v => v.toFixed(3)).join();   // the trace does not depend on the viewing direction
+    const key = [S.rotaryPos.x, S.rotaryPos.y, S.listener.x, S.listener.y].map(v => v.toFixed(3)).join();   // the trace does not depend on the viewing direction
     if (key !== lastTracePos) { lastTracePos = key; scheduleTrace(); }
   }
 
@@ -1615,25 +1615,25 @@ self.onmessage = (e) => {
     let drag = null;
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('pointerdown', (e) => {
-      const [px, py] = local(e), [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), [hx, hy] = W2C(S.listener.x, S.listener.y);
+      const [px, py] = local(e), [lx, ly] = W2C(S.rotaryPos.x, S.rotaryPos.y), [hx, hy] = W2C(S.listener.x, S.listener.y);
       const dl = Math.hypot(px - lx, py - ly), dh = Math.hypot(px - hx, py - hy);
       const [mx, my] = W2C(S.mics.roomX, S.mics.roomY), dm = S.mics.on ? Math.hypot(px - mx, py - my) : 1e9;
-      if (e.button === 2) drag = dm < 18 ? 'pairRot' : 'rot'; else if (dm < 16 && dm <= dh && dm <= dl) drag = 'pair'; else if (dh < 24 && dh <= dl) drag = 'listener'; else if (dl < 30) drag = 'lesliePos'; else drag = null;
+      if (e.button === 2) drag = dm < 18 ? 'pairRot' : 'rot'; else if (dm < 16 && dm <= dh && dm <= dl) drag = 'pair'; else if (dh < 24 && dh <= dl) drag = 'listener'; else if (dl < 30) drag = 'rotaryPos'; else drag = null;
       if (drag) cv.setPointerCapture(e.pointerId);
     });
     cv.addEventListener('pointermove', (e) => {
       const [px, py] = local(e);
-      if (!drag) { const [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), [hx, hy] = W2C(S.listener.x, S.listener.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
+      if (!drag) { const [lx, ly] = W2C(S.rotaryPos.x, S.rotaryPos.y), [hx, hy] = W2C(S.listener.x, S.listener.y); cv.style.cursor = (Math.hypot(px - lx, py - ly) < 30 || Math.hypot(px - hx, py - hy) < 24) ? 'grab' : 'default'; return; }
       const [wx, wy] = C2W(px, py);
       if (drag === 'rot') setYaw(Math.atan2(wy - S.listener.y, wx - S.listener.x));
       else if (drag === 'pair') { S.mics.roomX = clamp(wx, 0.3, S.room.Lx - 0.3); S.mics.roomY = clamp(wy, 0.3, S.room.Ly - 0.3); S.mics.placed = true; sendMics(); }
       else if (drag === 'pairRot') { S.mics.roomYaw = Math.atan2(wy - S.mics.roomY, wx - S.mics.roomX); sendMics(); }
-      else { const o = drag === 'lesliePos' ? S.lesliePos : S.listener; o.x = wx; o.y = wy; clampPos(); sendPos(); }
+      else { const o = drag === 'rotaryPos' ? S.rotaryPos : S.listener; o.x = wx; o.y = wy; clampPos(); sendPos(); }
     });
     const up = () => { if (drag) syncAll(); drag = null; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const [px, py] = local(e), [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
+      const [px, py] = local(e), [lx, ly] = W2C(S.rotaryPos.x, S.rotaryPos.y), d = Math.sign(e.deltaY) * 7.5 * Math.PI / 180;
       const [mx, my] = W2C(S.mics.roomX, S.mics.roomY);
       if (S.mics.on && Math.hypot(px - mx, py - my) < 22) { S.mics.roomYaw -= d; sendMics(); syncAll(); }
       else if (Math.hypot(px - lx, py - ly) < 34) setCabYaw(S.cabYaw - d); else setYaw(S.listener.yaw - d);
@@ -1655,7 +1655,7 @@ self.onmessage = (e) => {
       g.fillStyle = '#5a4a2a'; g.fillRect(X(-gt.rRing), Y(0) - 2, 2 * gt.rRing * sc, 2);
       g.strokeStyle = '#e8dcc4'; g.lineWidth = 2; const md = S.tent.mast / 2 * Math.SQRT2;
       for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(X(dir * md), Y(0)); g.lineTo(X(dir * md), Y(mastTop)); g.stroke(); }
-      const dl = Math.hypot(S.lesliePos.x - gt.cx, S.lesliePos.y - gt.cy), dh = Math.hypot(S.listener.x - gt.cx, S.listener.y - gt.cy);
+      const dl = Math.hypot(S.rotaryPos.x - gt.cx, S.rotaryPos.y - gt.cy), dh = Math.hypot(S.listener.x - gt.cx, S.listener.y - gt.cy);
       g.fillStyle = '#f2c879'; g.fillRect(X(-dl) - 3, Y(1.1), 6, 1.1 * sc);
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(X(dh), Y(1.5), 3, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#8f8370'; g.font = '11px "Barlow Condensed", sans-serif';
@@ -1688,7 +1688,7 @@ self.onmessage = (e) => {
         grid();
         g.strokeStyle = '#6b5a40'; g.lineWidth = 2.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
         // Sound paths: direct + 1st order, weighted by horn radiation
-        const L = S.lesliePos, Hh = S.listener;
+        const L = S.rotaryPos, Hh = S.listener;
         const imgs = [[L.x, L.y], [-L.x, L.y], [2 * R.Lx - L.x, L.y], [L.x, -L.y], [L.x, 2 * R.Ly - L.y]];
         g.lineCap = 'round';
         imgs.forEach(([ix, iy], i) => {
@@ -1701,9 +1701,9 @@ self.onmessage = (e) => {
           pts.forEach(([x, y], j) => { const [a, b] = W2C(x, y); j ? g.lineTo(a, b) : g.moveTo(a, b); }); g.stroke();
         });
       }
-      if (R.shape === 'tent') { const [a1, b1] = W2C(S.lesliePos.x, S.lesliePos.y), [a2, b2] = W2C(S.listener.x, S.listener.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
-      // Leslie cabinet
-      const [lx, ly] = W2C(S.lesliePos.x, S.lesliePos.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
+      if (R.shape === 'tent') { const [a1, b1] = W2C(S.rotaryPos.x, S.rotaryPos.y), [a2, b2] = W2C(S.listener.x, S.listener.y); g.strokeStyle = 'rgba(242,163,58,.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b2); g.stroke(); }
+      // Rotary cabinet
+      const [lx, ly] = W2C(S.rotaryPos.x, S.rotaryPos.y), cab = clamp(0.74 * view.s, big ? 26 : 22, 60);
       g.save(); g.translate(lx, ly); g.rotate(-S.cabYaw + Math.PI / 2);
       const cw = cab, cd = cab * 0.72;
       g.fillStyle = '#4a2e1c'; g.strokeStyle = '#a8743f'; g.lineWidth = 1.5; g.beginPath(); g.roundRect(-cw / 2, -cd / 2, cw, cd, 3); g.fill(); g.stroke();
@@ -1716,13 +1716,13 @@ self.onmessage = (e) => {
       g.strokeStyle = '#f2c879'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(lx, ly); g.lineTo(hx2, hy2); g.stroke();
       g.fillStyle = '#f2c879'; g.beginPath(); g.arc(hx2, hy2, 3.5, 0, Math.PI * 2); g.fill();
       g.strokeStyle = 'rgba(242,200,121,.3)'; g.lineWidth = 2; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - Math.cos(hornA) * hl * 0.7, ly + Math.sin(hornA) * hl * 0.7); g.stroke();
-      g.fillStyle = '#c9b89c'; g.font = '12px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Leslie', lx, ly + cab / 2 + 14); g.textAlign = 'left';
+      g.fillStyle = '#c9b89c'; g.font = '12px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Rotary', lx, ly + cab / 2 + 14); g.textAlign = 'left';
       // Mics
       if (S.mics.on) {
         const M = S.mics, D2R = Math.PI / 180;
         const mic = (x, y, ax, ay, r) => { const [a, b] = W2C(x, y); g.strokeStyle = '#f2c879'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a, b); g.lineTo(a + ax * (r + 7), b - ay * (r + 7)); g.stroke(); g.fillStyle = '#f2c879'; g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill(); g.fillStyle = '#17130f'; g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill(); };
         const close = (st, ang, center, dist) => {
-          const [a, b] = W2C(S.lesliePos.x, S.lesliePos.y);
+          const [a, b] = W2C(S.rotaryPos.x, S.rotaryPos.y);
           (st ? [center - ang / 2, center + ang / 2] : [center]).forEach((ph) => {
             const t = S.cabYaw + ph * D2R, c = Math.cos(t), sn = Math.sin(t), cf = Math.abs(Math.cos(ph * D2R)), sf = Math.abs(Math.sin(ph * D2R));
             const R = Math.min(cf > 1e-6 ? 0.275 / cf : 1e9, sf > 1e-6 ? 0.37 / sf : 1e9) + Math.max(0.02, dist);
@@ -1750,7 +1750,7 @@ self.onmessage = (e) => {
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
       g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();
       g.fillStyle = '#f2a33a'; [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 9, hy - Math.sin(yaw + o) * 9, 2.6, 0, Math.PI * 2); g.fill(); });
-      g.fillStyle = '#c9b89c'; g.fillText(`You · ${nf(Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y))} m`, hx + 14, hy + 22);
+      g.fillStyle = '#c9b89c'; g.fillText(`You · ${nf(Math.hypot(S.rotaryPos.x - S.listener.x, S.rotaryPos.y - S.listener.y))} m`, hx + 14, hy + 22);
       g.globalAlpha = 1;
     }
     return self;
@@ -1941,7 +1941,7 @@ self.onmessage = (e) => {
     if (e.target && e.target.tagName === 'SELECT') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.repeat) { if (e.code === 'Space' || KEYMAP[e.code] !== undefined) e.preventDefault(); return; }
-    if (e.code === 'Space') { e.preventDefault(); setLeslie(S.leslie === 'fast' ? 'slow' : 'fast'); return; }
+    if (e.code === 'Space') { e.preventDefault(); setRotary(S.rotary === 'fast' ? 'slow' : 'fast'); return; }
     if (e.code === 'Escape') { panic(); if (tab !== 'spielen') setTab('spielen'); return; }
     if (KEYMAP[e.code] !== undefined) {
       e.preventDefault();
@@ -1957,10 +1957,10 @@ self.onmessage = (e) => {
   // ---------------- Push the whole state to the DSP ----------------
   function pushAll() {
     if (S.room.shape === 'tent') applyTent(false); else send({ type: 'room', v: Object.assign({}, S.room, { absBands: null }) });
-    send({ type: 'pos', lesliePos: S.lesliePos, listener: S.listener, jump: true });
+    send({ type: 'pos', rotaryPos: S.rotaryPos, listener: S.listener, jump: true });
     [0, 1, 2].forEach(sendDb); sendPerc();
     send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive }); send({ type: 'click', v: S.click }); send({ type: 'volume', v: S.volume });
-    send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'leslie', v: S.leslie }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
+    send({ type: 'balance', v: S.balance }); send({ type: 'lfe', v: S.lfe }); send({ type: 'rotary', v: S.rotary }); sendChr(); send({ type: 'cabYaw', v: S.cabYaw, jump: true });
     sendOrgan(); sendRotor(0); sendRotor(1); send({ type: 'brake', v: S.brake }); sendCab(); sendAmp(); sendOut(); sendMidi(); sendPre(); sendMains(); sendSpring(); sendPrecision(); sendThreads(); sendMics(); sendOffline(); sendKeyMap();
     applyMode();
   }
@@ -1999,7 +1999,7 @@ self.onmessage = (e) => {
       if (m.type === 'noteOn' || m.type === 'noteOff') {
         const man = m.man | 0; if (man < 0) return;
         if (m.type === 'noteOn') { active[man].add(m.key); keyEl(man, m.key, true); } else { active[man].delete(m.key); keyEl(man, m.key, false); }
-      } else if (m.type === 'leslie') { S.leslie = m.v; syncAll(); }
+      } else if (m.type === 'rotary') { S.rotary = m.v; syncAll(); }
       else if (m.type === 'volume') { S.volume = m.v; syncAll(); }
       else if (m.type === 'panic') { [0, 1, 2].forEach(man => { active[man].forEach(k => keyEl(man, k, false)); active[man].clear(); }); }
     });
@@ -2028,7 +2028,11 @@ self.onmessage = (e) => {
     fix(o.room, 'material'); fix(o.room, 'shape'); fix(o.tent, 'ground');
     if (o.tent) { const T = o.tent, R = { man: 'ring', kup: 'dome', aud: 'audience', sagp: 'sagPct', manege: 'ringFloor' }; for (const k in R) if (k in T && !(R[k] in T)) T[R[k]] = T[k]; fix(T, 'ringFloor'); }
     if (o.cab && 'hornfach' in o.cab && !('hornBox' in o.cab)) o.cab.hornBox = o.cab.hornfach;
-    if (o.lesliePos === undefined && o.les) o.lesliePos = o.les;
+    if (o.rotaryPos === undefined && o.lesliePos) o.rotaryPos = o.lesliePos;   // saved by versions before the rename
+    if (o.rotary === undefined && typeof o.leslie === 'string') o.rotary = o.leslie;
+    if (o.midi && o.midi.rotaryCC === undefined && o.midi.leslieCC !== undefined) o.midi.rotaryCC = o.midi.leslieCC;
+    delete o.lesliePos; delete o.leslie; if (o.midi) delete o.midi.leslieCC;
+    if (o.rotaryPos === undefined && o.les) o.rotaryPos = o.les;
     if (o.listener === undefined && o.lis) o.listener = o.lis;
     return o;
   }
@@ -2039,7 +2043,7 @@ self.onmessage = (e) => {
     if ((m = /^db_([ulp])_(\d)$/.exec(id))) { S.db[{ u: 'upper', l: 'lower', p: 'pedal' }[m[1]]][+m[2]] = Math.round(v); return; }
     const b = v > 0.5;
     switch (id) {
-      case 'leslie': S.leslie = LES_IDS[Math.round(v)] || 'slow'; break;
+      case 'leslie': S.rotary = LES_IDS[Math.round(v)] || 'slow'; break;   // host parameter ID kept from earlier versions
       case 'swell': S.volume = v; break;
       case 'drive': S.drive = v; break;
       case 'vib': S.vib = VIB_IDS[Math.round(v)] || 'c3'; break;
@@ -2060,7 +2064,7 @@ self.onmessage = (e) => {
     const pv = NATIVE ? await nativeInvoke('params') : null;
     if (pv) { if (!loadedState) { muteSend = true; applyInstrument(0); muteSend = false; } loadedState = true; Object.entries(pv).forEach(([id, v]) => applyParam(id, v)); }
     if (!loadedState) applyInstrument(0);   // first start: B3 + 122 as in the original
-    if (S.leslie === 'stop' && S.halfMoon !== 'stop') S.leslie = 'slow';
+    if (S.rotary === 'stop' && S.halfMoon !== 'stop') S.rotary = 'slow';
     fit(); setTab('spielen'); buildMeters();
     pushAll(); ready = true;
     nativeInvoke('audioInfo');

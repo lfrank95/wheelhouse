@@ -15,7 +15,7 @@
 #include <algorithm>
 #include "RotorRadiation.h"
 
-namespace leslie {
+namespace rotary {
 
 struct MicEq { char type; double f, q, db; };   // 'h' highpass, 'l' lowpass, 'p' peak/bell, 's' low shelf
 struct MicType { const char* name; double a[3]; double prox, wind, diffuse; int nEq; MicEq eq[5]; };
@@ -79,4 +79,4 @@ struct MicRt {
     std::array<float, 16> fdnRow{}; std::array<int, 16> fdnOff{};
 };
 
-} // namespace leslie
+} // namespace rotary

@@ -1,7 +1,7 @@
-#include "../Source/LeslieRoomDSP.h"
+#include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
 #include <chrono>
-using namespace leslie;
+using namespace rotary;
 int main() {
     double fs = 48000; SpringReverb sp(fs); sp.setEnabled(true); sp.setMix(1); sp.setDecay(2.8);
     int n = (int) (fs * 4); std::vector<float> x(n, 0.f); x[0] = 1;

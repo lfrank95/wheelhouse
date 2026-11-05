@@ -9,7 +9,7 @@
 // the mean power over the horizontal circle per third-octave equals the previous hand-made model: the diffuse-field
 // tone stays, the directivity changes.
 #pragma once
-namespace leslie { namespace rotordir {
+namespace rotary { namespace rotordir {
 
 static const float HORN_EDGES[3] = {1250, 3150, 8000};
 static const float DRUM_EDGES[2] = {200, 400};
@@ -50,4 +50,4 @@ static const float DRUM[37][3] = {
     {-0.41, -10.91, -12.69}
 };
 
-}} // namespace leslie::rotordir
+}} // namespace rotary::rotordir

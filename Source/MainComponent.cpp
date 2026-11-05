@@ -3,7 +3,7 @@
 
 using namespace juce;
 
-// UI state (drawbars, room, Leslie, MIDI channels, ...) persisted between two program starts
+// UI state (drawbars, room, Rotary, MIDI channels, ...) persisted between two program starts
 static File uiStateFile() { return File::getSpecialLocation(File::userApplicationDataDirectory).getChildFile("Wheelhouse").getChildFile("ui-state.json"); }
 
 MainComponent::MainComponent() {

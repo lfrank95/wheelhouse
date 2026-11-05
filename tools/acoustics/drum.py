@@ -1,4 +1,4 @@
-"""Leslie 122 bass rotor (estimated geometry) as a voxel model, 3D BEM, horizontal polar per third-octave band.
+"""Rotary 122 bass rotor (estimated geometry) as a voxel model, 3D BEM, horizontal polar per third-octave band.
 Usage: python3 drum.py [out.npz]
 """
 import numpy as np, sys

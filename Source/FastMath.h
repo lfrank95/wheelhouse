@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace leslie {
+namespace rotary {
 namespace fastmath {
 
 /** atan with ~1e-6 max error: argument reduction to [0,1], odd polynomial. */
@@ -24,4 +24,4 @@ inline double atanFast(double x) {
 }
 
 } // namespace fastmath
-} // namespace leslie
+} // namespace rotary

@@ -1,8 +1,8 @@
-#include "../Source/LeslieAmp.h"
+#include "../Source/RotaryAmp.h"
 #include <cstdio>
 #include <complex>
-using namespace leslie::amp;
-double gainAt(LeslieAmp& a, double fs, double f, double amp) {
+using namespace rotary::amp;
+double gainAt(RotaryAmp& a, double fs, double f, double amp) {
     std::vector<float> y((size_t) (fs * 0.4));
     for (size_t i = 0; i < y.size(); i++) y[i] = (float) (amp * std::sin(2 * PI * f * i / fs));
     a.process(y.data(), (int) y.size());
@@ -13,7 +13,7 @@ double gainAt(LeslieAmp& a, double fs, double f, double amp) {
 int main() {
     const double fs = 48000;
     for (int q = 1; q <= 2; q++) {
-        LeslieAmp a(fs); a.setQuality(q); a.setDrive(0.35);
+        RotaryAmp a(fs); a.setQuality(q); a.setDrive(0.35);
         printf("Q%d frequency response (small signal): ", q);
         for (double f : {20.0, 40.0, 80.0, 200.0, 1000.0, 3000.0, 8000.0, 15000.0}) printf("%g Hz %.2f dB  ", f, 20 * std::log10(gainAt(a, fs, f, 0.01)));
         printf("\n   40 Hz loud (0.25): gain %.2f dB; 1 kHz loud: %.2f dB\n", 20 * std::log10(gainAt(a, fs, 40, 0.25)), 20 * std::log10(gainAt(a, fs, 1000, 0.25)));
