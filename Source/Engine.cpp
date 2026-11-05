@@ -15,20 +15,20 @@ const std::vector<WheelhouseEngine::ParamDef>& WheelhouseEngine::params() {
         std::vector<ParamDef> v;
         static const char* ft[9] = {"16'", "5 1/3'", "8'", "4'", "2 2/3'", "2'", "1 3/5'", "1 1/3'", "1'"};
         static const float du[9] = {8, 8, 8, 0, 0, 0, 0, 0, 0}, dl[9] = {0, 0, 8, 4, 0, 0, 0, 0, 0};
-        for (int i = 0; i < 9; i++) v.push_back({ "db_u_" + std::to_string(i), std::string("Ober ") + ft[i], 1, 0, 8, du[i] });
-        for (int i = 0; i < 9; i++) v.push_back({ "db_l_" + std::to_string(i), std::string("Unter ") + ft[i], 1, 0, 8, dl[i] });
+        for (int i = 0; i < 9; i++) v.push_back({ "db_u_" + std::to_string(i), std::string("Upper ") + ft[i], 1, 0, 8, du[i] });
+        for (int i = 0; i < 9; i++) v.push_back({ "db_l_" + std::to_string(i), std::string("Lower ") + ft[i], 1, 0, 8, dl[i] });
         v.push_back({ "db_p_0", "Pedal 16'", 1, 0, 8, 6 });
         v.push_back({ "db_p_1", "Pedal 8'", 1, 0, 8, 3 });
         v.push_back({ "leslie", "Leslie", 3, 0, 2, 1 });
-        v.push_back({ "swell", "Schweller", 0, 0, 1, 0.8f });
+        v.push_back({ "swell", "Swell", 0, 0, 1, 0.8f });
         v.push_back({ "drive", "Drive", 0, 0, 1, 0.35f });
         v.push_back({ "vib", "Vibrato/Chorus", 3, 0, 5, 5 });
-        v.push_back({ "vib_upper", "Vibrato Ober", 2, 0, 1, 1 });
-        v.push_back({ "vib_lower", "Vibrato Unter", 2, 0, 1, 0 });
+        v.push_back({ "vib_upper", "Vibrato Upper", 2, 0, 1, 1 });
+        v.push_back({ "vib_lower", "Vibrato Lower", 2, 0, 1, 0 });
         v.push_back({ "perc_on", "Percussion", 2, 0, 1, 1 });
-        v.push_back({ "perc_soft", "Perc. leise", 2, 0, 1, 0 });
-        v.push_back({ "perc_fast", "Perc. kurz", 2, 0, 1, 1 });
-        v.push_back({ "perc_third", "Perc. 3rd", 2, 0, 1, 1 });
+        v.push_back({ "perc_soft", "Perc Soft", 2, 0, 1, 0 });
+        v.push_back({ "perc_fast", "Perc Fast", 2, 0, 1, 1 });
+        v.push_back({ "perc_third", "Perc 3rd", 2, 0, 1, 1 });
         return v;
     }();
     return P;
@@ -38,7 +38,7 @@ static const char* VIB_IDS[6] = {"v1", "v2", "v3", "c1", "c2", "c3"};
 static const char* LESLIE_IDS[3] = {"stop", "slow", "fast"};
 
 const StringArray& WheelhouseEngine::choices(int index) {
-    static const StringArray leslie { "Stopp", "Choral", "Tremolo" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
+    static const StringArray leslie { "Stop", "Chorale", "Tremolo" }, vib { "V1", "V2", "V3", "C1", "C2", "C3" }, none;
     return index == P_LESLIE ? leslie : index == P_VIB ? vib : none;
 }
 

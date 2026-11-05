@@ -31,19 +31,23 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
 
 ## Bedienung
 
+Die Oberfläche ist englisch, mit den üblichen Begriffen aus Studio, Bühne und DAW (Drawbars, Swell, Chorale/Tremolo,
+Direct Outs …). Jeder Regler, Schalter und jede Anzeige hat einen Tooltip (Maus kurz darüber halten): was er tut,
+bei Reglern zusätzlich die Bedienung.
+
 **Instrument-Presets** (Menü oben links, Gruppe „Instrument“) stellen Orgel, Vorverstärker, Leslie und Hall auf einmal
 ein, Raum, Mikros, Ausgabe und MIDI bleiben unberührt:
 
-* **B3 + Leslie 122 (Original)** – gepflegte B3 der 60er; Leslie-Drehzahlen nach Messungen an echten Leslies
-  (Horn 48/400 U/min, Trommel 40/342 U/min), Serien-122 ohne Stopp, kein Hall. Startzustand beim ersten Start.
-* **B3 + Leslie 147 (Rock)**, **A-100 + Federhall**, **Tour-B3 (abgerockt)**.
+* **B3 + 122 (Stock)** – gepflegte B3 der 60er; Leslie-Drehzahlen nach Messungen an echten Leslies
+  (Horn 48/400 rpm, Drum 40/342 rpm), Serien-122 ohne Stopp, kein Hall. Startzustand beim ersten Start.
+* **B3 + 147 (Rock)**, **A-100 + Spring Reverb**, **Road-worn B3**.
 
 Das Fenster ist auf 1600 × 900 ausgelegt und skaliert mit. Oben die Registerkarten, darunter das Gehäuse
 mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Pedal mit 25 Tönen.
 
-* **Spielen**: 9 Zugriegel Ober, 2 Pedal (16′/8′), 9 Unter; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
+* **Play**: 9 Zugriegel Upper, 2 Pedal (16′/8′), 9 Lower; Percussion-Wippen (nur Obermanual) und Vibrato je Manual.
   Zugriegel und Knöpfe ziehen oder Mausrad, Umschalt = fein, Doppelklick = Standardwert.
-* **Orgel**: Zustand (auch Pegelstreuung und Schlag der Tonräder: jedes Rad eiert mit eigener Stärke und Richtung,
+* **Organ**: Condition (auch Pegelstreuung und Schlag der Tonräder: jedes Rad eiert mit eigener Stärke und Richtung,
   0,2 % neu bis etwa 4 % abgenutzt, obere Räder stärker), Übersprechen, Kontakte, Motor, Stimmung, Sammelschiene, Percussion-Pegel und Abklingzeiten,
   Netzfrequenz 50/60 Hz (Brumm aus dem Netzteil, steigt mit dem Zustand), Key-Click fest oder nach Anschlag,
   Tastengeräusch. „Motor“ ist das Surren von Generator und Laufmotor.
@@ -60,20 +64,20 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Pedal**: wie in B-3/C-3 verdrahtet – acht Kontakte je Pedal auf vier Sammelschienen (Grundton + 3., 2. + 4.,
   6. + 8., 10. + 12. Harmonische), über die Widerstandsdrähte R81–R86 auf die Zugriegel 16′ und 8′ gemischt. Die
   untersten zwölf Töne kommen von den Complex-Tonrädern (fast rechteckig: ungerade Harmonische).
-* **Modus Hörer / Mikros** (Kopfleiste): Hörer = du stehst im Raum; Mikros = Nahmikros und Raumpaar über das Pult.
+* **Modus Listener / Mics** (Kopfleiste): Listener = du stehst im Raum; Mics = Nahmikros und Raumpaar über das Pult.
   Umschalten blendet weich über, der jeweils andere Teil wird nicht gerechnet.
-* **Mikros**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel (Mono oder Stereo), ein Raumpaar
+* **Mics**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel (Mono oder Stereo), ein Raumpaar
   (AB, XY, ORTF), das im Grundriss gezogen und gedreht wird. Mikrotypen: 57, 421, D112, RE20, 87 (Niere/Kugel/Acht), KM 84,
   121 (Bändchen) – je mit Frequenzgang, Richtcharakteristik je Band, Nahbesprechungseffekt und Windempfindlichkeit.
   Pult mit drei Gruppen (Horn, Trommel, Raum): Stereo-Kanal mit Balance und Breite oder Mono-Kanal mit Panorama, dazu
   Fader, Polarität, Stumm/Solo, Laufzeit und Ziel (vorne/hinten oder Einzelausgang bis 16). Beim Wechsel Mono ↔ Stereo
   wandern die Mikros, das zweite blendet ein oder aus.
-* **Raum**: Genauigkeit „Exakt“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
-  Richtwirkung, Panorama); „Schnell“ vereinfacht ab der 2. Ordnung. Exakt mit 4.–5. Ordnung ist für starke Rechner.
-* **Raum**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
+* **Room**: Precision „Exact“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
+  Richtwirkung, Panorama); „Fast“ fasst ab der 2. Ordnung nach Richtung zusammen. Exact mit 4.–5. Ordnung ist für starke Rechner.
+* **Room**: großer Grundriss (Leslie und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
   Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
-* **Ausgabe**: Stereo / Quad / 5.1, LFE, Ausgangspegel, freie Kanalzuordnung, Kanaltest. Abhöre (Quad/5.1): Trimm für
-  die hinteren Kanäle und den Center, Center-Breite (Quelle vor dir zusätzlich als Phantom auf L/R).
+* **Output**: Stereo / Quad / 5.1, LFE, Master, freie Kanalzuordnung (Routing), Kanaltest. Monitoring (Quad/5.1): Trimm für
+  die hinteren Kanäle und den Center, Divergence (Quelle vor dir zusätzlich als Phantom auf L/R).
 * **Abbildung**: Direktschall und der spiegelnde Teil jeder Reflexion werden leistungskonstant zwischen den zwei
   nächsten Lautsprechern gelegt. Der Rest – was die Wand streut (Streugrad je Material, ISO 17497, Holz/Trockenbau
   möbliert 0,5) und was steil von Boden oder Decke kommt – bleibt in seiner Richtung, wird aber breit verteilt und
@@ -81,17 +85,17 @@ mit Leslie, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   verschiedenen Richtungen auf die Ohren und löschen sich nicht aus; im selben Lautsprecherkanal elektrisch summiert
   würden sie kammfiltern und die Drehung vorne verschmieren. Jeder Wandkontakt nimmt dem Hornstrahl Höhen. Der
   Nachhall ist auf die Summe aller Lautsprecher normiert, damit Stereo, Quad und 5.1 gleich viel Raum haben.
-* **MIDI**: Kanäle für Ober (oder Omni), Unter und Pedal, Controller für Leslie und Schweller. Alle MIDI-Eingänge sind aktiv.
-* **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Unter | Ober, „3“ = Pedal | Unter | Ober, auf dem
+* **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Leslie und Swell. Alle MIDI-Eingänge sind aktiv.
+* **Split und Oktaven**: ein Keyboard für mehrere Manuale – „2“ = Lower | Upper, „3“ = Pedal | Lower | Upper, auf dem
   Kanal des Obermanuals. Trennpunkte in der Leiste über den Manualen (‹ › halbtonweise, ● = nächste Taste am Keyboard
   lernen) und in der Karte MIDI. Jedes Manual und das Pedal lässt sich rechts daneben um ±3 Oktaven verschieben.
   Auf den Manualen ist abgedunkelt, was das Keyboard nicht erreicht, die Grenzen sind gold markiert (Keyboardgröße
   in der Karte MIDI). Ein losgelassener Ton geht immer dorthin, wo er angeschlagen wurde.
 * **Audio**: Kerne (Auto = halbe Kernzahl, höchstens 8, oder 1–16): Raum und Mikros rechnen auf mehreren Threads,
-  jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio-Einstellungen …“ öffnet den Dialog (ASIO / Windows Audio).
-* PC-Tastatur: Y–M und Q–P, wählbar für Ober, Unter oder Pedal. Leertaste = Leslie, Esc = Panik.
+  jeder rendert einen Teil der Schallwege für den 64er-Teilblock. Gerät, Treiber, Puffer und Latenz; „Audio Settings …“ öffnet den Dialog (ASIO / Windows Audio).
+* QWERTY-Tasten: Z–M und Q–P (auf QWERTZ Y–M), wählbar für Upper, Lower oder Pedal. Leertaste = Leslie, Esc = Panic.
 * Einstellungen und Oberflächenzustand liegen in `%APPDATA%\Wheelhouse\`.
-* **Aussetzer** (Karte Audio) zählt Blöcke, die still ausgegeben wurden, weil eine Einstellung gerade den Klangkern belegt hat (sollte bei normalem Spielen 0 bleiben).
+* **Dropouts** (Karte Audio) zählt Blöcke, die still ausgegeben wurden, weil eine Einstellung gerade den Klangkern belegt hat (sollte bei normalem Spielen 0 bleiben).
 
 ## VST3
 
@@ -99,15 +103,15 @@ Derselbe Klangkern und dieselbe Oberfläche als Instrument-Plugin (`Wheelhouse.v
 Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren.
 
 * **Ausgänge**: Hauptbus Stereo, Quad oder 5.1 (je nach Spur der DAW) plus vier optionale Stereo-Busse
-  „Einzel 9/10“ … „Einzel 15/16“ für die Mikro-Einzelausgänge (Ziel im Pult der Karte Mikros).
-* **MIDI** vom Host, Noten sampelgenau. Kanalzuordnung für Ober/Unter/Pedal wie in der App (Karte MIDI).
-* **Automation**: alle 20 Zugriegel, Leslie (Stopp/Choral/Tremolo), Schweller, Drive, Vibrato/Chorus, Vibrato
-  Ober/Unter, Percussion (an, leise, kurz, 3rd). Bewegungen in der Oberfläche werden als Automation aufgezeichnet.
+  „Direct 9/10“ … „Direct 15/16“ für die Mikro-Einzelausgänge (Ziel im Mixer der Karte Mics). Der Hauptbus heißt „Main“.
+* **MIDI** vom Host, Noten sampelgenau. Kanalzuordnung für Upper/Lower/Pedal wie in der App (Karte MIDI).
+* **Automation**: alle 20 Zugriegel, Leslie (Stop/Chorale/Tremolo), Swell, Drive, Vibrato/Chorus, Vibrato
+  Upper/Lower, Percussion (On, Soft, Fast, 3rd). Die Parameter-IDs sind unverändert, ältere Automation bleibt erhalten. Bewegungen in der Oberfläche werden als Automation aufgezeichnet.
 * **Projekt**: alle übrigen Einstellungen (Raum, Mikros, Orgel, Leslie …) werden mit dem Projekt gespeichert und
   auch ohne geöffnetes Fenster geladen.
 * **Latenz** der Röhren-Oversampling-Filter wird an den Host gemeldet (Ausgleich durch die DAW).
 * **Bounce**: meldet der Host „nicht Echtzeit“, rechnet Wheelhouse mit 5. Ordnung, Exakt und Ultra-Endstufe
-  (abschaltbar in der Karte Audio: „Bounce: wie eingestellt“); danach wieder mit den eigenen Einstellungen.
+  (abschaltbar in der Karte Audio: „Bounce: As set“); danach wieder mit den eigenen Einstellungen.
 * **Kerne**: Auto nimmt im Plugin ein Viertel der Kerne, höchstens 4.
 
 ## Endstufe
@@ -128,8 +132,8 @@ der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende
 
 `Source/SpringReverb.h`: Hammond-Tank wie in A-100 und 122RV, in der Orgel vor dem Leslie. Zwei oder drei Federn als
 Rückkopplungsschleifen mit Ketten gedehnter Allpässe (Dispersion – das typische Zirpen), leicht schwankender Laufzeit,
-weich sättigendem Treiber und bandbegrenztem Wandler; „Anstoßen“ schlägt die Federn an. Modell nach Välimäki, Parker &
-Abel (2010) und Parker (2011). Regler: Hall (vorne), in der Karte Orgel Anteil, Nachhall, Klang, Antrieb, Federn.
+weich sättigendem Treiber und bandbegrenztem Wandler; „Kick“ schlägt die Federn an. Modell nach Välimäki, Parker &
+Abel (2010) und Parker (2011). Regler: Reverb (vorne), in der Karte Organ Mix, Decay, Tone, Drive, Springs.
 
 ## Gehäuse und Mechanik
 

@@ -101,7 +101,7 @@ void MainComponent::sendAudioInfo() {
     if (!web) return;
     auto* o = new DynamicObject();
     auto* dev = deviceManager.getCurrentAudioDevice();
-    o->setProperty("device", dev ? dev->getName() : "kein Gerät");
+    o->setProperty("device", dev ? dev->getName() : "no device");
     o->setProperty("type", dev ? dev->getTypeName() : "");
     o->setProperty("sampleRate", dev ? dev->getCurrentSampleRate() : 0.0);
     o->setProperty("bufferSize", dev ? dev->getCurrentBufferSizeSamples() : 0);
@@ -123,7 +123,7 @@ void MainComponent::openAudioSettings() {
     sel->setSize(520, 560);
     DialogWindow::LaunchOptions lo;
     lo.content.setOwned(sel);
-    lo.dialogTitle = "Wheelhouse – Audio- und MIDI-Einstellungen";
+    lo.dialogTitle = "Wheelhouse – Audio & MIDI Settings";
     lo.dialogBackgroundColour = Colour(0xff1d1a16);
     lo.escapeKeyTriggersCloseButton = true;
     lo.useNativeTitleBar = true;

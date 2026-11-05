@@ -4,8 +4,8 @@
 using namespace juce;
 
 AudioProcessor::BusesProperties WheelhouseProcessor::buses() {
-    auto b = BusesProperties().withOutput("Raum", AudioChannelSet::stereo(), true);
-    for (int k = 0; k < 4; k++) b = b.withOutput("Einzel " + String(9 + 2 * k) + "/" + String(10 + 2 * k), AudioChannelSet::stereo(), false);
+    auto b = BusesProperties().withOutput("Main", AudioChannelSet::stereo(), true);
+    for (int k = 0; k < 4; k++) b = b.withOutput("Direct " + String(9 + 2 * k) + "/" + String(10 + 2 * k), AudioChannelSet::stereo(), false);
     return b;
 }
 

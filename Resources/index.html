@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Wheelhouse</title>
@@ -29,7 +29,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .tabs button { font-size: 14.5px; font-weight: 600; letter-spacing: .4px; border: none; border-radius: 5px; padding: 7px 10px; background: transparent; color: #e8dcc4; }
 .tabs button.on { background: #f2a33a; color: #1a1206; }
 .oseg { display: flex; background: #1a1511; border: 1px solid #3a2f25; border-radius: 7px; padding: 3px; gap: 3px; }
-.oseg button { font-size: 14px; border: none; border-radius: 5px; padding: 6px 12px; background: transparent; color: #e8dcc4; }
+.oseg button { font-size: 14px; border: none; border-radius: 5px; padding: 6px 10px; background: transparent; color: #e8dcc4; }
 .oseg button.on { background: #f2a33a; color: #1a1206; font-weight: 700; }
 .meters { display: flex; align-items: flex-end; gap: 6px; height: 40px; }
 .meter { display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -82,7 +82,7 @@ select option { background: #1a1511; color: #e8dcc4; }
 .front { flex: none; display: flex; justify-content: center; align-items: flex-end; gap: 18px; padding-top: 8px; border-top: 1px solid #2e2620; }
 .vsep { width: 1px; align-self: stretch; background: #2e2620; }
 .tablets { display: flex; gap: 6px; }
-.tablet { width: 34px; height: 88px; padding: 8px 1px 0; border: none; border-radius: 4px; display: flex; justify-content: center; align-items: flex-start;
+.tablet { width: 41px; height: 88px; padding: 8px 1px 0; border: none; border-radius: 4px; display: flex; justify-content: center; align-items: flex-start;
   background: linear-gradient(180deg, #faf6ee 0%, #e9e1d0 55%, #bdb29c 100%); box-shadow: 0 4px 6px rgba(0,0,0,.55); }
 .tablet.on { background: linear-gradient(180deg, #bdb29c 0%, #e9e1d0 45%, #faf6ee 100%); box-shadow: inset 0 3px 4px rgba(0,0,0,.35), 0 1px 0 rgba(255,220,180,.1); }
 .tablet span { white-space: pre-line; font-size: 10.5px; font-weight: 700; letter-spacing: .2px; line-height: 1.15; color: #2a2016; display: block; }
@@ -214,9 +214,15 @@ select option { background: #1a1511; color: #e8dcc4; }
 .kk.act { background: linear-gradient(180deg, #b5731e, #7a4a10); }
 .pedrow { flex: 1; min-height: 0; margin-top: 6px; display: flex; justify-content: center; align-items: stretch; gap: 14px; }
 .pedrow svg { flex: none; display: block; touch-action: none; }
+#tip { position: fixed; z-index: 1000; max-width: 300px; padding: 7px 10px 8px; border: 1px solid #6b4426; border-radius: 5px; background: #1a1511; color: #e8dcc4;
+  font: 500 13.5px/1.3 'Barlow Condensed', sans-serif; letter-spacing: .2px; white-space: pre-line; pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.55);
+  opacity: 0; transition: opacity .12s; }
+#tip.show { opacity: 1; }
+#tip .k { display: block; margin-top: 5px; padding-top: 4px; border-top: 1px solid #3a2a1c; color: #a8977c; font-size: 12.5px; }
 </style>
 </head>
 <body>
+<div id="tip" role="tooltip"></div>
 <div id="stage">
 
   <!-- ============ Header bar ============ -->
@@ -239,14 +245,15 @@ select option { background: #1a1511; color: #e8dcc4; }
 <rect x="192.0" y="164" width="19" height="24" rx="5" fill="#26201b" stroke="#8a7a64" stroke-width="1.5"/>
 <rect x="222.5" y="160" width="7" height="32" fill="#d9ccb4"/>
 <rect x="216.5" y="192" width="19" height="24" rx="5" fill="#efe6d2" stroke="#b9ab92" stroke-width="1.5"/></g><rect x="4" y="4" width="248" height="248" rx="56" fill="none" stroke="#3a2f25" stroke-width="2"/></svg><span>Wheelhouse</span></div>
-    <select id="preset" class="sel" style="width: 220px" aria-label="Preset"></select>
-    <nav class="tabs" id="tabs" aria-label="Bereiche"></nav>
+    <select id="preset" class="sel" style="width: 205px" aria-label="Preset"></select>
+    <nav class="tabs" id="tabs" aria-label="Sections"></nav>
     <div style="flex: 1"></div>
-    <div class="oseg" id="modeSeg" aria-label="Modus: Hörer im Raum oder Mikrofone" title="Hörer: du stehst im Raum · Mikros: Nahmikros und Raumpaar über das Pult"></div>
-    <div class="oseg" id="outSeg" aria-label="Ausgabeformat"></div>
-    <div class="meters" id="meters" aria-label="Pegel je Ausgang"></div>
-    <span class="cpu">CPU <b id="cpu" class="num">–</b></span>
-    <button type="button" class="btn big" id="panic" title="Alle Töne aus (MIDI CC 123)">Panik</button>
+    <div class="oseg" id="modeSeg" aria-label="Mode: listener in the room or microphones" data-tip="Listener: you stand in the room and hear it on your speakers.
+Mics: close mics and a room pair through the mixer, like in the studio."></div>
+    <div class="oseg" id="outSeg" aria-label="Output format" data-tip="Output format: the room is rendered for this speaker layout."></div>
+    <div class="meters" id="meters" aria-label="Output levels" data-tip="Output level per channel (peak hold, red = above −1 dBFS)."></div>
+    <span class="cpu" data-tip="Audio CPU load of the standalone app.">CPU <b id="cpu" class="num">–</b></span>
+    <button type="button" class="btn big" id="panic" data-tip="All notes off and reset (MIDI CC 123). Shortcut: Esc.">Panic</button>
   </header>
 
   <!-- ============ Cabinet: Leslie, organ, room panels ============ -->
@@ -255,9 +262,9 @@ select option { background: #1a1511; color: #e8dcc4; }
 
       <!-- Leslie panel (SVG cabinet, speed buttons) -->
       <div class="panel lesP">
-        <div class="ph"><span>Leslie</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Modell 122</span></div>
+        <div class="ph"><span>Leslie</span><span id="lesModel" style="font-size: 12px; letter-spacing: 1px; color: #a8977c">Model 122</span></div>
         <div style="display: flex; gap: 16px; align-items: stretch">
-          <svg width="140" height="200" viewBox="0 0 140 200" role="img" aria-label="Leslie-Gehäuse mit offener Front" style="flex: none; display: block">
+          <svg width="140" height="200" viewBox="0 0 140 200" role="img" aria-label="Leslie cabinet with open front" data-tip="Live view of horn and drum." style="flex: none; display: block">
             <defs>
               <linearGradient id="lw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3b1f0d"/><stop offset="0.12" stop-color="#6e3d1d"/><stop offset="0.5" stop-color="#7c4724"/><stop offset="0.88" stop-color="#6a3a1b"/><stop offset="1" stop-color="#341b0b"/></linearGradient>
               <linearGradient id="lcap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5430"/><stop offset="1" stop-color="#4a2611"/></linearGradient>
@@ -297,12 +304,12 @@ select option { background: #1a1511; color: #e8dcc4; }
             <rect x="6" y="10" width="2" height="178" fill="#a86a3c" opacity="0.35"/>
           </svg>
           <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: space-between">
-            <div class="rpm"><span class="l">Horn</span><span class="v"><span id="hornRpm">0</span><small> U/min</small></span></div>
-            <div class="rpm"><span class="l">Trommel</span><span class="v"><span id="drumRpm">0</span><small> U/min</small></span></div>
-            <div style="font-size: 12.5px; color: #a8977c; line-height: 1.35" id="lesHint">Leertaste oder Modwheel schaltet um</div>
+            <div class="rpm"><span class="l">Horn</span><span class="v"><span id="hornRpm">0</span><small> rpm</small></span></div>
+            <div class="rpm"><span class="l">Drum</span><span class="v"><span id="drumRpm">0</span><small> rpm</small></span></div>
+            <div style="font-size: 12.5px; color: #a8977c; line-height: 1.35" id="lesHint">Space bar or mod wheel toggles speed</div>
           </div>
         </div>
-        <div class="speed" id="speed" aria-label="Leslie-Geschwindigkeit"></div>
+        <div class="speed" id="speed" aria-label="Leslie speed"></div>
       </div>
 
       <!-- Organ panel (drawbars, front knobs, tablets) -->
@@ -311,14 +318,14 @@ select option { background: #1a1511; color: #e8dcc4; }
         <div class="front">
           <div id="frontKnobs" style="display: flex; gap: 18px; align-items: flex-end"></div>
           <div class="vsep"></div>
-          <div class="tablets" id="tablets" aria-label="Percussion und Vibrato"></div>
+          <div class="tablets" id="tablets" aria-label="Percussion and vibrato"></div>
         </div>
       </div>
 
       <!-- Room panel (small floor plan, room presets) -->
       <div class="panel roomP">
-        <div class="ph"><span>Raum</span><button type="button" class="linkbtn" id="openRoom">Einstellungen ›</button></div>
-        <div class="rview"><canvas id="roomS"></canvas><div class="rinfo" id="rinfoS"></div></div>
+        <div class="ph"><span>Room</span><button type="button" class="linkbtn" id="openRoom" data-tip="Room settings: size, surfaces, reflections, circus tent.">Settings ›</button></div>
+        <div class="rview"><canvas id="roomS" data-tip="Floor plan. Drag the Leslie or your head · right-drag: facing · scroll: rotate."></canvas><div class="rinfo" id="rinfoS"></div></div>
         <div class="rpre" id="roomPre"></div>
       </div>
     </div>
@@ -329,17 +336,17 @@ select option { background: #1a1511; color: #e8dcc4; }
       <div class="chead">
         <span class="ct" id="cTitle"></span><span class="cs" id="cSub"></span>
         <div style="flex: 1"></div>
-        <button type="button" class="btn" id="cReset">Zurücksetzen</button>
-        <button type="button" class="btn primary" id="cClose">Zurück zum Spielen</button>
+        <button type="button" class="btn" id="cReset" data-tip="Reset everything on this page to its defaults.">Reset</button>
+        <button type="button" class="btn primary" id="cClose">Back to Play</button>
       </div>
       <div class="cbody" id="cbody">
         <div class="bigroom" id="bigRoom" hidden>
-          <div class="rview"><canvas id="roomB"></canvas><div class="rhint">Grundriss · Ziehen: Leslie / Kopf · Rechts ziehen: Blickrichtung · Mausrad: drehen</div></div>
+          <div class="rview"><canvas id="roomB" data-tip="Floor plan. Drag the Leslie or your head (or the mics) · right-drag: facing · scroll: rotate."></canvas><div class="rhint">Floor plan · Drag: Leslie / head · Right-drag: facing · Scroll: rotate</div></div>
           <div class="rstats">
-            <span>RT60 tief / mittel / hoch <b id="stRt">–</b></span>
-            <span>Hallradius <b id="stRc">–</b></span>
-            <span>Schallwege <b id="stPaths">–</b></span>
-            <span>Rechenlast <b id="stCpu">–</b></span>
+            <span data-tip="Reverb time (Eyring) in the low, mid and high band.">RT60 low / mid / high <b id="stRt">–</b></span>
+            <span data-tip="Critical distance: here direct sound and room are equally loud.">Critical distance <b id="stRc">–</b></span>
+            <span data-tip="Number of rendered sound paths (direct + image sources).">Paths <b id="stPaths">–</b></span>
+            <span>CPU <b id="stCpu">–</b></span>
           </div>
         </div>
       </div>
@@ -349,23 +356,23 @@ select option { background: #1a1511; color: #e8dcc4; }
   <!-- ============ Manuals + pedalboard ============ -->
   <section class="keys wood">
     <div class="kstrip">
-      <span style="display: flex; align-items: center; gap: 8px">Schweller <span class="swbar"><i id="swBar"></i></span></span>
+      <span style="display: flex; align-items: center; gap: 8px" data-tip="Swell (expression) pedal position.">Swell <span class="swbar"><i id="swBar"></i></span></span>
       <span id="chanInfo"></span>
       <span class="splitg" id="splitG"></span>
       <div style="flex: 1"></div>
       <span id="midiInfo">MIDI –</span>
-      <span style="display: flex; align-items: center; gap: 8px">PC-Tastatur <span class="pcseg" id="pcSeg"></span></span>
-      <span style="display: flex; align-items: center; gap: 8px">Oktave
-        <button type="button" class="octb" id="octDn" aria-label="Oktave tiefer">−</button>
+      <span style="display: flex; align-items: center; gap: 8px" data-tip="Which manual the computer keyboard plays (Z–M and Q–P rows).">QWERTY <span class="pcseg" id="pcSeg"></span></span>
+      <span style="display: flex; align-items: center; gap: 8px" data-tip="Octave of the computer keyboard.">Octave
+        <button type="button" class="octb" id="octDn" aria-label="Octave down">−</button>
         <span id="octV" class="hi" style="min-width: 14px; text-align: center">0</span>
-        <button type="button" class="octb" id="octUp" aria-label="Oktave höher">+</button>
+        <button type="button" class="octb" id="octUp" aria-label="Octave up">+</button>
       </span>
     </div>
-    <div class="manual"><div class="felt"></div><div class="mrow"><span class="vlab">Ober</span><div class="kbd" id="kbd0"></div><div class="octv" id="ov0"></div></div></div>
-    <div class="manual" style="margin-top: 6px"><div class="felt"></div><div class="mrow"><span class="vlab">Unter</span><div class="kbd" id="kbd1"></div><div class="octv" id="ov1"></div></div></div>
+    <div class="manual"><div class="felt"></div><div class="mrow"><span class="vlab">Upper</span><div class="kbd" id="kbd0"></div><div class="octv" id="ov0"></div></div></div>
+    <div class="manual" style="margin-top: 6px"><div class="felt"></div><div class="mrow"><span class="vlab">Lower</span><div class="kbd" id="kbd1"></div><div class="octv" id="ov1"></div></div></div>
     <div class="pedrow">
       <span class="vlab">Pedal</span>
-      <svg id="pedSvg" width="710" height="86" viewBox="0 0 760 92" role="img" aria-label="Pedal mit 25 Tönen">
+      <svg id="pedSvg" width="710" height="86" viewBox="0 0 760 92" role="img" aria-label="25-note pedalboard" data-tip="25-note pedalboard: click to play, or use the pedal MIDI channel.">
         <defs>
           <linearGradient id="pedWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f7448"/><stop offset="0.18" stop-color="#d9c398"/><stop offset="0.5" stop-color="#e8d7b0"/><stop offset="0.82" stop-color="#d2bb8e"/><stop offset="1" stop-color="#86693e"/></linearGradient>
           <linearGradient id="pedOn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9a6520"/><stop offset="0.5" stop-color="#f2b257"/><stop offset="1" stop-color="#9a6520"/></linearGradient>
@@ -378,7 +385,7 @@ select option { background: #1a1511; color: #e8dcc4; }
         <rect x="22" y="0" width="716" height="9" rx="2" fill="url(#pedRail)"/>
         <g id="pedKeys"></g>
       </svg>
-      <svg id="swellSvg" width="60" height="86" viewBox="0 0 64 92" role="slider" aria-label="Schwellerpedal" style="cursor: ns-resize">
+      <svg id="swellSvg" width="60" height="86" viewBox="0 0 64 92" role="slider" aria-label="Swell pedal" data-tip="Swell pedal: drag or scroll." style="cursor: ns-resize">
         <path d="M10 4 L54 4 L60 86 L4 86 Z" fill="#1a1512" stroke="#3a312a" stroke-width="1.2"/>
         <path d="M14 10 L50 10 L54 78 L10 78 Z" fill="#26201c"/>
         <path d="M16 16 L48 16 M15 24 L49 24 M15 32 L49 32 M14 40 L50 40 M13 48 L51 48 M13 56 L51 56 M12 64 L52 64 M12 72 L52 72" stroke="#3e352e" stroke-width="3" stroke-linecap="round"/>
@@ -576,8 +583,8 @@ self.onmessage = (e) => {
   const $ = (id) => document.getElementById(id);
   const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const de = (x, d = 1) => (+x).toFixed(d).replace('.', ',');
-  const pct = (v) => Math.round(v * 100) + ' %';
+  const nf = (x, d = 1) => (+x).toFixed(d);
+  const pct = (v) => Math.round(v * 100) + '%';
 
   // ---------------- Stage scaling (fixed 1600 × 900 design, scaled to the window) ----------------
   const stage = $('stage'); let SCALE = 1;
@@ -650,61 +657,61 @@ self.onmessage = (e) => {
   }
 
   const MODES = {
-    stereo: { ch: 2, names: ['L', 'R'], long: ['Links', 'Rechts'], spk: { az: [30, -30], ch: [0, 1], lfe: -1, stereo: true }, show: [30, -30] },
-    quad: { ch: 4, names: ['VL', 'VR', 'HL', 'HR'], long: ['Vorne links', 'Vorne rechts', 'Hinten links', 'Hinten rechts'], spk: { az: [45, -45, 135, -135], ch: [0, 1, 2, 3], lfe: -1 }, show: [45, -45, 135, -135] },
-    s51: { ch: 6, names: ['L', 'R', 'C', 'LFE', 'SL', 'SR'], long: ['Vorne links', 'Vorne rechts', 'Center', 'LFE', 'Surround links', 'Surround rechts'], spk: { az: [30, -30, 0, 110, -110], ch: [0, 1, 2, 4, 5], lfe: 3 }, show: [30, -30, 0, 110, -110] },
+    stereo: { ch: 2, names: ['L', 'R'], long: ['Left', 'Right'], spk: { az: [30, -30], ch: [0, 1], lfe: -1, stereo: true }, show: [30, -30] },
+    quad: { ch: 4, names: ['FL', 'FR', 'RL', 'RR'], long: ['Front left', 'Front right', 'Rear left', 'Rear right'], spk: { az: [45, -45, 135, -135], ch: [0, 1, 2, 3], lfe: -1 }, show: [45, -45, 135, -135] },
+    s51: { ch: 6, names: ['L', 'R', 'C', 'LFE', 'SL', 'SR'], long: ['Front left', 'Front right', 'Center', 'LFE', 'Surround left', 'Surround right'], spk: { az: [30, -30, 0, 110, -110], ch: [0, 1, 2, 4, 5], lfe: 3 }, show: [30, -30, 0, 110, -110] },
   };
   const ROOMS = [
-    { n: 'Wohnzimmer', s: 'Wohnz.', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'wood' },
-    { n: 'Proberaum', s: 'Probe', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'wood' },
+    { n: 'Living room', s: 'Living', Lx: 5, Ly: 6, Lz: 2.6, absorb: 0.38, reverb: 1, material: 'wood' },
+    { n: 'Rehearsal room', s: 'Jam', Lx: 6, Ly: 8, Lz: 2.8, absorb: 0.3, reverb: 1, material: 'wood' },
     { n: 'Club', s: 'Club', Lx: 12, Ly: 18, Lz: 4.5, absorb: 0.27, reverb: 1, material: 'concrete' },
-    { n: 'Festzelt', s: 'Festzelt', Lx: 20, Ly: 30, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'tent', noQuick: true },
-    { n: 'Halle', s: 'Halle', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'concrete' },
-    { n: 'Kirche', s: 'Kirche', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stone' },
-    { n: 'Zirkuszelt', s: 'Zirkus', tent: true },
+    { n: 'Festival tent', s: 'Festival', Lx: 20, Ly: 30, Lz: 7, absorb: 0.45, reverb: 0.8, material: 'tent', noQuick: true },
+    { n: 'Hall', s: 'Hall', Lx: 25, Ly: 40, Lz: 10, absorb: 0.12, reverb: 1, material: 'concrete' },
+    { n: 'Church', s: 'Church', Lx: 16, Ly: 36, Lz: 14, absorb: 0.09, reverb: 1.1, material: 'stone' },
+    { n: 'Circus tent', s: 'Circus', tent: true },
   ];
-  const MATERIALS = [['wood', 'Holz / Trockenbau'], ['concrete', 'Beton'], ['stone', 'Stein'], ['glass', 'Glas / Fliesen'], ['tent', 'Zeltplane']];
-  const MAT_SHORT = { wood: 'Holz', concrete: 'Beton', stone: 'Stein', glass: 'Glas', tent: 'Plane' };
+  const MATERIALS = [['wood', 'Wood / drywall'], ['concrete', 'Concrete'], ['stone', 'Stone'], ['glass', 'Glass / tiles'], ['tent', 'Canvas']];
+  const MAT_SHORT = { wood: 'Wood', concrete: 'Concrete', stone: 'Stone', glass: 'Glass', tent: 'Canvas' };
   const UPPER_PRESETS = [
-    ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Gospel', [8, 8, 8, 8, 8, 8, 8, 8, 8]], ['Rock', [8, 8, 8, 8, 0, 0, 0, 0, 0]], ['Ballade', [8, 3, 8, 0, 0, 0, 0, 0, 0]],
-    ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]], ['Theater', [8, 7, 6, 5, 4, 3, 2, 1, 1]], ['Perc 2nd', [8, 4, 8, 0, 0, 0, 0, 0, 0]], ['Smith', [8, 8, 8, 8, 0, 0, 0, 0, 8]],
+    ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Gospel', [8, 8, 8, 8, 8, 8, 8, 8, 8]], ['Rock', [8, 8, 8, 8, 0, 0, 0, 0, 0]], ['Ballad', [8, 3, 8, 0, 0, 0, 0, 0, 0]],
+    ['Flute', [0, 0, 8, 0, 0, 0, 0, 0, 0]], ['Theatre', [8, 7, 6, 5, 4, 3, 2, 1, 1]], ['Perc 2nd', [8, 4, 8, 0, 0, 0, 0, 0, 0]], ['Smith', [8, 8, 8, 8, 0, 0, 0, 0, 8]],
   ];
   const LOWER_PRESETS = [
-    ['Begleitung', [0, 0, 8, 4, 0, 0, 0, 0, 0]], ['Weich', [0, 0, 6, 6, 0, 0, 0, 0, 0]], ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Flöte', [0, 0, 8, 0, 0, 0, 0, 0, 0]],
-    ['Streicher', [0, 0, 4, 5, 4, 4, 2, 0, 0]], ['Voll', [8, 8, 8, 8, 8, 8, 8, 8, 8]],
+    ['Comping', [0, 0, 8, 4, 0, 0, 0, 0, 0]], ['Mellow', [0, 0, 6, 6, 0, 0, 0, 0, 0]], ['Jazz', [8, 8, 8, 0, 0, 0, 0, 0, 0]], ['Flute', [0, 0, 8, 0, 0, 0, 0, 0, 0]],
+    ['Strings', [0, 0, 4, 5, 4, 4, 2, 0, 0]], ['Full', [8, 8, 8, 8, 8, 8, 8, 8, 8]],
   ];
   const PRESETS = [
     { n: 'Jazz Combo', u: [8, 8, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3', drive: 0.3 },
-    { n: 'Gospel voll', u: [8, 8, 8, 8, 8, 8, 8, 8, 8], l: [8, 8, 8, 8, 0, 0, 0, 0, 0], p: [8, 5], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.45 },
+    { n: 'Full Gospel', u: [8, 8, 8, 8, 8, 8, 8, 8, 8], l: [8, 8, 8, 8, 0, 0, 0, 0, 0], p: [8, 5], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.45 },
     { n: 'Rock', u: [8, 8, 8, 8, 0, 0, 0, 0, 0], l: [8, 8, 8, 0, 0, 0, 0, 0, 0], p: [8, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3', drive: 0.75 },
-    { n: 'Ballade', u: [8, 3, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 6, 6, 0, 0, 0, 0, 0], p: [5, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.15 },
-    { n: 'Flöte', u: [0, 0, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 0, 0, 0, 0, 0, 0], p: [4, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v2', drive: 0.1 },
-    { n: 'Theater', u: [8, 7, 6, 5, 4, 3, 2, 1, 1], l: [0, 0, 4, 5, 4, 4, 2, 0, 0], p: [7, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v3', drive: 0.2 },
+    { n: 'Ballad', u: [8, 3, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 6, 6, 0, 0, 0, 0, 0], p: [5, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3', drive: 0.15 },
+    { n: 'Flute', u: [0, 0, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 0, 0, 0, 0, 0, 0], p: [4, 2], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v2', drive: 0.1 },
+    { n: 'Theatre', u: [8, 7, 6, 5, 4, 3, 2, 1, 1], l: [0, 0, 4, 5, 4, 4, 2, 0, 0], p: [7, 4], perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'v3', drive: 0.2 },
     { n: 'Perc 2nd', u: [8, 4, 8, 0, 0, 0, 0, 0, 0], l: [0, 0, 8, 4, 0, 0, 0, 0, 0], p: [6, 3], perc: { on: true, third: false, fast: false, soft: false, vibU: true, vibL: false }, vib: 'c2', drive: 0.3 },
   ];
   // Rotor times are time constants: the rotor reaches speed after about 3 τ
   // (measured on real Leslies: horn ~1.5 s up / 2.5 s down, drum ~5 s / 7.5 s; 48/400 and 40/342 rpm)
   const rpmHz = (r) => r / 60;
   const INSTRUMENTS = [
-    { n: 'B3 + Leslie 122 (Original)', note: 'gepflegte B3 der 60er, Serien-122 ohne Stopp, kein Hall',
+    { n: 'B3 + 122 (Stock)', note: 'well-kept 60s B3, stock 122 without stop, no reverb',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.5, db: { upper: [8, 8, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 8, 4, 0, 0, 0, 0, 0], pedal: [6, 3] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.35, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
       brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
-    { n: 'B3 + Leslie 147 (Rock)', note: '147 mit Gegenkopplung, Vorstufe heiß, Vibrato aus',
+    { n: 'B3 + 147 (Rock)', note: '147 with negative feedback, hot preamp, vibrato off',
       chr: { cond: 0.55, leak: 0.55, contact: 0.55, motor: 0.54, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.6, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 8, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 4] }, perc: { on: false, third: true, fast: true, soft: false, vibU: false, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.75 }, amp: { model: 2, quality: 1, sag: 0.6 }, drive: 0.75, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
       brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
-    { n: 'A-100 + Federhall', note: 'gleiches Werk wie die B3, mit eingebautem Hammond-Federhall',
+    { n: 'A-100 + Spring Reverb', note: 'same tone generator as the B3, built-in Hammond spring tank',
       chr: { cond: 0.45, leak: 0.45, contact: 0.45, motor: 0.46, gearTune: true, busComp: true }, organ: { percLevel: 1, percShort: 0.2, percLong: 1.0, complex: true },
       click: 0.45, db: { upper: [8, 3, 8, 0, 0, 0, 0, 0, 0], lower: [0, 0, 6, 6, 0, 0, 0, 0, 0], pedal: [5, 2] }, perc: { on: false, third: true, fast: true, soft: false, vibU: true, vibL: true }, vib: 'c3',
       pre: { on: true, gain: 0.5 }, amp: { model: 0, quality: 1, sag: 0.5 }, drive: 0.3, balance: 0.5,
       rotor: [{ slow: rpmHz(48), fast: rpmHz(400), up: 0.5, down: 0.85 }, { slow: rpmHz(40), fast: rpmHz(342), up: 1.7, down: 2.5 }],
       brake: true, cab: { hornBox: 0.45, wobble: -1, board: 'ply', res: 0.5, mech: -1 }, halfMoon: 'two', spring: { mix: 0.3, decay: 2.8, tone: 0.5, drive: 0.3, springs: 3 } },
-    { n: 'Tour-B3 (abgerockt)', note: '40 Jahre Tour: Kontakte prellen, Riemen locker, Röhren müde',
+    { n: 'Road-worn B3', note: '40 years on the road: bouncy contacts, slack belts, tired tubes',
       chr: { cond: 0.85, leak: 0.85, contact: 0.9, motor: 0.8, gearTune: true, busComp: true }, organ: { percLevel: 0.85, percShort: 0.17, percLong: 0.9, complex: true },
       click: 0.75, db: { upper: [8, 8, 8, 8, 0, 0, 0, 0, 0], lower: [8, 4, 8, 0, 0, 0, 0, 0, 0], pedal: [8, 5] }, perc: { on: true, third: true, fast: true, soft: false, vibU: true, vibL: false }, vib: 'c3',
       pre: { on: true, gain: 0.7 }, amp: { model: 1, quality: 1, sag: 0.8 }, drive: 0.6, balance: 0.5,
@@ -712,7 +719,7 @@ self.onmessage = (e) => {
       brake: true, cab: { hornBox: 0.5, wobble: 0.65, board: 'chip', res: 0.65, mech: -1 }, halfMoon: 'two', spring: { mix: 0 } },
   ];
   const VIB = [['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3'], ['c1', 'C1'], ['c2', 'C2'], ['c3', 'C3']];
-  const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 früh · 5U4'], [2, '147 · Gegenkoppl.']];
+  const AMP_MODELS = [[0, '122 · 2 × 6550'], [1, '122 early · 5U4'], [2, '147 · neg. feedback']];
 
   // ---------------- Control builders ----------------
   // Every control is registered via reg(); syncAll() refreshes all of them from S.
@@ -754,14 +761,130 @@ self.onmessage = (e) => {
     kb.addEventListener('wheel', (e) => { e.preventDefault(); const d = e.deltaY < 0 ? 1 : -1; apply(cur() + d * (disc ? 1 / (n - 1) : e.shiftKey ? 0.005 : 0.025)); }, { passive: false });
     kb.addEventListener('dblclick', () => c.reset());
     kb.addEventListener('keydown', (e) => { const d = (e.key === 'ArrowUp' || e.key === 'ArrowRight') ? 1 : (e.key === 'ArrowDown' || e.key === 'ArrowLeft') ? -1 : 0; if (d) { e.preventDefault(); e.stopPropagation(); apply(cur() + d * (disc ? 1 / (n - 1) : 0.025)); } });
-    kb.title = 'Ziehen oder Mausrad · Umschalt = fein · Doppelklick = Standard';
+    kb.dataset.tipK = 'Drag or scroll · Shift = fine · Double-click = default'; if (o.tip) kb.dataset.tip = o.tip; c.tipEl = kb; c.label = o.label;
     c.sync(); return reg(c);
   }
+  const tipMissing = []; window.__tipMissing = tipMissing;
+  const TIPS = {
+    // Organ
+    'Character/Condition': 'Overall wear of the instrument – from showroom-fresh to 40 years on the road. Pulls Leakage, Contacts and Motor along and sets the level spread and runout of the tone wheels.',
+    'Character/Leakage': 'Tone-wheel crosstalk: neighbouring wheels bleed into the pickups and wiring – the faint "hiss and whistle" under every B3.',
+    'Character/Contacts': 'Key contact wear: dirty busbar contacts bounce and crackle, so the click gets dirtier and less even.',
+    'Character/Motor': 'Hum and whir of the generator and run motor, audible between notes.',
+    'Generator/Key noise': 'Mechanical key noise: keys bottoming out on the felt. The console sits right in front of you, so it is acoustic, not through the Leslie.',
+    'Generator/Tuning': 'Gears: the slightly off equal temperament of the real gear train. Equal: mathematically exact tuning.',
+    'Generator/Busbar load': 'Loading of the generator: the more drawbars and keys you add, the more each one sags in level (the classic "compression" of a full registration).',
+    'Generator/Low wheels': 'Complex: the lowest wheels are nearly square, with odd harmonics (pedal only). Sine: idealised.',
+    'Generator/Mains': 'Mains frequency of the synchronous motor: sets the hum and – on a 50 Hz organ run at 60 Hz – the pitch.',
+    'Percussion · Vibrato · Click/Key click': 'Key click: the burst from nine contacts closing on the busbar. Part of the sound – purists keep it up.',
+    'Percussion · Vibrato · Click/Perc level': 'Overall level of the percussion (on top of Soft/Normal).',
+    'Percussion · Vibrato · Click/Fast decay': 'Decay time of the percussion when set to Fast.',
+    'Percussion · Vibrato · Click/Slow decay': 'Decay time of the percussion when set to Slow.',
+    'Percussion · Vibrato · Click/Vibrato': 'Scanner vibrato/chorus. V1–V3: vibrato. C1–C3: chorus (vibrato mixed with dry). C3 is the classic.',
+    'Percussion · Vibrato · Click/Click': 'Velocity: a fast stroke closes all nine contacts almost at once and hard, a slow press one after another and softer. Fixed: always the same.',
+    'Preamp AO-28/Gain': 'Preamp gain after the swell: 12AX7 into a 12BH7 push-pull and transformer. With the swell wide open and full drawbars the organ breaks up before the Leslie.',
+    'Preamp AO-28/Tubes': 'Bypass skips the tube stages for a clean, line-level organ.',
+    'Preamp AO-28/Quality': 'Uses the same oversampling quality as the power amp.',
+    'Spring Reverb/Mix': 'Wet/dry mix of the spring tank. It sits inside the organ, before the Leslie – so the reverb spins too.',
+    'Spring Reverb/Decay': 'Decay time of the springs.',
+    'Spring Reverb/Tone': 'Tone of the tank return: dark to bright.',
+    'Spring Reverb/Drive': 'Drive into the tank driver: more drive = more boing and splash.',
+    'Spring Reverb/Springs': 'Number of springs: 2 is sparser and twangier, 3 is denser.',
+    'Spring Reverb/Tank': 'Kick the tank – the springs crash, like bumping the organ.',
+    // Leslie
+    'Horn/Slow': 'Horn chorale speed.', 'Horn/Fast': 'Horn tremolo speed.',
+    'Horn/Rise': 'Ramp-up time of the horn from chorale to tremolo. The light horn gets there in under a second.',
+    'Horn/Fall': 'Ramp-down time of the horn from tremolo to chorale.',
+    'Drum/Slow': 'Drum (bass rotor) chorale speed.', 'Drum/Fast': 'Drum tremolo speed.',
+    'Drum/Rise': 'Ramp-up time of the heavy drum – it lags behind the horn, which is a big part of the Leslie sound.',
+    'Drum/Fall': 'Ramp-down time of the drum.',
+    'Drum/Brake': 'On: the rotors stop on Stop. Off: they coast to a halt.',
+    'Power Amp/Drive': 'How hard the organ hits the Leslie power amp – from clean to growl.',
+    'Power Amp/Sag': 'Power-supply sag: the rectifier voltage dips under load – softer attack, more compression when driven.',
+    'Power Amp/Model': '122: 2 × 6550, tight. 122 early: 5U4 tube rectifier, more sag. 147: with negative feedback, cleaner and stiffer.',
+    'Power Amp/Quality': 'Eco: static curve, low CPU. HQ: tubes and output transformer as a circuit, 2× oversampling. Ultra: 4× oversampling.',
+    'Power Amp/Plate / cath.': 'Live plate and cathode readings of the output tubes.',
+    'Cabinet/Horn box': 'Sound from the back of the horn bouncing around inside the horn compartment and leaking out.',
+    'Cabinet/Resonance': 'Cabinet panel resonances: the wooden walls vibrate along and colour the low mids.',
+    'Cabinet/Mechanics': 'Mechanical noise: motors, belts, bearings, relays and the slow motor clutching in. Auto follows Organ › Condition.',
+    'Cabinet/Wobble': 'Rotor runout: slightly out-of-round rotation and speed flutter. Auto follows Organ › Condition.',
+    'Cabinet/Build': 'Early cabinets are plywood, later ones chipboard – softer, more damped.',
+    'Placement/Balance': 'Horn/drum level balance: 50/50 = both at full level, left = more horn, right = more drum.',
+    'Placement/Facing': 'Which way the Leslie front points in the room. You can also turn it in the floor plan with the scroll wheel.',
+    'Placement/Quick turn': 'Turn the Leslie front towards the listener (or the room pair in Mics mode).',
+    'Placement/Back to the wall': 'Put the Leslie against the nearest wall, front facing into the room.',
+    'Control/Switch via': 'Which MIDI controller toggles Chorale/Tremolo. The space bar always works.',
+    'Control/Half-moon': '2-way: Chorale/Tremolo. With Stop: the 3-way half-moon switch with a stop position in the middle.',
+    // Room
+    'Dimensions/Width': 'Room width.', 'Dimensions/Length': 'Room length.', 'Dimensions/Height': 'Ceiling height.',
+    'Dimensions/Reverb': 'Scales the late reverb tail. 100% = physically correct for the room.',
+    '*/Shape': 'Box: rectangular room with image sources. Circus tent: ray-traced tent with poles, crown and canvas.',
+    'Surfaces · Listener/Absorption': 'How much the surfaces soak up. Low = live and splashy, high = dry and dead.',
+    'Surfaces · Listener/Facing': 'Which way your head points. Turning shifts the image – just like turning your head in a real room.',
+    'Surfaces · Listener/Material': 'Wall material: sets the frequency response and scattering of the reflections.',
+    'Surfaces · Listener/Head': 'Turn your head towards the Leslie.',
+    'Circus Tent/Ø Round': 'Diameter of the round ends.', 'Circus Tent/Mid section': 'Straight section between the two round ends (0 = round tent).',
+    'Circus Tent/Pole dist.': 'Distance between the king poles.', 'Circus Tent/Dome Ø': 'Diameter of the dome between the poles.',
+    'Circus Tent/Crown ht.': 'Height of the crown (where the canvas meets the poles).', 'Circus Tent/Crown band': 'Height of the crown band.',
+    'Circus Tent/Peak': 'Height of the peaks above the crown.', 'Circus Tent/Wall ht.': 'Height of the side walls.',
+    'Circus Tent/Sag': 'How much the canvas sags between the poles.', 'Circus Tent/Ring Ø': 'Diameter of the ring.',
+    'Circus Tent/Audience': 'How full the tent is. People absorb a lot – a full house sounds much drier.',
+    'Circus Tent/Ground': 'What the tent stands on: sets the floor reflection.', 'Circus Tent/Ring floor': 'Floor inside the ring.',
+    'Circus Tent/Rays': 'Ray tracer status: found paths and computation time.',
+    'Engine · Presets/Reflections': 'Image-source order: how many bounces are rendered as discrete reflections. More = denser and more realistic, but more CPU.',
+    'Engine · Presets/Precision': 'Fast: from the 2nd order, reflections are grouped by direction. Exact: every reflection per sample with position, Doppler, directivity and panning – very CPU-heavy from the 4th order.',
+    'Engine · Presets/Paths': 'Number of rendered sound paths.', 'Engine · Presets/Load room': 'Load a room preset (keeps the Leslie and listener positions).',
+    '*/CPU': 'Audio CPU load. Running out of headroom? Raise the buffer, lower the reflections or set the power amp to HQ or Eco.',
+    // Mics
+    'Horn Mics/Angle': 'Where the horn mics sit around the cabinet: 0° = front. From the back (180°) you get more motor, from the front more cabinet.',
+    'Horn Mics/Distance': 'Distance from the cabinet. Closer = more Doppler and more proximity effect, further = more room.',
+    'Horn Mics/Height': 'Mic height relative to the horn.',
+    'Horn Mics/Setup': 'Mono: one mic. 90°/120°/180°: a stereo pair spread around the cabinet – 180° is left/right of the horn, the classic wide spin.',
+    'Horn Mics/Windscreen': 'Windscreen: tames the wind rumble from the rotor blowing straight at the mic.',
+    'Drum Mics/Angle': 'Where the drum mics sit around the cabinet: 0° = front, 180° = back (more motor).',
+    'Drum Mics/Distance': 'Distance from the cabinet. Closer = more proximity effect.',
+    'Drum Mics/Setup': 'Mono: one mic on the bass louvres. 90°/180°: a stereo pair.',
+    '*/Mic': '57/421: dynamic, mid-forward. D112: kick mic, big lows. RE20: broadcast dynamic. 87: large-diaphragm condenser. KM 84: small-diaphragm condenser. 121: ribbon, smooth top.',
+    '*/Pattern': 'Polar pattern of the 87 (multi-pattern): cardioid, omni or figure-8.',
+    'Room Pair/Spacing': 'Distance between the two room mics (AB only).', 'Room Pair/Height': 'Height of the room pair.',
+    'Room Pair/Aim': 'Which way the pair points.', 'Room Pair/Reflect.': 'Reflection order rendered for the room pair.',
+    'Room Pair/Array': 'AB: spaced omnis/cardioids, wide and airy. XY: coincident, mono-safe. ORTF: 17 cm, 110° – the compromise.',
+    'Room Pair/Place in front': 'Place the room pair in front of the Leslie, aimed at it.',
+    'Mixer/head': 'Listener: you stand in the room. Mics: close mics and room pair through the mixer.',
+    // Output
+    'Format/LFE': 'Level of the LFE (.1) channel – 5.1 only.', 'Format/LFE x-over': 'Crossover frequency for the LFE – 5.1 only.',
+    'Format/Master': 'Master output level.', 'Format/Format': 'Speaker layout the room is rendered for: stereo, quad or 5.1.',
+    'Routing/*': 'Which device output this channel goes to.', 'Routing/Auto (1, 2, 3 …)': 'Route channels to outputs 1, 2, 3 … in order.',
+    'Monitoring/Rear': 'Trim for your rear speakers (surround channels).', 'Monitoring/Center': 'Trim for your center speaker – 5.1 only.',
+    'Monitoring/Divergence': 'Center divergence: also spreads a source in front of you onto L/R as a phantom center, if your center speaker is weaker.',
+    'Check/Channel test': 'Sends a short ping to each channel in turn – check your speakers and routing.',
+    'Check/Device': 'Active audio device.', 'Check/Status': 'Warnings about the output setup.',
+    // MIDI
+    'Channels/Upper': 'MIDI channel for the upper manual. Omni: everything not on the lower or pedal channel plays the upper manual.',
+    'Channels/Lower': 'MIDI channel for the lower manual.', 'Channels/Pedal': 'MIDI channel for the pedalboard.',
+    'Split · Octaves/Split': 'Keyboard split: play two or three manuals from one keyboard (on the upper channel).',
+    'Split · Octaves/Keyboard': 'Size of your keyboard – only for the split display.',
+    'Split · Octaves/Split point': 'Where the zones begin. ● learns from the next key you press.',
+    'Split · Octaves/Upper octave': 'Octave shift of the upper manual (±3).', 'Split · Octaves/Lower octave': 'Octave shift of the lower manual (±3).', 'Split · Octaves/Pedal octave': 'Octave shift of the pedal (±3).',
+    'Controllers/Leslie': 'MIDI controller that toggles the Leslie speed.', 'Controllers/Swell': 'MIDI controller for the swell (expression) pedal.',
+    'Controllers/Devices': 'Connected MIDI inputs. Newly connected devices are enabled automatically.', 'Controllers/MIDI Inputs …': 'Choose which MIDI inputs are active.',
+    'QWERTY Keys/Plays': 'Which manual the computer keyboard plays.', 'QWERTY Keys/Octave': 'Octave of the computer keyboard.', 'QWERTY Keys/Keys': 'Key layout of the computer keyboard.',
+    // Audio
+    'Device/Driver': 'Audio driver type (ASIO, Windows Audio …).', 'Device/Device': 'Active audio device.',
+    'Device/Audio Settings …': 'Driver, device, sample rate, buffer size and outputs.',
+    'Device/Bounce': 'Max quality: when rendering offline the plugin uses 5th order, Exact and Ultra – no matter what runs in real time. As set: renders exactly what you hear.',
+    'Buffer/Sample rate': 'Current sample rate.', 'Buffer/Buffer': 'Buffer size: smaller = lower latency, larger = more CPU headroom.',
+    'Buffer/Output': 'Output latency.', 'Buffer/Processing': 'Extra latency from the tube oversampling.',
+    'Buffer/Total': 'Total latency plus the acoustic sound path from the Leslie to the listener or nearest mic – as in a real room.',
+    'Outputs · CPU/Active': 'Active device outputs.', 'Outputs · CPU/Channels': 'Channels rendered for the current format.',
+    'Outputs · CPU/Dropouts': 'Skipped audio blocks.', 'Outputs · CPU/Power amp': 'Power amp quality – the biggest CPU lever after the reflections.',
+    'Outputs · CPU/Cores': 'Room and mics run on several cores. Auto: standalone half the cores (max 8), plugin a quarter (max 4) – the DAW needs some too.',
+  };
   // Card rows: segmented buttons (rowSeg), select (rowSel), read-only value (rowVal), button (rowBtn); sec() groups them
   function rowSeg(label, opts, get, set, def) {
     const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const sg = h('div', 'rseg'); r.appendChild(sg);
     const bs = opts.map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { set(v); c.sync(); }; sg.appendChild(b); return [v, b]; });
-    const c = { el: r, sync() { const v = get(); bs.forEach(([x, b]) => b.classList.toggle('on', x === v)); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
+    const c = { el: r, label, tipEl: r, sync() { const v = get(); bs.forEach(([x, b]) => b.classList.toggle('on', x === v)); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
     c.sync(); return reg(c);
   }
   function rowSel(label, opts, get, set, def) {
@@ -770,14 +893,14 @@ self.onmessage = (e) => {
     const fill = (list) => { const ns = JSON.stringify(list); if (ns === sig) return; sig = ns; s.innerHTML = ''; list.forEach(([v, t]) => { const op = h('option', '', t); op.value = String(v); s.appendChild(op); }); };
     fill(typeof opts === 'function' ? opts() : opts);
     s.onchange = () => { const raw = s.value; const list = typeof opts === 'function' ? opts() : opts; const it = list.find(x => String(x[0]) === raw); set(it ? it[0] : raw); c.sync(); s.blur(); };
-    const c = { el: r, sel: s, sync() { if (typeof opts === 'function') fill(opts()); s.value = String(get()); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
+    const c = { el: r, sel: s, label, tipEl: r, sync() { if (typeof opts === 'function') fill(opts()); s.value = String(get()); }, reset() { if (def !== undefined) { set(def); c.sync(); } } };
     c.sync(); return reg(c);
   }
-  function rowVal(label, getText) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const v = h('span', 'rv'); r.appendChild(v); const c = { el: r, sync() { v.textContent = getText(); } }; c.sync(); return reg(c); }
-  function rowBtn(label, text, onclick) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const b = h('button', 'btn', text); b.type = 'button'; b.onclick = onclick; r.appendChild(b); return { el: r, btn: b }; }
+  function rowVal(label, getText) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const v = h('span', 'rv'); r.appendChild(v); const c = { el: r, label, tipEl: r, sync() { v.textContent = getText(); } }; c.sync(); return reg(c); }
+  function rowBtn(label, text, onclick) { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); const b = h('button', 'btn', text); b.type = 'button'; b.onclick = onclick; r.appendChild(b); return { el: r, btn: b, label: label || text, tipEl: r }; }
   function sec(title, knobs, rows, note, opts = {}) {
     const s = h('div', 'sec');
-    if (opts.head) { const hd = h('div', 'sth'); hd.appendChild(h('span', 'st', title)); hd.appendChild(opts.head.el.querySelector('.rseg') || opts.head.el); s.appendChild(hd); }
+    if (opts.head) { const hd = h('div', 'sth'); if (TIPS[title + '/head']) hd.dataset.tip = TIPS[title + '/head']; hd.appendChild(h('span', 'st', title)); hd.appendChild(opts.head.el.querySelector('.rseg') || opts.head.el); s.appendChild(hd); }
     else s.appendChild(h('span', 'st', title));
     if (knobs && knobs.length) { const g = h('div', 'kgrid'); if (opts.kcols) g.style.gridTemplateColumns = `repeat(${opts.kcols}, minmax(0, 1fr))`; knobs.forEach(k => g.appendChild(k.el)); s.appendChild(g); }
     if (rows && rows.length) { const g = h('div', 'rows'); if (opts.rcols) { g.style.display = 'grid'; g.style.gridTemplateColumns = `repeat(${opts.rcols}, minmax(0, 1fr))`; g.style.columnGap = '18px'; } rows.forEach(r => g.appendChild(r.el)); s.appendChild(g); }
@@ -786,6 +909,11 @@ self.onmessage = (e) => {
       if (typeof note === 'function') reg({ sync() { n.textContent = note(); } }); else n.textContent = note;
     }
     if (opts.extra) s.appendChild(opts.extra);
+    [...(knobs || []), ...(rows || [])].forEach(c => {   // tooltips from TIPS: "Section/Label", then "*/Label"
+      if (!c || !c.tipEl || c.tipEl.dataset.tip || !c.label) return;
+      const t = TIPS[title + '/' + c.label] ?? TIPS[title + '/*'] ?? TIPS['*/' + c.label];
+      if (t) c.tipEl.dataset.tip = t; else tipMissing.push(title + '/' + c.label);
+    });
     if (opts.span) s.style.gridColumn = `span ${opts.span}`;
     if (opts.id) s.id = opts.id;
     return s;
@@ -811,18 +939,20 @@ self.onmessage = (e) => {
   const sendMics = () => send({ type: 'mics', v: S.mics });
 
   // ---------------- Tabs and settings cards ----------------
-  const TABS = [['spielen', 'Spielen'], ['orgel', 'Orgel'], ['leslie', 'Leslie'], ['raum', 'Raum'], ['mikros', 'Mikros'], ['ausgabe', 'Ausgabe'], ['midi', 'MIDI'], ['audio', 'Audio']];
+  const TABS = [['spielen', 'Play'], ['orgel', 'Organ'], ['leslie', 'Leslie'], ['raum', 'Room'], ['mikros', 'Mics'], ['ausgabe', 'Output'], ['midi', 'MIDI'], ['audio', 'Audio']];
   const CARD_INFO = {
-    orgel: ['Orgel', 'Tonradgenerator, Kontakte, Vorverstärker, Federhall', 5],
-    leslie: ['Leslie', 'Rotoren, Endstufe und Aufstellung', 5],
-    raum: ['Raum', 'Form, Material und Reflexionen', 3],
-    mikros: ['Mikros', 'Nahmikros, Raumpaar und Pult', 5],
-    ausgabe: ['Ausgabe', 'Format, Kanäle, Abhöre', 4],
-    midi: ['MIDI', 'Kanäle, Controller und PC-Tastatur', 3],
-    audio: ['Audio', 'Gerät, Treiber und Latenz', 3],
+    orgel: ['Organ', 'Tone generator, contacts, preamp, spring reverb', 5],
+    leslie: ['Leslie', 'Rotors, power amp, cabinet and placement', 5],
+    raum: ['Room', 'Shape, surfaces and reflections', 3],
+    mikros: ['Mics', 'Close mics, room pair and mixer', 5],
+    ausgabe: ['Output', 'Format, routing, monitoring', 4],
+    midi: ['MIDI', 'Channels, split, controllers, QWERTY keys', 3],
+    audio: ['Audio', 'Device, driver and latency', 3],
   };
   let tab = 'spielen';
-  const tabBtns = TABS.map(([id, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setTab(id); $('tabs').appendChild(b); return [id, b]; });
+  const TAB_TIP = { spielen: 'Play: drawbars, Leslie and room at a glance.', orgel: 'Tone generator, contacts, percussion, preamp, spring reverb.', leslie: 'Rotors, power amp, cabinet and placement.', raum: 'Room shape, surfaces and reflections.',
+    mikros: 'Close mics, room pair and mixer.', ausgabe: 'Output format, routing and monitoring.', midi: 'Channels, split, octaves, controllers and QWERTY keys.', audio: 'Device, driver, latency and CPU.' };
+  const tabBtns = TABS.map(([id, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = TAB_TIP[id]; b.onclick = () => setTab(id); $('tabs').appendChild(b); return [id, b]; });
   const cardPages = {};
   function setTab(id) {
     tab = id; tabBtns.forEach(([x, b]) => { b.classList.toggle('on', x === id); b.setAttribute('aria-current', x === id ? 'page' : 'false'); });
@@ -835,7 +965,7 @@ self.onmessage = (e) => {
     if (id === 'audio' || id === 'ausgabe' || id === 'midi') nativeInvoke('audioInfo');
     syncAll();
   }
-  // Long knob labels (ÜBERSPRECHEN, NETZTEIL-SAG ...) next to each other: if any two neighbouring labels on a card
+  // Long knob labels (DIVERGENCE, LFE X-OVER ...) next to each other: if any two neighbouring labels on a card
   // would touch, tighten and shrink *all* labels of that card by the same amount, so the card stays uniform.
   function fitKnobLabels(root) {
     const labels = [...root.querySelectorAll('.knob:not(.sm) .kl')];
@@ -863,9 +993,9 @@ self.onmessage = (e) => {
   // ---------------- Header bar: preset, output format, meters ----------------
   const presetSel = $('preset');
   (() => {
-    const o0 = h('option', '', 'Eigene Einstellung'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0);
-    const g1 = h('optgroup'); g1.label = 'Instrument (Orgel + Leslie)'; INSTRUMENTS.forEach((p, i) => { const o = h('option', '', p.n); o.value = 'i' + i; o.title = p.note; g1.appendChild(o); }); presetSel.appendChild(g1);
-    const g2 = h('optgroup'); g2.label = 'Registrierung'; PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; g2.appendChild(o); }); presetSel.appendChild(g2);
+    const o0 = h('option', '', 'Custom'); o0.value = ''; o0.disabled = true; presetSel.appendChild(o0);
+    const g1 = h('optgroup'); g1.label = 'Instrument (organ + Leslie)'; INSTRUMENTS.forEach((p, i) => { const o = h('option', '', p.n); o.value = 'i' + i; o.title = p.note; g1.appendChild(o); }); presetSel.appendChild(g1);
+    const g2 = h('optgroup'); g2.label = 'Registration'; PRESETS.forEach((p, i) => { const o = h('option', '', p.n); o.value = i; g2.appendChild(o); }); presetSel.appendChild(g2);
   })();
   let curInst = null, instSig = '';
   const instState = () => JSON.stringify([S.chr, S.organ, S.click, S.db, S.perc, S.vib, S.pre, S.amp, S.drive, S.balance, S.rotor, S.brake, S.cab, S.halfMoon, S.spring]);
@@ -889,9 +1019,10 @@ self.onmessage = (e) => {
     [0, 1, 2].forEach(sendDb); sendPerc(); send({ type: 'vib', v: S.vib }); send({ type: 'drive', v: S.drive });
     syncAll();
   };
+  const PRESET_TIP = 'Instruments set organ, preamp, Leslie and reverb. Registrations only set drawbars, percussion, vibrato and drive. Room, mics, output and MIDI stay as they are.';
   const markPreset = () => {
-    if (curInst !== null && instState() === instSig) { presetSel.value = 'i' + curInst; presetSel.title = INSTRUMENTS[curInst].note; return; }
-    curInst = null; presetSel.title = '';
+    if (curInst !== null && instState() === instSig) { presetSel.value = 'i' + curInst; presetSel.dataset.tip = INSTRUMENTS[curInst].note + '\n\n' + PRESET_TIP; return; }
+    curInst = null; presetSel.dataset.tip = PRESET_TIP;
     const i = PRESETS.findIndex(p => p.u.join() === S.db.upper.join() && p.l.join() === S.db.lower.join() && p.p.join() === S.db.pedal.join() && p.vib === S.vib && p.perc.on === S.perc.on);
     presetSel.value = i >= 0 ? String(i) : '';
   };
@@ -899,7 +1030,7 @@ self.onmessage = (e) => {
 
   const outBtns = [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']].map(([m, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { S.mode = m; applyMode(); syncAll(); }; $('outSeg').appendChild(b); return [m, b]; });
   reg({ sync() { outBtns.forEach(([m, b]) => b.classList.toggle('on', m === S.mode)); } });
-  const modeBtns = [[false, 'Hörer'], [true, 'Mikros']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setMicsOn(v); $('modeSeg').appendChild(b); return [v, b]; });
+  const modeBtns = [[false, 'Listener'], [true, 'Mics']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setMicsOn(v); $('modeSeg').appendChild(b); return [v, b]; });
   reg({ sync() { modeBtns.forEach(([v, b]) => b.classList.toggle('on', v === S.mics.on)); } });
 
   let meterEls = [], meterMode = null; const meterHold = new Array(8).fill(-120);
@@ -934,9 +1065,9 @@ self.onmessage = (e) => {
   function updateChanInfo() {
     const M = MODES[S.mode], have = audioInfo.outputs || 0;
     const need = Math.max(...curMap()) + 1;
-    warnText = have && have < need ? `Das Audiogerät hat nur ${have} aktive Ausgänge – für ${S.mode === 's51' ? '5.1' : S.mode === 'quad' ? 'Quad' : 'Stereo'} sind ${need} nötig (Karte Audio → Audio-Einstellungen).` : '';
+    warnText = have && have < need ? `The audio device only has ${have} active outputs – ${S.mode === 's51' ? '5.1' : S.mode === 'quad' ? 'Quad' : 'Stereo'} needs ${need} (Audio tab → Audio Settings).` : '';
   }
-  const outName = (i) => { const n = audioInfo.channelNames && audioInfo.channelNames[i]; return `Ausgang ${i + 1}` + (n ? ` · ${n}` : ''); };
+  const outName = (i) => { const n = audioInfo.channelNames && audioInfo.channelNames[i]; return `Out ${i + 1}` + (n ? ` · ${n}` : ''); };
 
   // ---------------- Leslie panel on the play surface (SVG cabinet) ----------------
   (() => {
@@ -945,12 +1076,13 @@ self.onmessage = (e) => {
     [[21, .92], [28, .88], [35, .85], [42, .85], [49, .85], [56, .88], [63, .92]].forEach(([y, o]) => mk(top, y, 3.5, o)); mk(top, 70, 4, 1);
     [[103, .92], [110, .86], [117, .82], [124, .82], [131, .82], [138, .82], [145, .82], [152, .86], [159, .9]].forEach(([y, o]) => mk(bot, y, 3.5, o)); mk(bot, 166, 4, 1);
   })();
-  const speedBtns = [['slow', 'Choral'], ['stop', 'Stopp'], ['fast', 'Tremolo']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
+  const SPEED_TIP = { slow: 'Chorale: slow rotor speed – a gentle swirl.', stop: 'Stop: rotors stop (or coast, see Leslie › Brake).', fast: 'Tremolo: fast rotor speed. Space bar toggles Chorale/Tremolo.' };
+  const speedBtns = [['slow', 'Chorale'], ['stop', 'Stop'], ['fast', 'Tremolo']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = SPEED_TIP[v]; b.onclick = () => setLeslie(v); $('speed').appendChild(b); return [v, b]; });
   reg({ sync() {
     speedBtns.forEach(([v, b]) => { b.classList.toggle('on', v === S.leslie); if (v === 'stop') b.hidden = S.halfMoon !== 'stop'; });
     $('speed').classList.toggle('two', S.halfMoon !== 'stop');
-    $('lesModel').textContent = 'Modell ' + ['122', '122 früh', '147'][S.amp.model];
-    $('lesHint').textContent = `Leertaste oder ${S.midi.leslieCC === 64 ? 'Sustain-Pedal' : S.midi.leslieCC === 1 ? 'Modwheel' : 'CC ' + S.midi.leslieCC} schaltet um`;
+    $('lesModel').textContent = 'Model ' + ['122', '122 early', '147'][S.amp.model];
+    $('lesHint').textContent = `Space bar or ${S.midi.leslieCC === 64 ? 'sustain pedal' : S.midi.leslieCC === 1 ? 'mod wheel' : 'CC ' + S.midi.leslieCC} toggles speed`;
   } });
   function setLeslie(v) { if (v === 'stop' && S.halfMoon !== 'stop') v = 'slow'; S.leslie = v; send({ type: 'leslie', v }); syncAll(); }
   const svgSet = (id, attrs) => { const e = $(id); for (const k in attrs) e.setAttribute(k, attrs[k]); };
@@ -987,11 +1119,15 @@ self.onmessage = (e) => {
     pedal: { h: 'linear-gradient(180deg, #a05a2c, #6a3416)', sh: '#7a4422', n: '#f3dcc6' },
     muted: { h: 'linear-gradient(180deg, #5a554e, #3a3631)', sh: '#3a3530', n: '#a8a092' },
   };
+  const DB_TIP = ["16′ – sub-octave, an octave below the fundamental.", "5⅓′ – sub-third: the fifth above the sub-octave.", "8′ – fundamental, the pitch you play.",
+    "4′ – octave.", "2⅔′ – twelfth (octave + fifth).", "2′ – fifteenth (two octaves).", "1⅗′ – seventeenth (two octaves + major third).", "1⅓′ – nineteenth (two octaves + fifth).", "1′ – twenty-second (three octaves).",
+  ];
+  DB_TIP.p0 = "Pedal 16′ – fundamental from the complex tone wheels plus the lower harmonics: the foundation."; DB_TIP.p1 = "Pedal 8′ – upper even harmonics only: brighter, more punch.";
   function dbGroup(name, key, man, fts, kinds, presets) {
     const g = h('div', 'dbg'); const hd = h('div', 'dbgh'); hd.appendChild(h('span', '', name)); g.appendChild(hd);
     let psel = null;
     if (presets) {
-      psel = h('select'); psel.setAttribute('aria-label', 'Register ' + name);
+      psel = h('select'); psel.setAttribute('aria-label', name + ' registration'); psel.dataset.tip = 'Registration presets for the ' + name.toLowerCase() + (name === 'Pedal' ? '.' : ' manual.');
       const o0 = h('option', '', '–'); o0.value = ''; o0.disabled = true; psel.appendChild(o0);
       presets.forEach(([n], i) => { const o = h('option', '', n); o.value = i; psel.appendChild(o); });
       psel.onchange = () => { psel.blur(); const p = presets[+psel.value]; if (!p) return; S.db[key] = p[1].slice(); sendDb(man); syncAll(); };
@@ -1016,27 +1152,33 @@ self.onmessage = (e) => {
         const v = S.db[key][i], muted = man === 0 && i === 8 && S.perc.on, lk = LOOK[muted ? 'muted' : e.kind], shaft = 6 + v * 18;
         e.sh.style.height = shaft + 'px'; e.sh.style.background = lk.sh;
         e.hd.style.top = (shaft - 2) + 'px'; e.hd.style.background = lk.h; e.hd.style.color = lk.n; e.hd.textContent = v;
-        e.t.setAttribute('aria-label', `${name} ${e.ft} Zugriegel ${v}` + (muted ? ', stumm bei Percussion' : ''));
-        e.t.title = muted ? "1' ist bei eingeschalteter Percussion stumm (wie beim Original)" : `${e.ft}: ziehen oder Mausrad`;
+        e.t.setAttribute('aria-label', `${name} ${e.ft} drawbar ${v}` + (muted ? ', muted by percussion' : ''));
+        e.t.dataset.tip = (muted ? "1′ is muted while percussion is on – just like the original." : DB_TIP[man === 2 ? 'p' + i : i]);
+        e.t.dataset.tipK = 'Drag or scroll · 0 = in, 8 = full out';
       });
       if (psel) { const i = presets.findIndex(p => p[1].join() === S.db[key].join()); psel.value = i >= 0 ? String(i) : ''; }
     } });
     $('dbgroups').appendChild(g);
   }
-  dbGroup('Obermanual', 'upper', 0, FT, KIND, UPPER_PRESETS);
+  dbGroup('Upper', 'upper', 0, FT, KIND, UPPER_PRESETS);
   dbGroup('Pedal', 'pedal', 2, ["16'", "8'"], ['pedal', 'pedal'], null);
-  dbGroup('Untermanual', 'lower', 1, FT, KIND, LOWER_PRESETS);
+  dbGroup('Lower', 'lower', 1, FT, KIND, LOWER_PRESETS);
 
   // Front knobs and rocker tablets
+  const TIP_VIB = 'Scanner vibrato/chorus. V1–V3: vibrato in three depths. C1–C3: chorus (vibrato mixed with the dry signal). C3 is the classic.';
+  const TIP_DRIVE = 'How hard the organ hits the Leslie power amp – from clean to growl.';
   const fk = $('frontKnobs');
-  fk.appendChild(knob({ label: 'Vibrato', opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
-  fk.appendChild(knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
-  fk.appendChild(knob({ label: 'Hall', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
-  fk.appendChild(knob({ label: 'Lautst.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
-  const TB = [['on', 'PERC\nAN', 'PERC\nAUS', 'Percussion'], ['soft', 'PERC\nLEISE', 'PERC\nNORM', 'Percussion-Lautstärke'], ['fast', 'PERC\nKURZ', 'PERC\nLANG', 'Percussion-Abklingzeit'],
-    ['third', 'PERC\n3RD', 'PERC\n2ND', 'Percussion-Harmonische'], ['vibU', 'VIB\nOBER', 'VIB\nOBER', 'Vibrato Obermanual'], ['vibL', 'VIB\nUNTER', 'VIB\nUNTER', 'Vibrato Untermanual']];
-  TB.forEach(([k, on, off, aria]) => {
-    const b = h('button', 'tablet', '<span></span>'); b.type = 'button'; b.setAttribute('aria-label', aria); b.title = aria;
+  fk.appendChild(knob({ label: 'Vibrato', tip: TIP_VIB, opts: VIB, get: () => S.vib, set: v => { S.vib = v; send({ type: 'vib', v }); markPreset(); }, def: 'c3' }).el);
+  fk.appendChild(knob({ label: 'Drive', tip: TIP_DRIVE, min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Reverb', tip: 'Spring reverb mix (Hammond tank inside the organ – it spins through the Leslie).', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }).el);
+  fk.appendChild(knob({ label: 'Swell', tip: 'Swell / expression pedal: volume, plus the bass boost of the original pedal when it is closed down.', min: 0, max: 1, def: 0.8, fmt: pct, get: () => S.volume, set: v => { S.volume = v; send({ type: 'volume', v }); syncAll(); } }).el);
+  const TB = [['on', 'PERC\nON', 'PERC\nOFF', 'Percussion', 'Percussion on/off: a decaying 2nd or 3rd harmonic on the attack, upper manual only, single-trigger (retriggers only after all keys are released). Mutes the 1′ drawbar, like the original.'],
+    ['soft', 'PERC\nSOFT', 'PERC\nNORM', 'Percussion volume', 'Percussion volume: Soft or Normal. Normal also pulls the upper manual down a little – just like the real thing.'],
+    ['fast', 'PERC\nFAST', 'PERC\nSLOW', 'Percussion decay', 'Percussion decay: Fast or Slow (times in Organ › Percussion).'],
+    ['third', 'PERC\n3RD', 'PERC\n2ND', 'Percussion harmonic', 'Percussion harmonic: 3rd (2⅔′ – the Jimmy Smith sound) or 2nd (4′).'],
+    ['vibU', 'VIB\nUPPER', 'VIB\nUPPER', 'Vibrato upper manual', 'Vibrato/chorus on the upper manual.'], ['vibL', 'VIB\nLOWER', 'VIB\nLOWER', 'Vibrato lower manual', 'Vibrato/chorus on the lower manual.']];
+  TB.forEach(([k, on, off, aria, tip]) => {
+    const b = h('button', 'tablet', '<span></span>'); b.type = 'button'; b.setAttribute('aria-label', aria); b.dataset.tip = tip;
     b.onclick = () => { S.perc[k] = !S.perc[k]; sendPerc(); syncAll(); };
     $('tablets').appendChild(b);
     reg({ sync() { const v = !!S.perc[k]; b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); b.firstChild.textContent = v ? on : off; } });
@@ -1049,126 +1191,125 @@ self.onmessage = (e) => {
       if (id === 'cond') { S.chr.leak = v; S.chr.contact = v; S.chr.motor = Math.min(1, v * 0.8 + 0.1); }
       sendChr(); syncAll();
     } });
-    p.appendChild(sec('Charakter', [condK('cond', 'Zustand', 0.5), condK('leak', 'Übersprechen', 0.5), condK('contact', 'Kontakte', 0.5), condK('motor', 'Motor', 0.4)], [],
-      '„Zustand“ zieht die anderen drei mit und bestimmt Pegelstreuung und Schlag der Tonräder: von fabrikneu bis 40 Jahre Tour. „Motor“ ist das Surren von Generator und Laufmotor.'));
+    p.appendChild(sec('Character', [condK('cond', 'Condition', 0.5), condK('leak', 'Leakage', 0.5), condK('contact', 'Contacts', 0.5), condK('motor', 'Motor', 0.4)], [],
+      'Condition pulls the other three along and sets the level spread and runout of the tone wheels: from showroom-fresh to 40 years on the road.'));
     p.appendChild(sec('Generator', [
-      knob({ label: 'Tasten', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.organ.keyNoise, set: v => { S.organ.keyNoise = v; sendOrgan(); } }),
+      knob({ label: 'Key noise', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.organ.keyNoise, set: v => { S.organ.keyNoise = v; sendOrgan(); } }),
     ], [
-      rowSeg('Stimmung', [[true, 'Zahnräder'], [false, 'gleichstufig']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
-      rowSeg('Sammelschiene', [[true, 'an'], [false, 'aus']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
-      rowSeg('Tiefe Räder', [[true, 'komplex'], [false, 'Sinus']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
-      rowSeg('Netz', [[50, '50 Hz'], [60, '60 Hz']], () => S.mains, v => { S.mains = v; sendMains(); }, 50),
-    ], 'Tiefe Räder: fast rechteckig, nur im Pedal. Tasten: Anschlag auf den Filz, die Orgel steht vor dem Hörer.'));
+      rowSeg('Tuning', [[true, 'Gears'], [false, 'Equal']], () => S.chr.gearTune, v => { S.chr.gearTune = v; sendChr(); }, true),
+      rowSeg('Busbar load', [[true, 'on'], [false, 'off']], () => S.chr.busComp, v => { S.chr.busComp = v; sendChr(); }, true),
+      rowSeg('Low wheels', [[true, 'Complex'], [false, 'Sine']], () => S.organ.complex, v => { S.organ.complex = v; sendOrgan(); }, true),
+      rowSeg('Mains', [[50, '50 Hz'], [60, '60 Hz']], () => S.mains, v => { S.mains = v; sendMains(); }, 50),
+    ], 'Low wheels: nearly square, pedal only. Key noise: keys bottoming out on the felt – the console sits right in front of you.'));
     p.appendChild(sec('Percussion · Vibrato · Click', [
-      knob({ label: 'Key-Click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
-      knob({ label: 'Perc-Pegel', min: 0, max: 1.5, def: 1, fmt: pct, get: () => S.organ.percLevel, set: v => { S.organ.percLevel = v; sendOrgan(); } }),
-      knob({ label: 'Abkl. kurz', min: 0.1, max: 0.6, def: 0.2, step: 0.01, fmt: v => de(v, 2) + ' s', get: () => S.organ.percShort, set: v => { S.organ.percShort = v; sendOrgan(); } }),
-      knob({ label: 'Abkl. lang', min: 0.5, max: 2.5, def: 1.0, step: 0.05, fmt: v => de(v, 1) + ' s', get: () => S.organ.percLong, set: v => { S.organ.percLong = v; sendOrgan(); } }),
+      knob({ label: 'Key click', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.click, set: v => { S.click = v; send({ type: 'click', v }); } }),
+      knob({ label: 'Perc level', min: 0, max: 1.5, def: 1, fmt: pct, get: () => S.organ.percLevel, set: v => { S.organ.percLevel = v; sendOrgan(); } }),
+      knob({ label: 'Fast decay', min: 0.1, max: 0.6, def: 0.2, step: 0.01, fmt: v => nf(v, 2) + ' s', get: () => S.organ.percShort, set: v => { S.organ.percShort = v; sendOrgan(); } }),
+      knob({ label: 'Slow decay', min: 0.5, max: 2.5, def: 1.0, step: 0.05, fmt: v => nf(v, 1) + ' s', get: () => S.organ.percLong, set: v => { S.organ.percLong = v; sendOrgan(); } }),
     ], [rowSeg('Vibrato', VIB, () => S.vib, v => { S.vib = v; send({ type: 'vib', v }); syncAll(); }, 'c3'),
-        rowSeg('Click folgt', [[true, 'Anschlag'], [false, 'fest']], () => S.velClick, v => { S.velClick = v; sendMains(); }, true)],
-      'Anschlag: schneller Tastendruck schließt die neun Kontakte fast gleichzeitig und hart, langsamer Druck nacheinander und weicher.'));
-    p.appendChild(sec('Vorverstärker AO-28', [
-      knob({ label: 'Vorstufe', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.pre.gain, set: v => { S.pre.gain = v; sendPre(); } }),
+        rowSeg('Click', [[true, 'Velocity'], [false, 'Fixed']], () => S.velClick, v => { S.velClick = v; sendMains(); }, true)],
+      'Velocity: a fast stroke closes all nine contacts almost at once and hard, a slow press one after another and softer.'));
+    p.appendChild(sec('Preamp AO-28', [
+      knob({ label: 'Gain', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.pre.gain, set: v => { S.pre.gain = v; sendPre(); } }),
     ], [
-      rowSeg('Röhren', [[true, 'an'], [false, 'umgangen']], () => S.pre.on, v => { S.pre.on = v; sendPre(); }, true),
-      rowVal('Qualität', () => ['Eco', 'HQ', 'Ultra'][S.amp.quality] + ' (wie Endstufe)'),
-    ], 'Hinter dem Schweller: 12AX7 und 12BH7-Gegentakt mit Übertrager. Schweller ganz auf und volle Zugriegel – dann zerrt schon die Orgel, bevor das Leslie dazukommt.'));
-    const kickBtn = rowBtn('Tank', 'Anstoßen', () => send({ type: 'springKick', v: 1 }));
-    kickBtn.btn.title = 'Ein Stoß gegen den Hallkasten – die Federn schlagen an';
-    p.appendChild(sec('Federhall', [
-      knob({ label: 'Anteil', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }),
-      knob({ label: 'Nachhall', min: 1, max: 5, step: 0.1, def: 2.8, fmt: v => de(v, 1) + ' s', get: () => S.spring.decay, set: v => { S.spring.decay = v; sendSpring(); } }),
-      knob({ label: 'Klang', min: 0, max: 1, def: 0.5, fmt: v => v < 0.33 ? 'dunkel' : v > 0.66 ? 'hell' : 'mittel', get: () => S.spring.tone, set: v => { S.spring.tone = v; sendSpring(); } }),
-      knob({ label: 'Antrieb', min: 0, max: 1, def: 0.3, fmt: pct, get: () => S.spring.drive, set: v => { S.spring.drive = v; sendSpring(); } }),
+      rowSeg('Tubes', [[true, 'on'], [false, 'bypass']], () => S.pre.on, v => { S.pre.on = v; sendPre(); }, true),
+      rowVal('Quality', () => ['Eco', 'HQ', 'Ultra'][S.amp.quality] + ' (= power amp)'),
+    ], 'Post-swell: 12AX7 and a 12BH7 push-pull into a transformer. Swell wide open and full drawbars – the organ already breaks up before the Leslie.'));
+    const kickBtn = rowBtn('Tank', 'Kick', () => send({ type: 'springKick', v: 1 }));
+    p.appendChild(sec('Spring Reverb', [
+      knob({ label: 'Mix', min: 0, max: 1, def: 0.2, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.spring.mix, set: v => { S.spring.mix = v; sendSpring(); syncAll(); } }),
+      knob({ label: 'Decay', min: 1, max: 5, step: 0.1, def: 2.8, fmt: v => nf(v, 1) + ' s', get: () => S.spring.decay, set: v => { S.spring.decay = v; sendSpring(); } }),
+      knob({ label: 'Tone', min: 0, max: 1, def: 0.5, fmt: v => v < 0.33 ? 'dark' : v > 0.66 ? 'bright' : 'mid', get: () => S.spring.tone, set: v => { S.spring.tone = v; sendSpring(); } }),
+      knob({ label: 'Drive', min: 0, max: 1, def: 0.3, fmt: pct, get: () => S.spring.drive, set: v => { S.spring.drive = v; sendSpring(); } }),
     ], [
-      rowSeg('Federn', [[2, '2'], [3, '3']], () => S.spring.springs, v => { S.spring.springs = v; sendSpring(); }, 3),
+      rowSeg('Springs', [[2, '2'], [3, '3']], () => S.spring.springs, v => { S.spring.springs = v; sendSpring(); }, 3),
       kickBtn,
-    ], 'Hammond-Tank wie in A-100 und 122RV: sitzt in der Orgel, vor dem Leslie – der Hall dreht sich also mit.'));
+    ], 'Hammond tank as in the A-100 and 122RV: inside the organ, before the Leslie – so the reverb spins too.'));
   });
 
   // ---------------- Card: Leslie ----------------
-  const rpmFmt = (v) => Math.round(v * 60) + ' U/min';
-  const secFmt = (v) => de(v, 1) + ' s';
+  const rpmFmt = (v) => Math.round(v * 60) + ' rpm';
+  const secFmt = (v) => nf(v, 1) + ' s';
   function cabDeg() { let d = Math.round((S.cabYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
   function setCabYaw(rad, jump) { S.cabYaw = rad; send({ type: 'cabYaw', v: rad, jump: !!jump }); syncAll(); }
   page('leslie', (p) => {
     const rk = (r, k, label, min, max, def, fmt, log) => knob({ label, min, max, def, fmt, log, get: () => S.rotor[r][k], set: v => { S.rotor[r][k] = v; sendRotor(r); } });
-    p.appendChild(sec('Horn', [rk(0, 'slow', 'Langsam', 0.5, 1.2, 0.8, rpmFmt), rk(0, 'fast', 'Schnell', 5.5, 7.6, 6.67, rpmFmt), rk(0, 'up', 'Hochlauf', 0.2, 3, 0.5, secFmt, true), rk(0, 'down', 'Auslauf', 0.3, 4, 0.85, secFmt, true)], [],
-      'Das leichte Horn ist in unter einer Sekunde auf Tempo.'));
-    p.appendChild(sec('Trommel', [rk(1, 'slow', 'Langsam', 0.4, 1.0, 0.667, rpmFmt), rk(1, 'fast', 'Schnell', 4.5, 6.5, 5.7, rpmFmt), rk(1, 'up', 'Hochlauf', 1, 8, 1.7, secFmt, true), rk(1, 'down', 'Auslauf', 1.5, 10, 2.5, secFmt, true)],
-      [rowSeg('Bremse', [[true, 'an'], [false, 'aus']], () => S.brake, v => { S.brake = v; send({ type: 'brake', v }); }, true)]));
-    p.appendChild(sec('Endstufe', [
+    p.appendChild(sec('Horn', [rk(0, 'slow', 'Slow', 0.5, 1.2, 0.8, rpmFmt), rk(0, 'fast', 'Fast', 5.5, 7.6, 6.67, rpmFmt), rk(0, 'up', 'Rise', 0.2, 3, 0.5, secFmt, true), rk(0, 'down', 'Fall', 0.3, 4, 0.85, secFmt, true)], [],
+      'The light horn gets up to speed in under a second.'));
+    p.appendChild(sec('Drum', [rk(1, 'slow', 'Slow', 0.4, 1.0, 0.667, rpmFmt), rk(1, 'fast', 'Fast', 4.5, 6.5, 5.7, rpmFmt), rk(1, 'up', 'Rise', 1, 8, 1.7, secFmt, true), rk(1, 'down', 'Fall', 1.5, 10, 2.5, secFmt, true)],
+      [rowSeg('Brake', [[true, 'on'], [false, 'off']], () => S.brake, v => { S.brake = v; send({ type: 'brake', v }); }, true)]));
+    p.appendChild(sec('Power Amp', [
       knob({ label: 'Drive', min: 0, max: 1, def: 0.35, fmt: pct, get: () => S.drive, set: v => { S.drive = v; send({ type: 'drive', v }); syncAll(); } }),
-      knob({ label: 'Netzteil-Sag', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.amp.sag, set: v => { S.amp.sag = v; sendAmp(); } }),
+      knob({ label: 'Sag', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.amp.sag, set: v => { S.amp.sag = v; sendAmp(); } }),
     ], [
-      rowSel('Modell', AMP_MODELS, () => S.amp.model, v => { S.amp.model = +v; sendAmp(); syncAll(); }, 0),
-      rowSeg('Qualität', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); }, 1),
-      rowVal('Anode / Kath.', () => ampText),
-    ], 'Eco: Kennlinie. HQ und Ultra rechnen Röhren und Ausgangsübertrager als Schaltung (Glow/Iron aus Amberwave).'));
-    p.appendChild(sec('Gehäuse', [
-      knob({ label: 'Hornfach', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornBox, set: v => { S.cab.hornBox = v; sendCab(); } }),
-      knob({ label: 'Resonanz', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'aus' : pct(v), get: () => S.cab.res, set: v => { S.cab.res = v; sendCab(); } }),
-      knob({ label: 'Mechanik', min: 0, max: 1, def: -1, fmt: v => v < 0.005 ? 'aus' : pct(v), auto: { v: -1, label: 'auto', show: () => 0.15 + 0.7 * S.chr.cond }, get: () => S.cab.mech, set: v => { S.cab.mech = v; sendCab(); } }),
-      knob({ label: 'Unrund', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
+      rowSel('Model', AMP_MODELS, () => S.amp.model, v => { S.amp.model = +v; sendAmp(); syncAll(); }, 0),
+      rowSeg('Quality', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); }, 1),
+      rowVal('Plate / cath.', () => ampText),
+    ], 'Eco: static curve. HQ and Ultra solve the tubes and the output transformer as a circuit (Glow/Iron from Amberwave).'));
+    p.appendChild(sec('Cabinet', [
+      knob({ label: 'Horn box', min: 0, max: 1, def: 0.45, fmt: pct, get: () => S.cab.hornBox, set: v => { S.cab.hornBox = v; sendCab(); } }),
+      knob({ label: 'Resonance', min: 0, max: 1, def: 0.5, fmt: v => v < 0.005 ? 'off' : pct(v), get: () => S.cab.res, set: v => { S.cab.res = v; sendCab(); } }),
+      knob({ label: 'Mechanics', min: 0, max: 1, def: -1, fmt: v => v < 0.005 ? 'off' : pct(v), auto: { v: -1, label: 'auto', show: () => 0.15 + 0.7 * S.chr.cond }, get: () => S.cab.mech, set: v => { S.cab.mech = v; sendCab(); } }),
+      knob({ label: 'Wobble', min: 0, max: 1, def: -1, fmt: pct, auto: { v: -1, label: 'auto', show: () => S.chr.cond }, get: () => S.cab.wobble, set: v => { S.cab.wobble = v; sendCab(); } }),
     ], [
-      rowSeg('Bauart', [['ply', 'Sperrholz'], ['chip', 'Spanplatte']], () => S.cab.board, v => { S.cab.board = v; sendCab(); }, 'ply'),
-    ], 'Mittelfach als Bassreflexbox. Resonanz: die Holzwände schwingen mit – frühe Gehäuse Sperrholz, spätere Spanplatte (weicher, stärker gedämpft). Mechanik: Motoren, Riemen, Lager, Relais, Einkuppeln des Langsam-Motors.'));
-    p.appendChild(sec('Aufstellung', [
+      rowSeg('Build', [['ply', 'Plywood'], ['chip', 'Chipboard']], () => S.cab.board, v => { S.cab.board = v; sendCab(); }, 'ply'),
+    ], 'The middle compartment is a vented box for the 15″ woofer. Early cabinets are plywood, later ones chipboard (softer, more damped).'));
+    p.appendChild(sec('Placement', [
       knob({ label: 'Balance', min: 0, max: 1, def: 0.5, fmt: v => `${Math.round((1 - v) * 100)}/${Math.round(v * 100)}`, get: () => S.balance, set: v => { S.balance = v; send({ type: 'balance', v }); } }),
-      knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° Front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
+      knob({ label: 'Facing', min: -180, max: 180, step: 1, def: 0, fmt: v => (v === 0 ? '0° front' : v + '°'), get: () => cabDeg(), set: v => setCabYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
-      rowBtn('Schnell drehen', 'Front zum Hörer', () => setCabYaw(Math.atan2(S.listener.y - S.lesliePos.y, S.listener.x - S.lesliePos.x))),
-      rowBtn('', 'Rücken zur Wand', () => { const R = S.room, d = [[S.lesliePos.x, Math.PI], [R.Lx - S.lesliePos.x, 0], [S.lesliePos.y, -Math.PI / 2], [R.Ly - S.lesliePos.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
+      rowBtn('Quick turn', 'Face the listener', () => setCabYaw(Math.atan2(S.listener.y - S.lesliePos.y, S.listener.x - S.lesliePos.x))),
+      rowBtn('', 'Back to the wall', () => { const R = S.room, d = [[S.lesliePos.x, Math.PI], [R.Lx - S.lesliePos.x, 0], [S.lesliePos.y, -Math.PI / 2], [R.Ly - S.lesliePos.y, Math.PI / 2]].sort((a, b) => a[0] - b[0])[0]; setCabYaw(d[1] + Math.PI); }),
     ]));
-    p.appendChild(sec('Steuerung', [], [
-      rowSel('Umschalten mit', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
-      rowSeg('Halbmond', [['two', '2 Stufen'], ['stop', 'mit Stopp']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.leslie === 'stop') setLeslie('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
-    ], 'Leertaste schaltet immer zwischen Choral und Tremolo. Das Leslie lässt sich im Grundriss auch mit dem Mausrad drehen.'));
+    p.appendChild(sec('Control', [], [
+      rowSel('Switch via', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSeg('Half-moon', [['two', '2-way'], ['stop', 'with Stop']], () => S.halfMoon, v => { S.halfMoon = v; if (v !== 'stop' && S.leslie === 'stop') setLeslie('slow'); syncAll(); if (ready) scheduleSave(); }, 'stop'),
+    ], 'The space bar always toggles Chorale/Tremolo. You can also turn the Leslie in the floor plan with the scroll wheel.'));
   });
 
   // ---------------- Card: Room ----------------
   page('raum', (p) => {
-    const m = (v) => de(v, 1) + ' m';
+    const m = (v) => nf(v, 1) + ' m';
     const rk = (id, label, min, max, def, fmt) => knob({ label, min, max, def, step: id === 'absorb' || id === 'reverb' ? 0.01 : 0.1, fmt, get: () => S.room[id], set: v => { S.room[id] = v; clampPos(); send({ type: 'room', v: { [id]: v } }); sendPos(); } });
-    p.appendChild(sec('Maße', [rk('Lx', 'Breite', 3, 30, 6, m), rk('Ly', 'Länge', 3, 40, 8, m), rk('Lz', 'Höhe', 2.2, 15, 2.8, m), rk('reverb', 'Nachhall', 0, 2, 1, pct)],
-      [rowSeg('Form', [['box', 'Quader'], ['tent', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'box')], '', { id: 'secBox' }));
-    p.appendChild(sec('Oberflächen · Hörer', [
-      rk('absorb', 'Dämpfung', 0.05, 0.8, 0.3, pct),
-      knob({ label: 'Blickricht.', min: -180, max: 180, step: 1, def: 0, fmt: v => v + '°', get: () => yawDeg(), set: v => setYaw(Math.PI / 2 + v * Math.PI / 180) }),
+    p.appendChild(sec('Dimensions', [rk('Lx', 'Width', 3, 30, 6, m), rk('Ly', 'Length', 3, 40, 8, m), rk('Lz', 'Height', 2.2, 15, 2.8, m), rk('reverb', 'Reverb', 0, 2, 1, pct)],
+      [rowSeg('Shape', [['box', 'Box'], ['tent', 'Circus tent']], () => S.room.shape, v => setShape(v), 'box')], '', { id: 'secBox' }));
+    p.appendChild(sec('Surfaces · Listener', [
+      rk('absorb', 'Absorption', 0.05, 0.8, 0.3, pct),
+      knob({ label: 'Facing', min: -180, max: 180, step: 1, def: 0, fmt: v => v + '°', get: () => yawDeg(), set: v => setYaw(Math.PI / 2 + v * Math.PI / 180) }),
     ], [
       rowSel('Material', MATERIALS, () => S.room.material, v => { S.room.material = v; send({ type: 'room', v: { material: v } }); syncAll(); }, 'wood'),
-      rowBtn('Kopf', 'Zum Leslie schauen', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
+      rowBtn('Head', 'Look at the Leslie', () => setYaw(Math.atan2(S.lesliePos.y - S.listener.y, S.lesliePos.x - S.listener.x))),
     ], '', { id: 'secSurf' }));
     // Circus tent section
     const tk = (key, label, min, max, def, fmt, step) => knob({ label, min, max, def, step, fmt, get: () => S.tent[key], set: v => { S.tent[key] = v; if (S.room.shape === 'tent') applyTent(false); } });
-    p.appendChild(sec('Zirkuszelt', [
-      tk('W', 'Ø Rund', 16, 50, 30, m, 0.5), tk('Ls', 'Mittelteil', 0, 30, 0, m, 0.5), tk('mast', 'Mastabst.', 4, 20, 10, m, 0.5), tk('dome', 'Kuppel-Ø', 6, 30, 14.1, m, 0.5),
-      tk('hm', 'Kranzhöhe', 5, 16, 8.5, m, 0.1), tk('hb', 'Kranzband', 0.3, 3, 1.3, m, 0.1), tk('tip', 'Spitze', 0.5, 8, 3.5, m, 0.1), tk('hw', 'Wandhöhe', 2.2, 5, 4, m, 0.1),
-      tk('sagPct', 'Durchhang', 0, 1, 0.45, pct, 0.01), tk('ring', 'Manege-Ø', 8, 18, 13, m, 0.5), tk('audience', 'Publikum', 0, 1, 0.8, pct, 0.01),
+    p.appendChild(sec('Circus Tent', [
+      tk('W', 'Ø Round', 16, 50, 30, m, 0.5), tk('Ls', 'Mid section', 0, 30, 0, m, 0.5), tk('mast', 'Pole dist.', 4, 20, 10, m, 0.5), tk('dome', 'Dome Ø', 6, 30, 14.1, m, 0.5),
+      tk('hm', 'Crown ht.', 5, 16, 8.5, m, 0.1), tk('hb', 'Crown band', 0.3, 3, 1.3, m, 0.1), tk('tip', 'Peak', 0.5, 8, 3.5, m, 0.1), tk('hw', 'Wall ht.', 2.2, 5, 4, m, 0.1),
+      tk('sagPct', 'Sag', 0, 1, 0.45, pct, 0.01), tk('ring', 'Ring Ø', 8, 18, 13, m, 0.5), tk('audience', 'Audience', 0, 1, 0.8, pct, 0.01),
     ], [
-      rowSel('Untergrund', [['grass', 'Wiese'], ['gravel', 'Schotter / Kies'], ['sandlot', 'Sandplatz'], ['asphalt', 'Asphalt'], ['concrete', 'Betonplatz'], ['paving', 'Pflaster'], ['woodfloor', 'Holzboden'], ['snow', 'Schnee']],
+      rowSel('Ground', [['grass', 'Grass'], ['gravel', 'Gravel'], ['sandlot', 'Sand lot'], ['asphalt', 'Asphalt'], ['concrete', 'Concrete slab'], ['paving', 'Paving'], ['woodfloor', 'Wooden floor'], ['snow', 'Snow']],
         () => S.tent.ground, v => { S.tent.ground = v; if (S.room.shape === 'tent') applyTent(false); }, 'grass'),
-      rowSel('Manege', [['sand', 'Sägespäne / Sand'], ['ground', 'wie Untergrund']], () => S.tent.ringFloor, v => { S.tent.ringFloor = v; if (S.room.shape === 'tent') applyTent(false); }, 'sand'),
-      rowSeg('Form', [['box', 'Quader'], ['tent', 'Zirkuszelt']], () => S.room.shape, v => setShape(v), 'box'),
-      rowVal('Strahlen', () => tInfoText),
+      rowSel('Ring floor', [['sand', 'Sawdust / sand'], ['ground', 'Same as ground']], () => S.tent.ringFloor, v => { S.tent.ringFloor = v; if (S.room.shape === 'tent') applyTent(false); }, 'sand'),
+      rowSeg('Shape', [['box', 'Box'], ['tent', 'Circus tent']], () => S.room.shape, v => setShape(v), 'box'),
+      rowVal('Rays', () => tInfoText),
     ], '', { id: 'secTent', span: 2, kcols: 6, rcols: 2 }));
-    p.appendChild(sec('Berechnung · Vorlagen', [], [
-      rowSeg('Reflexionen', [1, 2, 3, 4, 5].map(v => [v, String(v)]), () => S.room.order, v => { S.room.order = v; send({ type: 'room', v: { order: v } }); scheduleTrace(); syncAll(); }, 2),
-      rowSeg('Genauigkeit', [[false, 'Schnell'], [true, 'Exakt']], () => S.exact, v => { S.exact = v; sendPrecision(); syncAll(); }, false),
-      rowVal('Schallwege', () => roomInfo ? `${roomInfo.paths} · ${S.exact ? 'alle exakt' : 'ab 2. Ordnung vereinfacht'}` : '–'),
-      rowSel('Raum laden', () => [['', matchRoom() !== null ? '–' : 'Eigener Raum'], ...ROOMS.map((r, i) => [i, r.n])], () => { const i = matchRoom(); return i === null ? '' : i; }, v => { if (v !== '') loadRoom(+v); }),
-      rowVal('Rechenlast', () => cpuText),
-    ], 'Exakt rechnet jede Reflexion pro Sample mit Position, Doppler, Richtwirkung und Panorama. Ab 4. Ordnung braucht das sehr viel Rechenzeit – die Last steht im Audio-Tab.'));
+    p.appendChild(sec('Engine · Presets', [], [
+      rowSeg('Reflections', [1, 2, 3, 4, 5].map(v => [v, String(v)]), () => S.room.order, v => { S.room.order = v; send({ type: 'room', v: { order: v } }); scheduleTrace(); syncAll(); }, 2),
+      rowSeg('Precision', [[false, 'Fast'], [true, 'Exact']], () => S.exact, v => { S.exact = v; sendPrecision(); syncAll(); }, false),
+      rowVal('Paths', () => roomInfo ? `${roomInfo.paths} · ${S.exact ? 'all exact' : 'grouped ≥ 2nd'}` : '–'),
+      rowSel('Load room', () => [['', matchRoom() !== null ? '–' : 'Custom room'], ...ROOMS.map((r, i) => [i, r.n])], () => { const i = matchRoom(); return i === null ? '' : i; }, v => { if (v !== '') loadRoom(+v); }),
+      rowVal('CPU', () => cpuText),
+    ], 'Exact renders every reflection per sample with position, Doppler, directivity and panning. From 4th order that takes a lot of CPU.'));
   });
   reg({ sync() { const z = S.room.shape === 'tent'; $('secBox').hidden = z; $('secSurf').hidden = z; $('secTent').hidden = !z; } });
 
 
   // ---------------- Card: Mics ----------------
-  const MIC_TYPES = [[0, '57 · dynamisch'], [1, '421 · dynamisch'], [2, 'D112 · Bass'], [3, 'RE20 · Superniere'], [4, '87 · Kondensator'], [5, 'KM 84 · Kleinmembr.'], [6, '121 · Bändchen']];
-  const PATTERNS = [[0, 'Niere'], [1, 'Kugel'], [2, 'Acht']];
-  const CH_NAMES = ['Horn L', 'Horn R', 'Trom. 1', 'Trom. 2', 'Raum L', 'Raum R', 'Hörer'];
+  const MIC_TYPES = [[0, '57 · dynamic'], [1, '421 · dynamic'], [2, 'D112 · kick'], [3, 'RE20 · supercardioid'], [4, '87 · condenser'], [5, 'KM 84 · SDC'], [6, '121 · ribbon']];
+  const PATTERNS = [[0, 'Cardioid'], [1, 'Omni'], [2, 'Figure-8']];
+  const CH_NAMES = ['Horn L', 'Horn R', 'Drum 1', 'Drum 2', 'Room L', 'Room R', 'Listener'];
   const micActive = (c) => { const M = S.mics; return c === 1 ? M.hornStereo : c === 3 ? M.drumStereo : true; };
-  const degFmt = (v) => (v === 0 ? '0° Front' : Math.round(v) + '°');
+  const degFmt = (v) => (v === 0 ? '0° front' : Math.round(v) + '°');
   function placeRoomPair() {
     const f = S.cabYaw, d = Math.min(3, Math.max(1.5, Math.min(S.room.Lx, S.room.Ly) * 0.35));
     S.mics.roomX = clamp(S.lesliePos.x + Math.cos(f) * d, 0.5, S.room.Lx - 0.5); S.mics.roomY = clamp(S.lesliePos.y + Math.sin(f) * d, 0.5, S.room.Ly - 0.5);
@@ -1179,45 +1320,45 @@ self.onmessage = (e) => {
     const M = () => S.mics;
     const mk = (k) => (v) => { S.mics[k] = v; sendMics(); syncAll(); };
     const arrSeg = (label, kSt, kAng, opts) => rowSeg(label, opts, () => S.mics[kSt] ? S.mics[kAng] : 0, v => { if (v === 0) S.mics[kSt] = false; else { S.mics[kSt] = true; S.mics[kAng] = v; } sendMics(); syncAll(); }, 180);
-    const patRow = (kType, kPat) => { const r = rowSel('Charakt.', PATTERNS, () => S.mics[kPat], v => { S.mics[kPat] = +v; sendMics(); }, 0); reg({ sync() { r.el.style.display = S.mics[kType] === 4 ? '' : 'none'; } }); return r; };
-    p.appendChild(sec('Horn', [
-      knob({ label: 'Mitte', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().hornCenter, set: mk('hornCenter') }),
-      knob({ label: 'Abstand', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().hornDist, set: mk('hornDist') }),
-      knob({ label: 'Höhe', min: -0.3, max: 0.3, step: 0.01, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.round(Math.abs(v) * 100) + ' cm', get: () => M().hornHeight, set: mk('hornHeight') }),
+    const patRow = (kType, kPat) => { const r = rowSel('Pattern', PATTERNS, () => S.mics[kPat], v => { S.mics[kPat] = +v; sendMics(); }, 0); reg({ sync() { r.el.style.display = S.mics[kType] === 4 ? '' : 'none'; } }); return r; };
+    p.appendChild(sec('Horn Mics', [
+      knob({ label: 'Angle', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().hornCenter, set: mk('hornCenter') }),
+      knob({ label: 'Distance', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().hornDist, set: mk('hornDist') }),
+      knob({ label: 'Height', min: -0.3, max: 0.3, step: 0.01, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.round(Math.abs(v) * 100) + ' cm', get: () => M().hornHeight, set: mk('hornHeight') }),
     ], [
-      arrSeg('Aufbau', 'hornStereo', 'hornAngle', [[0, 'Mono'], [90, '90°'], [120, '120°'], [180, '180°']]),
-      rowSel('Mikro', MIC_TYPES, () => M().hornType, v => { S.mics.hornType = +v; sendMics(); syncAll(); }, 0),
+      arrSeg('Setup', 'hornStereo', 'hornAngle', [[0, 'Mono'], [90, '90°'], [120, '120°'], [180, '180°']]),
+      rowSel('Mic', MIC_TYPES, () => M().hornType, v => { S.mics.hornType = +v; sendMics(); syncAll(); }, 0),
       patRow('hornType', 'hornPattern'),
-      rowSeg('Windschutz', [[false, 'aus'], [true, 'an']], () => M().windscreen, mk('windscreen'), false),
+      rowSeg('Windscreen', [[false, 'off'], [true, 'on']], () => M().windscreen, mk('windscreen'), false),
     ]));
-    p.appendChild(sec('Trommel', [
-      knob({ label: 'Mitte', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().drumCenter, set: mk('drumCenter') }),
-      knob({ label: 'Abstand', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().drumDist, set: mk('drumDist') }),
+    p.appendChild(sec('Drum Mics', [
+      knob({ label: 'Angle', min: -180, max: 180, step: 5, def: 0, fmt: degFmt, get: () => M().drumCenter, set: mk('drumCenter') }),
+      knob({ label: 'Distance', min: 0.03, max: 1.0, def: 0.15, log: true, fmt: v => Math.round(v * 100) + ' cm', get: () => M().drumDist, set: mk('drumDist') }),
     ], [
-      arrSeg('Aufbau', 'drumStereo', 'drumAngle', [[0, 'Mono'], [90, '90°'], [180, '180°']]),
-      rowSel('Mikro', MIC_TYPES, () => M().drumType, v => { S.mics.drumType = +v; sendMics(); syncAll(); }, 2),
+      arrSeg('Setup', 'drumStereo', 'drumAngle', [[0, 'Mono'], [90, '90°'], [180, '180°']]),
+      rowSel('Mic', MIC_TYPES, () => M().drumType, v => { S.mics.drumType = +v; sendMics(); syncAll(); }, 2),
       patRow('drumType', 'drumPattern'),
-    ], 'Hinten (180°) hört man den Motor mehr, vorne mehr Gehäuse.'));
-    p.appendChild(sec('Raumpaar', [
-      knob({ label: 'Abstand', min: 0.2, max: 3, step: 0.05, def: 0.6, fmt: v => de(v, 2) + ' m', get: () => M().roomSpacing, set: mk('roomSpacing') }),
-      knob({ label: 'Höhe', min: 0.5, max: 4, step: 0.05, def: 2, fmt: v => de(v, 1) + ' m', get: () => M().roomZ, set: mk('roomZ') }),
-      knob({ label: 'Richtung', min: -180, max: 180, step: 1, def: 0, fmt: v => Math.round(v) + '°', get: () => { let d = Math.round((M().roomYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }, set: v => { S.mics.roomYaw = Math.PI / 2 + v * Math.PI / 180; sendMics(); syncAll(); } }),
-      knob({ label: 'Reflex.', opts: [[1, '1. Ord.'], [2, '2. Ord.'], [3, '3. Ord.']], def: 2, get: () => M().roomOrder, set: mk('roomOrder') }),
+    ], 'From the back (180°) you get more motor, from the front more cabinet.'));
+    p.appendChild(sec('Room Pair', [
+      knob({ label: 'Spacing', min: 0.2, max: 3, step: 0.05, def: 0.6, fmt: v => nf(v, 2) + ' m', get: () => M().roomSpacing, set: mk('roomSpacing') }),
+      knob({ label: 'Height', min: 0.5, max: 4, step: 0.05, def: 2, fmt: v => nf(v, 1) + ' m', get: () => M().roomZ, set: mk('roomZ') }),
+      knob({ label: 'Aim', min: -180, max: 180, step: 1, def: 0, fmt: v => Math.round(v) + '°', get: () => { let d = Math.round((M().roomYaw - Math.PI / 2) * 180 / Math.PI); while (d > 180) d -= 360; while (d < -180) d += 360; return d; }, set: v => { S.mics.roomYaw = Math.PI / 2 + v * Math.PI / 180; sendMics(); syncAll(); } }),
+      knob({ label: 'Reflect.', opts: [[1, '1st'], [2, '2nd'], [3, '3rd']], def: 2, get: () => M().roomOrder, set: mk('roomOrder') }),
     ], [
-      rowSeg('Anordnung', [[0, 'AB'], [1, 'XY'], [2, 'ORTF']], () => M().roomArr, v => { S.mics.roomArr = v; if (v > 0 && S.mics.roomType === 4 && S.mics.roomPattern === 1) S.mics.roomPattern = 0; sendMics(); syncAll(); }, 0),
-      rowSel('Mikro', MIC_TYPES, () => M().roomType, v => { S.mics.roomType = +v; sendMics(); syncAll(); }, 4),
+      rowSeg('Array', [[0, 'AB'], [1, 'XY'], [2, 'ORTF']], () => M().roomArr, v => { S.mics.roomArr = v; if (v > 0 && S.mics.roomType === 4 && S.mics.roomPattern === 1) S.mics.roomPattern = 0; sendMics(); syncAll(); }, 0),
+      rowSel('Mic', MIC_TYPES, () => M().roomType, v => { S.mics.roomType = +v; sendMics(); syncAll(); }, 4),
       patRow('roomType', 'roomPattern'),
-      rowBtn('', 'Vor das Leslie', () => { placeRoomPair(); sendMics(); syncAll(); }),
+      rowBtn('', 'Place in front', () => { placeRoomPair(); sendMics(); syncAll(); }),
     ]));
     // Mixer: three groups, each stereo (balance + width) or mono (pan)
     const desk = h('div', 'desk');
-    const GRP = [['Horn', () => S.mics.hornStereo, () => S.mics.hornAngle + '°'], ['Trommel', () => S.mics.drumStereo, () => S.mics.drumAngle + '°'], ['Raum', () => true, () => ['AB', 'XY', 'ORTF'][S.mics.roomArr]]];
+    const GRP = [['Horn', () => S.mics.hornStereo, () => S.mics.hornAngle + '°'], ['Drum', () => S.mics.drumStereo, () => S.mics.drumAngle + '°'], ['Room', () => true, () => ['AB', 'XY', 'ORTF'][S.mics.roomArr]]];
     GRP.forEach(([nm, isSt, stInfo], g) => {
       const G = () => S.mics.grp[g];
       const st = h('div', 'strip');
       const hd = h('div', 'shd'); hd.appendChild(h('span', 'sn', nm)); const badge = h('span', 'badge'); hd.appendChild(badge); st.appendChild(hd);
-      const tg = h('div', 'tg'); const tb = (txt, key, cls, title) => { const b = h('button', cls || '', txt); b.type = 'button'; b.title = title; b.onclick = () => { G()[key] = !G()[key]; sendMics(); syncAll(); }; tg.appendChild(b); return [key, b]; };
-      const tbs = [tb('Ø', 'pol', '', 'Polarität drehen'), tb('M', 'mute', '', 'Stumm'), tb('S', 'solo', 'solo', 'Solo')];
+      const tg = h('div', 'tg'); const tb = (txt, key, cls, title) => { const b = h('button', cls || '', txt); b.type = 'button'; b.dataset.tip = title; b.onclick = () => { G()[key] = !G()[key]; sendMics(); syncAll(); }; tg.appendChild(b); return [key, b]; };
+      const tbs = [tb('Ø', 'pol', '', 'Flip polarity – check it against the other groups, the drum mics often want it.'), tb('M', 'mute', '', 'Mute'), tb('S', 'solo', 'solo', 'Solo')];
       st.appendChild(tg);
       const body = h('div', 'body');
       const fw = h('div', 'fadw'); const fd = h('div', 'fad', '<i></i>'); const mL = h('div', 'smeter', '<b></b>'), mR = h('div', 'smeter r', '<b></b>');
@@ -1230,23 +1371,23 @@ self.onmessage = (e) => {
       fd.addEventListener('pointerup', () => drag = null); fd.addEventListener('pointercancel', () => drag = null);
       fd.addEventListener('wheel', (e) => { e.preventDefault(); const db = G().gain <= -60 ? -48 : G().gain; setDb(db + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.5 : 1)); }, { passive: false });
       fd.addEventListener('dblclick', () => setDb(0));
-      fd.title = 'Ziehen oder Mausrad · Doppelklick = 0 dB';
+      fd.dataset.tip = 'Group fader'; fd.dataset.tipK = 'Drag or scroll · Shift = fine · Double-click = 0 dB';
       const kc = h('div', 'kcol');
-      const panK = knob({ small: true, label: 'Pan', min: -1, max: 1, step: 0.05, def: 0, fmt: v => Math.abs(v) < 0.025 ? 'Mitte' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100), get: () => G().pan, set: v => { G().pan = v; sendMics(); } });
-      const wK = knob({ small: true, label: 'Breite', min: 0, max: 1, step: 0.01, def: 1, fmt: v => v >= 0.995 ? 'voll' : v <= 0.005 ? 'mono' : pct(v), get: () => G().width, set: v => { G().width = v; sendMics(); } });
+      const panK = knob({ small: true, label: 'Pan', tip: 'Pan (mono group) or balance (stereo group).', min: -1, max: 1, step: 0.05, def: 0, fmt: v => Math.abs(v) < 0.025 ? 'C' : (v < 0 ? 'L ' : 'R ') + Math.round(Math.abs(v) * 100), get: () => G().pan, set: v => { G().pan = v; sendMics(); } });
+      const wK = knob({ small: true, label: 'Width', tip: 'Stereo width of the pair: full to mono.', min: 0, max: 1, step: 0.01, def: 1, fmt: v => v >= 0.995 ? 'full' : v <= 0.005 ? 'mono' : pct(v), get: () => G().width, set: v => { G().width = v; sendMics(); } });
       wK.el.classList.add('wk');
       kc.appendChild(panK.el); kc.appendChild(wK.el); body.appendChild(kc);
       st.appendChild(body);
       const fv = h('span', 'fv'); st.appendChild(fv);
       const foot = h('div', 'foot');
-      const dn = h('div', 'dnum'); dn.title = 'Verzögerung · ziehen oder Mausrad · Doppelklick = 0';
+      const dn = h('div', 'dnum'); dn.dataset.tip = 'Delay: time-align the group to the others.'; dn.dataset.tipK = 'Drag or scroll · Double-click = 0';
       let dd = null; const setD = (v) => { G().delay = clamp(Math.round(v * 10) / 10, 0, 50); sendMics(); syncAll(); };
       dn.addEventListener('pointerdown', (e) => { dn.setPointerCapture(e.pointerId); dd = { y: e.clientY, v: G().delay }; });
       dn.addEventListener('pointermove', (e) => { if (dd) setD(dd.v + (dd.y - e.clientY) / SCALE * (e.shiftKey ? 0.02 : 0.1)); });
       dn.addEventListener('pointerup', () => dd = null); dn.addEventListener('pointercancel', () => dd = null);
       dn.addEventListener('wheel', (e) => { e.preventDefault(); setD(G().delay + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 0.1 : 0.5)); }, { passive: false });
       dn.addEventListener('dblclick', () => setD(0));
-      const osel = h('select'); osel.setAttribute('aria-label', nm + ' Ziel'); osel.title = 'Ziel: Mischung vorne/hinten oder eigener Ausgang';
+      const osel = h('select'); osel.setAttribute('aria-label', nm + ' output'); osel.dataset.tip = 'Destination: the front or rear mix, or a direct out of its own (plugin: the Direct buses).';
       osel.onchange = () => { G().out = +osel.value; sendMics(); syncAll(); };
       foot.appendChild(dn); foot.appendChild(osel); st.appendChild(foot);
       desk.appendChild(st);
@@ -1258,109 +1399,109 @@ self.onmessage = (e) => {
         panK.el.querySelector('.kl').textContent = stereo ? 'Balance' : 'Pan';
         tbs.forEach(([k, b]) => b.classList.toggle('on', !!v[k]));
         fd.firstChild.style.top = ((1 - toP(v.gain)) * 100) + '%';
-        fv.textContent = v.gain <= -60 ? '−∞' : (v.gain > 0 ? '+' : v.gain < 0 ? '−' : '') + de(Math.abs(v.gain), 1) + ' dB';
-        dn.textContent = de(v.delay, 1) + ' ms';
+        fv.textContent = v.gain <= -60 ? '−∞' : (v.gain > 0 ? '+' : v.gain < 0 ? '−' : '') + nf(Math.abs(v.gain), 1) + ' dB';
+        dn.textContent = nf(v.delay, 1) + ' ms';
         const n = Math.min(16, Math.max(audioInfo.outputs || 0, 2));
-        const list = [[-1, 'vorne'], [-2, 'hinten'], ...Array.from({ length: stereo ? n - 1 : n }, (_, k) => [k, stereo ? `Ausg. ${k + 1}/${k + 2}` : `Ausg. ${k + 1}`])];
+        const list = [[-1, 'front'], [-2, 'rear'], ...Array.from({ length: stereo ? n - 1 : n }, (_, k) => [k, stereo ? `Out ${k + 1}/${k + 2}` : `Out ${k + 1}`])];
         const sig = JSON.stringify(list); if (sig !== oSig) { oSig = sig; osel.innerHTML = ''; list.forEach(([val, t]) => { const o = h('option', '', t); o.value = val; osel.appendChild(o); }); }
         osel.value = String(Math.min(v.out, stereo ? n - 2 : n - 1));
       }, reset() { S.mics.grp[g] = clone(DEF.mics.grp[g]); sendMics(); } });
       micMeterEls[2 * g] = mL.firstChild; micMeterEls[2 * g + 1] = mR.firstChild;
     });
-    const onSeg = rowSeg('', [[false, 'Hörer'], [true, 'Mikros']], () => S.mics.on, v => setMicsOn(v), false);
-    p.appendChild(sec('Pult', [], [], '', { span: 2, head: onSeg, extra: desk }));
+    const onSeg = rowSeg('', [[false, 'Listener'], [true, 'Mics']], () => S.mics.on, v => setMicsOn(v), false);
+    p.appendChild(sec('Mixer', [], [], '', { span: 2, head: onSeg, extra: desk }));
   });
 
   // ---------------- Card: Output ----------------
   page('ausgabe', (p) => {
     p.appendChild(sec('Format', [
       knob({ label: 'LFE', min: 0, max: 1, def: 0.5, fmt: pct, get: () => S.lfe, set: v => { S.lfe = v; send({ type: 'lfe', v }); } }),
-      knob({ label: 'LFE-Weiche', min: 60, max: 160, step: 5, def: 100, fmt: v => v + ' Hz', get: () => S.out.lfeHz, set: v => { S.out.lfeHz = v; sendOut(); } }),
-      knob({ label: 'Ausgang', min: -24, max: 6, step: 0.5, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + de(Math.abs(v), 1) + ' dB', get: () => S.out.masterDb, set: v => { S.out.masterDb = v; sendOut(); } }),
-    ], [rowSeg('Ausgabe', [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']], () => S.mode, v => { S.mode = v; applyMode(); syncAll(); }, 'stereo')],
-      'LFE und Weiche wirken nur bei 5.1.'));
+      knob({ label: 'LFE x-over', min: 60, max: 160, step: 5, def: 100, fmt: v => v + ' Hz', get: () => S.out.lfeHz, set: v => { S.out.lfeHz = v; sendOut(); } }),
+      knob({ label: 'Master', min: -24, max: 6, step: 0.5, def: 0, fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), 1) + ' dB', get: () => S.out.masterDb, set: v => { S.out.masterDb = v; sendOut(); } }),
+    ], [rowSeg('Format', [['stereo', 'Stereo'], ['quad', 'Quad'], ['s51', '5.1']], () => S.mode, v => { S.mode = v; applyMode(); syncAll(); }, 'stereo')],
+      'LFE and crossover only apply in 5.1.'));
     // Channel mapping: rows for up to 6 channels, visible count depends on the format
     const mapRows = [0, 1, 2, 3, 4, 5].map(i => {
-      const r = rowSel('Kanal ' + (i + 1), () => { const n = 8; return Array.from({ length: n }, (_, k) => [k, outName(k)]); },   // the room mix has 8 speaker slots; higher outputs are for mic direct outs
+      const r = rowSel('Ch ' + (i + 1), () => { const n = 8; return Array.from({ length: n }, (_, k) => [k, outName(k)]); },   // the room mix has 8 speaker slots; higher outputs are for mic direct outs
         () => curMap()[i] ?? i, v => { const m = curMap().slice(); m[i] = +v; S.chmap[S.mode] = m; applyMode(); syncAll(); });
       return r;
     });
-    const s2 = sec('Kanalzuordnung', [], [...mapRows, rowBtn('', 'Automatisch (1, 2, 3 …)', () => { S.chmap[S.mode] = null; applyMode(); syncAll(); })]);
+    const s2 = sec('Routing', [], [...mapRows, rowBtn('', 'Auto (1, 2, 3 …)', () => { S.chmap[S.mode] = null; applyMode(); syncAll(); })]);
     p.appendChild(s2);
     reg({ sync() { const M = MODES[S.mode]; mapRows.forEach((r, i) => { r.el.hidden = i >= M.ch; r.el.style.display = i >= M.ch ? 'none' : ''; r.el.querySelector('.rl').textContent = M.long[i] || ''; }); }, reset() { S.chmap = { stereo: null, quad: null, s51: null }; applyMode(); } });
-    const dbFmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + de(Math.abs(v), 1) + ' dB';
-    const rearK = knob({ label: 'Hinten', min: -12, max: 3, step: 0.5, def: 0, fmt: dbFmt, get: () => S.out.rearDb, set: v => { S.out.rearDb = v; sendOut(); } });
+    const dbFmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), 1) + ' dB';
+    const rearK = knob({ label: 'Rear', min: -12, max: 3, step: 0.5, def: 0, fmt: dbFmt, get: () => S.out.rearDb, set: v => { S.out.rearDb = v; sendOut(); } });
     const centK = knob({ label: 'Center', min: -12, max: 3, step: 0.5, def: 0, fmt: dbFmt, get: () => S.out.centerDb, set: v => { S.out.centerDb = v; sendOut(); } });
-    const divK = knob({ label: 'Center-Breite', min: 0, max: 1, def: 0, fmt: v => v < 0.005 ? 'nur Center' : v > 0.995 ? 'Phantom' : pct(v), get: () => S.out.centerDiv, set: v => { S.out.centerDiv = v; sendOut(); } });
-    const monSec = sec('Abhöre', [rearK, centK, divK], [], 'Trimm für deine Lautsprecher, nicht für den Raum: Hinten = Surround-Kanäle, Center nur bei 5.1. Center-Breite legt eine Quelle vor dir zusätzlich auf L/R (Phantom), falls dein Center schwächer ist.');
+    const divK = knob({ label: 'Divergence', min: 0, max: 1, def: 0, fmt: v => v < 0.005 ? 'center only' : v > 0.995 ? 'phantom' : pct(v), get: () => S.out.centerDiv, set: v => { S.out.centerDiv = v; sendOut(); } });
+    const monSec = sec('Monitoring', [rearK, centK, divK], [], 'Trims for your speakers, not the room. Center and divergence only in 5.1.');
     p.appendChild(monSec);
     reg({ sync() { const m = S.mode; monSec.style.display = m === 'stereo' ? 'none' : ''; centK.el.style.display = m === 's51' ? '' : 'none'; divK.el.style.display = m === 's51' ? '' : 'none'; } });
-    const testRow = rowBtn('Kanaltest', 'Alle Kanäle anpiepen', () => chanTest(testRow.btn));
-    p.appendChild(sec('Prüfen', [], [testRow, rowVal('Gerät', () => audioInfo.device ? `${audioInfo.device}, ${audioInfo.outputs} Ausgänge` : '–'), rowVal('Hinweis', () => warnText || 'alles in Ordnung')],
-      'Bei einer Quelle direkt vor dir kommt hinten nur der Raum an: in einem kleinen, lebendigen Raum etwa 8 dB leiser als vorne, mit Abstand und Nachhall mehr.'));
+    const testRow = rowBtn('Channel test', 'Ping all channels', () => chanTest(testRow.btn));
+    p.appendChild(sec('Check', [], [testRow, rowVal('Device', () => audioInfo.device ? `${audioInfo.device}, ${audioInfo.outputs} outputs` : '–'), rowVal('Status', () => warnText || 'all good')],
+      'With a source straight ahead the rear only gets the room: in a small, live room about 8 dB below the front, more with distance and reverb.'));
   });
   let testTimers = [];
   function chanTest(btn) {
     testTimers.forEach(clearTimeout); testTimers = [];
     const M = MODES[S.mode], n = M.ch;
     M.long.forEach((name, i) => testTimers.push(setTimeout(() => { const phys = physCh(i); btn.textContent = `${i + 1}/${n}: ${name} → ${phys + 1}`; btn.classList.add('on'); nativeInvoke('chantest', phys, S.mode === 's51' && i === 3); }, i * 750)));
-    testTimers.push(setTimeout(() => { btn.textContent = 'Alle Kanäle anpiepen'; btn.classList.remove('on'); }, n * 750));
+    testTimers.push(setTimeout(() => { btn.textContent = 'Ping all channels'; btn.classList.remove('on'); }, n * 750));
   }
 
   // ---------------- Card: MIDI ----------------
   page('midi', (p) => {
-    const chOpts = (omni) => [[0, omni ? 'Omni (alle)' : 'aus'], ...Array.from({ length: 16 }, (_, i) => [i + 1, 'Kanal ' + (i + 1)])];
+    const chOpts = (omni) => [[0, omni ? 'Omni (all)' : 'off'], ...Array.from({ length: 16 }, (_, i) => [i + 1, 'Channel ' + (i + 1)])];
     const chRow = (label, k, def, omni) => rowSel(label, chOpts(omni), () => S.midi[k], v => { S.midi[k] = +v; sendMidi(); syncAll(); }, def);
-    p.appendChild(sec('Kanäle', [], [chRow('Obermanual', 'upper', 1, true), chRow('Untermanual', 'lower', 2, false), chRow('Pedal', 'pedal', 3, false)],
-      'Ober auf „Omni“: alles, was nicht auf dem Unter- oder Pedalkanal kommt, spielt oben.'));
-    const chipRow = (label, k, name) => { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); r.appendChild(splitChip(k, name)); return { el: r }; };
-    const hiRow = chipRow('Trennpunkt', 'hi', 'Ober'), loRow = chipRow('', 'lo', 'Unter');
+    p.appendChild(sec('Channels', [], [chRow('Upper', 'upper', 1, true), chRow('Lower', 'lower', 2, false), chRow('Pedal', 'pedal', 3, false)],
+      'Upper on Omni: everything that is not on the lower or pedal channel plays the upper manual.'));
+    const chipRow = (label, k, name) => { const r = h('div', 'row'); r.appendChild(h('span', 'rl', label)); r.appendChild(splitChip(k, name)); return { el: r, label: label || 'Split point', tipEl: r }; };
+    const hiRow = chipRow('Split point', 'hi', 'Upper'), loRow = chipRow('', 'lo', 'Lower');
     reg({ sync() { hiRow.el.style.display = S.split.mode >= 1 ? '' : 'none'; loRow.el.style.display = S.split.mode === 2 ? '' : 'none'; } });
     const OCT = [-3, -2, -1, 0, 1, 2, 3].map(v => [v, v > 0 ? '+' + v : v < 0 ? '−' + -v : '0']);
     const octRow = (label, man) => rowSeg(label, OCT, () => S.split.oct[man], v => { S.split.oct[man] = v; sendKeyMap(); syncAll(); }, 0);
-    p.appendChild(sec('Split · Oktaven', [], [
-      rowSeg('Split', [[0, 'aus'], [1, '2 Zonen'], [2, '3 Zonen']], () => S.split.mode, v => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }, 0),
+    p.appendChild(sec('Split · Octaves', [], [
+      rowSeg('Split', [[0, 'off'], [1, '2 zones'], [2, '3 zones']], () => S.split.mode, v => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }, 0),
       hiRow, loRow,
-      rowSel('Keyboard', [[49, '49 Tasten'], [61, '61 Tasten'], [73, '73 Tasten'], [76, '76 Tasten'], [88, '88 Tasten']], () => S.split.kb, v => { S.split.kb = +v; syncAll(); if (ready) scheduleSave(); }, 61),
-      octRow('Oktave Ober', 0), octRow('Oktave Unter', 1), octRow('Oktave Pedal', 2),
-    ], 'Split auf dem Ober-Kanal · ● lernt von der nächsten Taste.'));
-    p.appendChild(sec('Controller', [], [
-      rowSel('Leslie', [[1, 'CC 1 Modwheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Fußcontroller'], [80, 'CC 80 Schalter']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
-      rowSel('Schweller', [[11, 'CC 11 Expression'], [7, 'CC 7 Volume'], [4, 'CC 4 Fußcontroller']], () => S.midi.swellCC, v => { S.midi.swellCC = +v; sendMidi(); syncAll(); }, 11),
-      rowVal('Geräte', () => (audioInfo.midiDevices && audioInfo.midiDevices.length) ? audioInfo.midiDevices.join(', ') : 'keins gefunden'),
-      rowBtn('', 'MIDI-Eingänge …', () => nativeInvoke('audioSettings')),
-    ], 'Neu angesteckte MIDI-Geräte werden automatisch eingeschaltet.'));
-    p.appendChild(sec('PC-Tastatur', [], [
-      rowSeg('Spielt', [[0, 'Ober'], [1, 'Unter'], [2, 'Pedal']], () => S.pcMan, v => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }, 0),
-      rowVal('Oktave', () => (S.octave > 0 ? '+' : '') + S.octave),
-      rowVal('Tasten', () => 'Y–M und Q–P, Halbtöne darüber'),
-    ], 'Leertaste: Leslie umschalten · Esc: Panik.'));
+      rowSel('Keyboard', [[49, '49 keys'], [61, '61 keys'], [73, '73 keys'], [76, '76 keys'], [88, '88 keys']], () => S.split.kb, v => { S.split.kb = +v; syncAll(); if (ready) scheduleSave(); }, 61),
+      octRow('Upper octave', 0), octRow('Lower octave', 1), octRow('Pedal octave', 2),
+    ], 'Split works on the upper channel · ● learns from the next key.'));
+    p.appendChild(sec('Controllers', [], [
+      rowSel('Leslie', [[1, 'CC 1 Mod wheel'], [64, 'CC 64 Sustain'], [4, 'CC 4 Foot controller'], [80, 'CC 80 Switch']], () => S.midi.leslieCC, v => { S.midi.leslieCC = +v; sendMidi(); syncAll(); }, 1),
+      rowSel('Swell', [[11, 'CC 11 Expression'], [7, 'CC 7 Volume'], [4, 'CC 4 Foot controller']], () => S.midi.swellCC, v => { S.midi.swellCC = +v; sendMidi(); syncAll(); }, 11),
+      rowVal('Devices', () => (audioInfo.midiDevices && audioInfo.midiDevices.length) ? audioInfo.midiDevices.join(', ') : 'none found'),
+      rowBtn('', 'MIDI Inputs …', () => nativeInvoke('audioSettings')),
+    ], 'Newly connected MIDI devices are enabled automatically.'));
+    p.appendChild(sec('QWERTY Keys', [], [
+      rowSeg('Plays', [[0, 'Upper'], [1, 'Lower'], [2, 'Pedal']], () => S.pcMan, v => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }, 0),
+      rowVal('Octave', () => (S.octave > 0 ? '+' : '') + S.octave),
+      rowVal('Keys', () => 'Z–M and Q–P, sharps above (Y–M on QWERTZ)'),
+    ], 'Space: toggle Leslie · Esc: panic.'));
   });
 
   // ---------------- Card: Audio ----------------
   page('audio', (p) => {
-    const setBtn = rowBtn('', 'Audio-Einstellungen …', () => nativeInvoke('audioSettings'));
-    const bounce = rowSeg('Bounce', [[true, 'maximal'], [false, 'wie eingestellt']], () => S.offlineMax, v => { S.offlineMax = v; sendOffline(); }, true);
+    const setBtn = rowBtn('', 'Audio Settings …', () => nativeInvoke('audioSettings'));
+    const bounce = rowSeg('Bounce', [[true, 'Max quality'], [false, 'As set']], () => S.offlineMax, v => { S.offlineMax = v; sendOffline(); }, true);
     reg({ sync() { const pl = isPlugin(); setBtn.el.style.display = pl ? 'none' : ''; bounce.el.style.display = pl ? '' : 'none'; } });
-    p.appendChild(sec('Gerät', [], [
-      rowVal('Treiber', () => audioInfo.type || '–'), rowVal('Gerät', () => audioInfo.device || '–'),
+    p.appendChild(sec('Device', [], [
+      rowVal('Driver', () => audioInfo.type || '–'), rowVal('Device', () => audioInfo.device || '–'),
       setBtn, bounce,
-    ], () => isPlugin() ? 'Als Plugin bestimmt der Host Abtastrate, Puffer und Ausgänge. Bounce „maximal“: beim Rendern rechnet Wheelhouse mit 5. Ordnung, Exakt und Ultra – egal, was in Echtzeit möglich ist.' : 'Treiber (ASIO, Windows Audio), Gerät, Abtastrate, Puffer und Ausgänge stellst du im Audio-Dialog ein; Wheelhouse merkt sie sich.'));
-    p.appendChild(sec('Puffer', [], [
-      rowVal('Abtastrate', () => audioInfo.sampleRate ? de(audioInfo.sampleRate / 1000, 1) + ' kHz' : '–'),
-      rowVal('Puffer', () => audioInfo.bufferSize ? `${audioInfo.bufferSize} Samples = ${de(audioInfo.bufferSize / audioInfo.sampleRate * 1000, 1)} ms` : '–'),
-      rowVal('Ausgang', () => audioInfo.sampleRate ? (isPlugin() ? `${de(outMs(), 1)} ms Puffer (Ausgabe rechnet der Host)` : `${de(outMs(), 1)} ms (laut Treiber, inkl. Puffer)`) : '–'),
-      rowVal('Verarbeitung', () => audioInfo.sampleRate ? `${de(procLatency / audioInfo.sampleRate * 1000, 1)} ms (Oversampling Röhren)` : '–'),
-      rowVal('Gesamt', () => audioInfo.sampleRate ? `${de(outMs() + procLatency / audioInfo.sampleRate * 1000, 1)} ms + Schallweg ${de(soundPathMs(), 1)} ms` : '–'),
-    ], 'Schallweg: Laufzeit vom Leslie zum Hörer bzw. zum nächsten Mikro – wie im echten Raum. Die Zeit vom Tastendruck bis zum Programm (MIDI, USB) kann Wheelhouse nicht messen.'));
-    p.appendChild(sec('Ausgänge · Last', [], [
-      rowVal('Aktiv', () => audioInfo.outputs ? `${audioInfo.outputs} Ausgänge` : '–'),
-      rowVal('Kanäle', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
-      rowVal('Rechenlast', () => isPlugin() ? 'zeigt der Host' : cpuText),
-      rowVal('Aussetzer', () => droppedBlocks ? `${droppedBlocks} Blöcke ausgelassen (Einstellung lief gerade)` : 'keine'),
-      rowSeg('Endstufe', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); syncAll(); }),
-      rowSeg('Kerne', [[0, 'Auto'], [1, '1'], [2, '2'], [4, '4'], [8, '8'], [16, '16']], () => S.threads, v => { S.threads = v; sendThreads(); }, 0),
-    ], () => (isPlugin() ? 'Raum und Mikros rechnen auf mehreren Kernen (Auto im Plugin = ein Viertel der Kerne, höchstens 4 – die DAW braucht auch welche).' : 'Raum und Mikros rechnen auf mehreren Kernen (Auto = halbe Kernzahl, höchstens 8).') + ' Wird es knapp, hilft ein größerer Puffer, weniger Reflexionen oder die Endstufe auf HQ oder Eco.'));
+    ], () => isPlugin() ? 'In a plugin the host sets sample rate, buffer and outputs.' : 'Driver (ASIO, Windows Audio), device, sample rate, buffer and outputs are set in the audio dialog; Wheelhouse remembers them.'));
+    p.appendChild(sec('Buffer', [], [
+      rowVal('Sample rate', () => audioInfo.sampleRate ? nf(audioInfo.sampleRate / 1000, 1) + ' kHz' : '–'),
+      rowVal('Buffer', () => audioInfo.bufferSize ? `${audioInfo.bufferSize} samples = ${nf(audioInfo.bufferSize / audioInfo.sampleRate * 1000, 1)} ms` : '–'),
+      rowVal('Output', () => audioInfo.sampleRate ? (isPlugin() ? `${nf(outMs(), 1)} ms buffer (output latency: host)` : `${nf(outMs(), 1)} ms (driver, incl. buffer)`) : '–'),
+      rowVal('Processing', () => audioInfo.sampleRate ? `${nf(procLatency / audioInfo.sampleRate * 1000, 1)} ms (tube oversampling)` : '–'),
+      rowVal('Total', () => audioInfo.sampleRate ? `${nf(outMs() + procLatency / audioInfo.sampleRate * 1000, 1)} ms + sound path ${nf(soundPathMs(), 1)} ms` : '–'),
+    ], 'Sound path: travel time from the Leslie to the listener or the nearest mic – as in a real room. Key-to-computer time (MIDI, USB) can\'t be measured.'));
+    p.appendChild(sec('Outputs · CPU', [], [
+      rowVal('Active', () => audioInfo.outputs ? `${audioInfo.outputs} outputs` : '–'),
+      rowVal('Channels', () => (audioInfo.channelNames || []).slice(0, 8).join(', ') || '–'),
+      rowVal('CPU', () => isPlugin() ? 'see host' : cpuText),
+      rowVal('Dropouts', () => droppedBlocks ? `${droppedBlocks} blocks skipped (a setting was being applied)` : 'none'),
+      rowSeg('Power amp', [[0, 'Eco'], [1, 'HQ'], [2, 'Ultra']], () => S.amp.quality, v => { S.amp.quality = v; sendAmp(); syncAll(); }),
+      rowSeg('Cores', [[0, 'Auto'], [1, '1'], [2, '2'], [4, '4'], [8, '8'], [16, '16']], () => S.threads, v => { S.threads = v; sendThreads(); }, 0),
+    ], 'Running out of headroom? Raise the buffer, lower the reflections or set the power amp to HQ or Eco.'));
   });
 
   // Latency figures for the Audio card: the driver's output latency already contains the buffer
@@ -1389,7 +1530,7 @@ self.onmessage = (e) => {
     syncAll();
   }
   const quick = ROOMS.map((r, i) => [r, i]).filter(([r]) => !r.noQuick);
-  const preBtns = quick.map(([r, i]) => { const b = h('button', '', r.s); b.type = 'button'; b.title = r.n; b.onclick = () => loadRoom(i); $('roomPre').appendChild(b); return [i, b]; });
+  const preBtns = quick.map(([r, i]) => { const b = h('button', '', r.s); b.type = 'button'; b.dataset.tip = r.n + ' – load this room preset.'; b.onclick = () => loadRoom(i); $('roomPre').appendChild(b); return [i, b]; });
   reg({ sync() { const m = matchRoom(); preBtns.forEach(([i, b]) => b.classList.toggle('on', i === m)); } });
 
   // ---------------- Circus tent (geometry, absorption, ray tracer worker) ----------------
@@ -1428,13 +1569,13 @@ self.onmessage = (e) => {
     if (!tracer) {
       const url = URL.createObjectURL(new Blob([$('tracer-src').textContent], { type: 'application/javascript' }));
       tracer = new Worker(url);
-      tracer.onmessage = (e) => { const r = e.data; if (r.id !== traceId) return; send({ type: 'taps', taps: r.taps }); tInfoText = `${r.taps.length} Wege · ${r.ms.toFixed(0)} ms`; syncAll(); };
+      tracer.onmessage = (e) => { const r = e.data; if (r.id !== traceId) return; send({ type: 'taps', taps: r.taps }); tInfoText = `${r.taps.length} paths · ${r.ms.toFixed(0)} ms`; syncAll(); };
     }
     traceId++;
     const caps = { 1: 10000, 2: 14000, 3: 18000, 4: 22000, 5: 28000 };
     tracer.postMessage({ id: traceId, geo: tentGeo(), src: { x: S.lesliePos.x, y: S.lesliePos.y, z: 0.8 }, rec: { x: S.listener.x, y: S.listener.y, z: 1.2 },
       rays: caps[S.room.order] || 14000, maxBounces: 2 + S.room.order, audience: S.tent.audience, scatter: 0.15, ground: S.tent.ground, ringFloor: S.tent.ringFloor });
-    tInfoText = 'rechnet …';
+    tInfoText = 'tracing …';
   }
 
   // ---------------- Position and viewing direction ----------------
@@ -1516,7 +1657,7 @@ self.onmessage = (e) => {
       g.fillStyle = '#f2c879'; g.fillRect(X(-dl) - 3, Y(1.1), 6, 1.1 * sc);
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(X(dh), Y(1.5), 3, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#8f8370'; g.font = '11px "Barlow Condensed", sans-serif';
-      g.fillText(`Schnitt · Kranz ${de(gt.hCrown)} m · Spitze ${de(gt.hTip)} m`, bx + 8, by + 14);
+      g.fillText(`Section · crown ${nf(gt.hCrown)} m · peak ${nf(gt.hTip)} m`, bx + 8, by + 14);
     }
 
     function draw(hornA, drumA) {
@@ -1598,7 +1739,7 @@ self.onmessage = (e) => {
           mic(wx, wy, Math.cos(a), Math.sin(a), big ? 5 : 4);
         });
         const [ca, cb] = W2C(M.roomX, M.roomY);
-        g.fillStyle = '#c9b89c'; g.font = '11px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Raumpaar', ca, cb + 20); g.textAlign = 'left';
+        g.fillStyle = '#c9b89c'; g.font = '11px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('Room pair', ca, cb + 20); g.textAlign = 'left';
       }
       // Listener + speakers
       const [hx, hy] = W2C(S.listener.x, S.listener.y), yaw = S.listener.yaw;
@@ -1607,7 +1748,7 @@ self.onmessage = (e) => {
       g.fillStyle = '#efe7d8'; g.beginPath(); g.arc(hx, hy, 9, 0, Math.PI * 2); g.fill();
       g.beginPath(); g.moveTo(hx + Math.cos(yaw) * 15, hy - Math.sin(yaw) * 15); g.lineTo(hx + Math.cos(yaw + 0.55) * 8, hy - Math.sin(yaw + 0.55) * 8); g.lineTo(hx + Math.cos(yaw - 0.55) * 8, hy - Math.sin(yaw - 0.55) * 8); g.fill();
       g.fillStyle = '#f2a33a'; [Math.PI / 2, -Math.PI / 2].forEach(o => { g.beginPath(); g.arc(hx + Math.cos(yaw + o) * 9, hy - Math.sin(yaw + o) * 9, 2.6, 0, Math.PI * 2); g.fill(); });
-      g.fillStyle = '#c9b89c'; g.fillText(`Du · ${de(Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y))} m`, hx + 14, hy + 22);
+      g.fillStyle = '#c9b89c'; g.fillText(`You · ${nf(Math.hypot(S.lesliePos.x - S.listener.x, S.lesliePos.y - S.listener.y))} m`, hx + 14, hy + 22);
       g.globalAlpha = 1;
     }
     return self;
@@ -1615,12 +1756,12 @@ self.onmessage = (e) => {
   const rooms = [RoomView($('roomS'), false), RoomView($('roomB'), true)];
   function roomLine() {
     const R = S.room;
-    const dims = R.shape === 'tent' ? `Zirkuszelt Ø ${de(S.tent.W, 0)} m · Kranz ${de(S.tent.hm)} m` : `${de(R.Lx)} × ${de(R.Ly)} × ${de(R.Lz)} m · ${MAT_SHORT[R.material] || R.material}`;
-    return dims + (roomInfo ? ` · RT60 ${de(roomInfo.rt60[1])} s` : '');
+    const dims = R.shape === 'tent' ? `Circus tent Ø ${nf(S.tent.W, 0)} m · crown ${nf(S.tent.hm)} m` : `${nf(R.Lx)} × ${nf(R.Ly)} × ${nf(R.Lz)} m · ${MAT_SHORT[R.material] || R.material}`;
+    return dims + (roomInfo ? ` · RT60 ${nf(roomInfo.rt60[1])} s` : '');
   }
   reg({ sync() {
     $('rinfoS').textContent = roomLine();
-    if (roomInfo) { $('stRt').textContent = roomInfo.rt60.map(x => de(x)).join(' / ') + ' s'; $('stRc').textContent = de(roomInfo.rc) + ' m'; $('stPaths').textContent = roomInfo.paths; }
+    if (roomInfo) { $('stRt').textContent = roomInfo.rt60.map(x => nf(x)).join(' / ') + ' s'; $('stRc').textContent = nf(roomInfo.rc) + ' m'; $('stPaths').textContent = roomInfo.paths; }
   } });
 
   // ---------------- Manuals (upper / lower keyboard) ----------------
@@ -1702,10 +1843,10 @@ self.onmessage = (e) => {
   // ---------------- Keyboard split and octave shift per manual ----------------
   // One keyboard on the upper channel can play pedal | lower | upper; every manual can be shifted by octaves.
   // The manuals show which of their keys the keyboard reaches (the rest is dimmed, the edges marked in gold).
-  const NOTE_N = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'B', 'H'];
+  const NOTE_N = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const noteName = (n) => NOTE_N[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
   const KB_RANGE = { 49: [36, 84], 61: [36, 96], 73: [28, 100], 76: [28, 103], 88: [21, 108] };
-  const MAN_NAME = ['Obermanual', 'Untermanual', 'Pedal'];
+  const MAN_NAME = ['Upper manual', 'Lower manual', 'Pedal'];
   let learnTarget = null;   // 'hi' | 'lo' while waiting for a key on the MIDI keyboard
   function setManOct(man, d) { const o = S.split.oct; o[man] = clamp(o[man] + d, -3, 3); sendKeyMap(); syncAll(); }
   function setSplit(k, v) {
@@ -1741,20 +1882,21 @@ self.onmessage = (e) => {
   }
   // octave control right of each manual
   for (let man = 0; man < 3; man++) {
-    const box = $('ov' + man), up = h('button', '', '+'), val = h('span', 'ov', '0'), dn = h('button', '', '−'), lab = h('span', 'ol', 'OKT');
+    const box = $('ov' + man), up = h('button', '', '+'), val = h('span', 'ov', '0'), dn = h('button', '', '−'), lab = h('span', 'ol', 'OCT');
     up.type = dn.type = 'button';
-    up.title = `${MAN_NAME[man]} eine Oktave höher`; dn.title = `${MAN_NAME[man]} eine Oktave tiefer`;
-    up.setAttribute('aria-label', up.title); dn.setAttribute('aria-label', dn.title);
+    up.dataset.tip = `${MAN_NAME[man]} one octave up`; dn.dataset.tip = `${MAN_NAME[man]} one octave down`; val.dataset.tip = `Octave shift of the ${MAN_NAME[man].toLowerCase()} (±3)`;
+    up.setAttribute('aria-label', up.dataset.tip); dn.setAttribute('aria-label', dn.dataset.tip);
     up.onclick = () => setManOct(man, 1); dn.onclick = () => setManOct(man, -1);
     box.append(lab, up, val, dn);
     reg({ sync() { const o = S.split.oct[man]; val.textContent = (o > 0 ? '+' : o < 0 ? '−' : '') + Math.abs(o); val.classList.toggle('hi', o !== 0); } });
   }
-  // a split point chip: "Ober ab ‹ C4 › ●" (● = learn from the keyboard)
+  // a split point chip: "Upper from ‹ C4 › ●" (● = learn from the keyboard)
   function splitChip(k, label) {
-    const el = h('span', 'spt'), t = h('span', '', label + ' ab'), dn = h('button', '', '‹'), v = h('b', '', ''), up = h('button', '', '›'), ln = h('button', 'learn', '●');
+    const el = h('span', 'spt'), t = h('span', '', label + ' from'), dn = h('button', '', '‹'), v = h('b', '', ''), up = h('button', '', '›'), ln = h('button', 'learn', '●');
     [dn, up, ln].forEach(b => b.type = 'button');
-    dn.title = 'Trennpunkt einen Halbton tiefer'; up.title = 'Trennpunkt einen Halbton höher'; ln.title = 'Lernen: nächste Taste am Keyboard setzt den Trennpunkt';
-    ln.setAttribute('aria-label', ln.title); dn.setAttribute('aria-label', dn.title); up.setAttribute('aria-label', up.title);
+    dn.dataset.tip = 'Split point one semitone down'; up.dataset.tip = 'Split point one semitone up'; ln.dataset.tip = 'Learn: the next key you press on your keyboard becomes the split point';
+    el.dataset.tip = `${label} manual starts at this key`;
+    ln.setAttribute('aria-label', ln.dataset.tip); dn.setAttribute('aria-label', dn.dataset.tip); up.setAttribute('aria-label', up.dataset.tip);
     dn.onclick = () => setSplit(k, S.split[k] - 1); up.onclick = () => setSplit(k, S.split[k] + 1);
     ln.onclick = () => { learnTarget = learnTarget === k ? null : k; syncAll(); };
     el.append(t, dn, v, up, ln);
@@ -1763,8 +1905,9 @@ self.onmessage = (e) => {
   }
   (() => {
     const g = $('splitG'), seg = h('span', 'pcseg'), lab = h('span', '', 'Split');
-    const btns = [[0, 'Aus', 'Kein Split'], [1, '2', 'Unter | Ober'], [2, '3', 'Pedal | Unter | Ober']].map(([v, t, ti]) => { const b = h('button', '', t); b.type = 'button'; b.title = ti; b.onclick = () => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }; seg.appendChild(b); return [v, b]; });
-    const cLo = splitChip('lo', 'Unter'), cHi = splitChip('hi', 'Ober');
+    lab.dataset.tip = 'Keyboard split: play several manuals from one keyboard (on the upper channel).';
+    const btns = [[0, 'Off', 'No split'], [1, '2', '2 zones: Lower | Upper'], [2, '3', '3 zones: Pedal | Lower | Upper']].map(([v, t, ti]) => { const b = h('button', '', t); b.type = 'button'; b.dataset.tip = ti; b.onclick = () => { S.split.mode = v; learnTarget = null; sendKeyMap(); syncAll(); }; seg.appendChild(b); return [v, b]; });
+    const cLo = splitChip('lo', 'Lower'), cHi = splitChip('hi', 'Upper');
     g.append(lab, seg, cLo, cHi);
     reg({ sync() {
       btns.forEach(([v, b]) => b.classList.toggle('on', v === S.split.mode));
@@ -1772,15 +1915,15 @@ self.onmessage = (e) => {
       applyZones();
     } });
   })();
-  const pcBtns = [[0, 'Ober'], [1, 'Unter'], [2, 'Pedal']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }; $('pcSeg').appendChild(b); return [v, b]; });
+  const pcBtns = [[0, 'Upper'], [1, 'Lower'], [2, 'Pedal']].map(([v, t]) => { const b = h('button', '', t); b.type = 'button'; b.onclick = () => { releasePc(); S.pcMan = v; syncAll(); if (ready) scheduleSave(); }; $('pcSeg').appendChild(b); return [v, b]; });
   reg({ sync() {
     $('swBar').style.width = (S.volume * 100) + '%';
     const hh = 62 * S.volume; $('swFill').setAttribute('y', (80 - hh).toFixed(1)); $('swFill').setAttribute('height', hh.toFixed(1));
     $('swellSvg').setAttribute('aria-valuenow', Math.round(S.volume * 100));
-    const ch = (v, omni) => v === 0 ? (omni ? 'Omni' : 'aus') : 'Kanal ' + v;
-    $('chanInfo').innerHTML = `Ober <span class="hi">${ch(S.midi.upper, true)}</span> · Unter <span class="hi">${ch(S.midi.lower)}</span> · Pedal <span class="hi">${ch(S.midi.pedal)}</span>`;
+    const ch = (v, omni) => v === 0 ? (omni ? 'Omni' : 'off') : 'Ch ' + v;
+    $('chanInfo').innerHTML = `Upper <span class="hi">${ch(S.midi.upper, true)}</span> · Lower <span class="hi">${ch(S.midi.lower)}</span> · Pedal <span class="hi">${ch(S.midi.pedal)}</span>`;
     const md = audioInfo.midiDevices || [];
-    $('midiInfo').innerHTML = md.length ? `${md.slice(0, 2).map(n => n.replace(/[<>&]/g, '')).join(' · ')} <span class="hi">●</span>` : 'kein MIDI-Gerät';
+    $('midiInfo').innerHTML = md.length ? `${md.slice(0, 2).map(n => n.replace(/[<>&]/g, '')).join(' · ')} <span class="hi">●</span>` : 'no MIDI device';
     $('octV').textContent = (S.octave > 0 ? '+' : '') + S.octave;
     pcBtns.forEach(([v, b]) => b.classList.toggle('on', v === S.pcMan));
   } });
@@ -1837,8 +1980,8 @@ self.onmessage = (e) => {
         S.rot.hornHz = m.hornHz; S.rot.drumHz = m.drumHz; S.rot.t = now;
       }
       S.meters = m.meters;
-      if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + ' %'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
-      if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${de(m.vk)} V`;
+      if (m.cpu !== undefined) { cpuText = Math.round(m.cpu * 100) + '%'; $('cpu').textContent = cpuText; $('stCpu').textContent = cpuText; }
+      if (m.vb !== undefined) ampText = `${Math.round(m.vb)} V / ${nf(m.vk)} V`;
       if (m.mm) S.micMeters = m.mm;
       if (m.procLatency !== undefined) procLatency = m.procLatency;
       if (m.dropped !== undefined) droppedBlocks = m.dropped;
@@ -1921,6 +2064,31 @@ self.onmessage = (e) => {
     nativeInvoke('audioInfo');
     requestAnimationFrame(frame);
   }
+  // ---------------- Tooltips ----------------
+  // One styled tooltip for everything with data-tip (title attributes are migrated so the native one never doubles up).
+  (() => {
+    const tip = $('tip'); let cur = null, timer = 0, down = false;
+    const hide = () => { clearTimeout(timer); timer = 0; tip.classList.remove('show'); cur = null; };
+    const target = (el) => { for (; el && el !== document.body; el = el.parentElement) { if (el.title && el.tagName !== 'OPTION') { el.dataset.tip = el.dataset.tip || el.title; el.removeAttribute('title'); } if (el.dataset && el.dataset.tip) return el; } return null; };
+    const place = (el) => {
+      tip.textContent = el.dataset.tip;
+      if (el.dataset.tipK) { const k = document.createElement('span'); k.className = 'k'; k.textContent = el.dataset.tipK; tip.appendChild(k); }
+      const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight, W = innerWidth, H = innerHeight;
+      let x = clamp(r.left + r.width / 2 - tw / 2, 6, W - tw - 6), y = r.bottom + 8;
+      if (y + th > H - 6) y = Math.max(6, r.top - th - 8);
+      tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.classList.add('show');
+    };
+    document.addEventListener('pointerover', (e) => {
+      const el = target(e.target); if (el === cur) return;
+      hide(); if (!el || down) return; cur = el;
+      timer = setTimeout(() => { if (cur === el && el.isConnected) place(el); }, 450);
+    });
+    document.addEventListener('pointerout', (e) => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
+    document.addEventListener('pointerdown', () => { down = true; hide(); }, true);
+    document.addEventListener('pointerup', () => { down = false; }, true);
+    ['wheel', 'keydown', 'scroll'].forEach(n => document.addEventListener(n, hide, { capture: true, passive: true }));
+    window.addEventListener('blur', hide);
+  })();
   start();
 })();
 </script>
