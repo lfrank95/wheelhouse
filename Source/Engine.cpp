@@ -304,6 +304,28 @@ void WheelhouseEngine::render(float* const* out, int n, const MidiBuffer* midi) 
     teleLatency = dsp->processingLatency();
     teleMics = dsp->mics().on;
     for (int c = 0; c < 6; c++) teleMicMeter[(size_t) c] = dsp->micMeter(c);
+    // floor plan snapshot, ~30 per second (seqlock: odd counter while writing, the reader retries)
+    vizCountdown -= n;
+    if (vizCountdown <= 0) {
+        vizCountdown = (int) (fs / 30);
+        vizSeq.fetch_add(1, std::memory_order_acq_rel);
+        std::atomic_thread_fence(std::memory_order_release);
+        dsp->fillPathViz(vizBuf);
+        std::atomic_thread_fence(std::memory_order_release);
+        vizSeq.fetch_add(1, std::memory_order_release);
+    }
+}
+
+bool WheelhouseEngine::readPathViz(rotary::PathViz& out) const {
+    for (int attempt = 0; attempt < 8; attempt++) {
+        const uint32_t s0 = vizSeq.load(std::memory_order_acquire);
+        if (s0 == 0) return false;
+        if (s0 & 1) continue;
+        std::memcpy(&out, &vizBuf, sizeof(out));
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (vizSeq.load(std::memory_order_relaxed) == s0) return true;
+    }
+    return false;
 }
 
 void WheelhouseEngine::applyHostParams() {
@@ -495,7 +517,8 @@ bool WheelhouseEngine::popUiEvent(var& ev) {
 // ---------------- State ----------------
 // Last message per setting. "room" and "pos" carry partial updates, so their fields are merged.
 void WheelhouseEngine::record(const String& type, const var& m) {
-    static const StringArray transient{"noteOn", "noteOff", "panic", "springKick"};
+    // "taps": ray-tracer results of the removed circus tent, dropped from older projects
+    static const StringArray transient{"noteOn", "noteOff", "panic", "springKick", "taps"};
     if (transient.contains(type)) return;
     String key = type;
     if (type == "drawbars")
@@ -715,17 +738,8 @@ bool WheelhouseEngine::handleMessage(const var& mIn, bool rec) {
             if (hasProp(v, "reverb")) r.reverb = numProp(v, "reverb", r.reverb);
             if (hasProp(v, "order")) r.order = (int) numProp(v, "order", r.order);
             if (hasProp(v, "material")) r.material = v.getProperty("material", "wood").toString().toStdString();
-            if (hasProp(v, "shape")) r.shape = v.getProperty("shape", "box").toString().toStdString();
-            if (hasProp(v, "tentVolume")) r.tentVolume = numProp(v, "tentVolume", 0);
-            if (hasProp(v, "tentSurface")) r.tentSurface = numProp(v, "tentSurface", 0);
-            if (hasProp(v, "absBands")) {
-                auto ab = v.getProperty("absBands", var());
-                if (auto* a = ab.getArray(); a && a->size() >= 3) {
-                    r.hasAbsBands = true;
-                    for (int i = 0; i < 3; i++) r.absBands[i] = (double) (*a)[i];
-                } else
-                    r.hasAbsBands = false;
-            }
+            // the circus tent was removed: a project saved with it continues in a plain box room
+            if (v.getProperty("shape", "box").toString() == "tent" || r.material == "tent") r.material = "wood";
             d.roomChanged();
             roomInfoChanged = true;
         } else if (type == "mains")
@@ -760,23 +774,6 @@ bool WheelhouseEngine::handleMessage(const var& mIn, bool rec) {
             for (int c : s.ch)
                 if (c < 0 || c >= 8) valid = false;
             if (valid) d.setSpeakers(s);
-        } else if (type == "taps") {
-            std::vector<rotary::Tap> taps;
-            if (auto* a = m.getProperty("taps", var()).getArray())
-                for (auto& t : *a) {
-                    rotary::Tap tp;
-                    tp.t = numProp(t, "t", 0);
-                    tp.az = numProp(t, "az", 0);
-                    tp.el = numProp(t, "el", 0);
-                    tp.order = (int) numProp(t, "order", 1);
-                    if (auto* dp = t.getProperty("dep", var()).getArray(); dp && dp->size() >= 3)
-                        for (int i = 0; i < 3; i++) tp.dep[i] = (double) (*dp)[i];
-                    if (auto* e = t.getProperty("E", var()).getArray(); e && e->size() >= 3)
-                        for (int i = 0; i < 3; i++) tp.E[i] = (double) (*e)[i];
-                    taps.push_back(tp);
-                }
-            d.setTaps(std::move(taps));
-            roomInfoChanged = true;
         }
     }
     if (type == "amp") applyAmpModelOffLock();

@@ -32,18 +32,12 @@ jobs:
           foreach ($f in $files) { Invoke-WebRequest -Uri "$base/$f" -OutFile ("Resources/fonts/" + (Split-Path $f -Leaf)) }
           Get-ChildItem Resources/fonts
 
-      - name: Assemble UI
-        run: python tools/build_ui.py
-
-      - name: WebView2 package (NuGet)
-        run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
-
       - name: Configure
         shell: pwsh
         run: |
           $asio = $env:ASIO_SDK_DIR
           if ($asio) { Write-Host "Building with ASIO" } else { Write-Host "Building WITHOUT ASIO (SDK download failed)" }
-          cmake -B build -A x64 -DASIO_SDK_DIR="$asio" -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/packages"
+          cmake -B build -A x64 -DASIO_SDK_DIR="$asio"
 
       - name: Build
         run: cmake --build build --config Release --parallel

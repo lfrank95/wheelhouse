@@ -16,18 +16,17 @@ endif()
 # ASIO SDK (Windows only): path to the "common" folder of the Steinberg ASIO SDK, e.g. -DASIO_SDK_DIR=C:/asiosdk/common
 set(ASIO_SDK_DIR "" CACHE PATH "Folder 'common' of the Steinberg ASIO SDK")
 
-# The build workflow downloads the fonts (Barlow Condensed, Yellowtail) into Resources/fonts; without them fallback fonts are used
+# The build workflow downloads the fonts (Barlow Condensed, Yellowtail) into Resources/fonts; without them fallback fonts
+# are used. The small icon is shown in the header of the UI.
 file(GLOB WHEELHOUSE_FONTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/fonts/*.ttf")
-juce_add_binary_data(WheelhouseResources SOURCES Resources/index.html ${WHEELHOUSE_FONTS})
+juce_add_binary_data(WheelhouseResources SOURCES Resources/icon/icon-small-256.png ${WHEELHOUSE_FONTS})
 set_target_properties(WheelhouseResources PROPERTIES POSITION_INDEPENDENT_CODE ON)   # also linked into the plugin DLL
 
 juce_add_gui_app(Wheelhouse
     PRODUCT_NAME "Wheelhouse"
     COMPANY_NAME "Lorenzo Frank"
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-1024.png"
-    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-small-256.png"
-    NEEDS_WEBVIEW2 TRUE
-    NEEDS_WEB_BROWSER TRUE)
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-small-256.png")
 
 target_sources(Wheelhouse PRIVATE
     Source/Main.cpp
@@ -37,9 +36,8 @@ target_sources(Wheelhouse PRIVATE
 target_include_directories(Wheelhouse PRIVATE Source)
 
 target_compile_definitions(Wheelhouse PRIVATE
-    JUCE_WEB_BROWSER=1
+    JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Wheelhouse,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Wheelhouse,JUCE_VERSION>"
     JUCE_DISPLAY_SPLASH_SCREEN=0
@@ -64,7 +62,7 @@ target_link_libraries(Wheelhouse PRIVATE
     juce::juce_recommended_warning_flags)
 
 if(MSVC)
-    target_compile_options(Wheelhouse PRIVATE /O2 /fp:fast)
+    target_compile_options(Wheelhouse PRIVATE /O2 /fp:fast /utf-8)   # sources are UTF-8 (UI texts)
 endif()
 
 # ---------------- VST3 instrument (same engine and UI as the app) ----------------
@@ -82,9 +80,7 @@ juce_add_plugin(WheelhousePlugin
     VST3_CATEGORIES Instrument Synth
     COPY_PLUGIN_AFTER_BUILD FALSE
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-1024.png"
-    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-small-256.png"
-    NEEDS_WEBVIEW2 TRUE
-    NEEDS_WEB_BROWSER TRUE)
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon/icon-small-256.png")
 
 target_sources(WheelhousePlugin PRIVATE
     Source/PluginProcessor.cpp
@@ -93,9 +89,8 @@ target_sources(WheelhousePlugin PRIVATE
 target_include_directories(WheelhousePlugin PRIVATE Source)
 
 target_compile_definitions(WheelhousePlugin PUBLIC
-    JUCE_WEB_BROWSER=1
+    JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
 
@@ -108,5 +103,5 @@ target_link_libraries(WheelhousePlugin PRIVATE
     juce::juce_recommended_warning_flags)
 
 if(MSVC)
-    target_compile_options(WheelhousePlugin PRIVATE /O2 /fp:fast)
+    target_compile_options(WheelhousePlugin PRIVATE /O2 /fp:fast /utf-8)
 endif()

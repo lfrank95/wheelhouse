@@ -1,5 +1,5 @@
 #include "PluginProcessor.h"
-#include "WebUi.h"
+#include "ui/NativeUi.h"
 
 using namespace juce;
 
@@ -156,7 +156,7 @@ AudioProcessorEditor* WheelhouseProcessor::createEditor() {
 
 // ---------------- Editor: the same WebView UI as the standalone ----------------
 WheelhouseEditor::WheelhouseEditor(WheelhouseProcessor& p) : AudioProcessorEditor(p), proc(p) {
-    WebUiHooks h;
+    wh::UiHooks h;
     h.dspMessage = [this](const var& m) {
         if (proc.engine.handleMessage(m) && web)
             web->emitEventIfBrowserIsVisible("roomInfo", proc.engine.makeRoomInfoEvent());
@@ -176,8 +176,12 @@ WheelhouseEditor::WheelhouseEditor(WheelhouseProcessor& p) : AudioProcessorEdito
     h.params = [this] {
         return proc.paramValues();
     };
-    web = std::make_unique<WebUiView>(h, "WheelhouseWebViewPlugin");
+    h.readPaths = [this](rotary::PathViz& v) {
+        return proc.engine.readPathViz(v);
+    };
+    web = std::make_unique<wh::NativeUi>(h);
     addAndMakeVisible(*web);
+    web->startIfNeeded();
     setResizable(true, true);
     setResizeLimits(960, 540, 3200, 1800);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio(16.0 / 9.0);
@@ -206,6 +210,7 @@ void WheelhouseEditor::timerCallback() {
 }
 
 void WheelhouseEditor::sendAudioInfo() {
+    if (!web) return;
     auto* o = new DynamicObject();
     PluginHostType host;
     o->setProperty("device", String("Host: ") + host.getHostDescription());

@@ -66,18 +66,12 @@ int main() {
                 dsp.setMics(m);
                 dsp.kickSpring(1);
                 run(20);
-                // Tent with ray-tracer taps
-                r.shape = "tent";
+                // Large hall with the highest reflection order
                 r.Lx = 30;
                 r.Ly = 30;
                 r.Lz = 8.5;
+                r.order = 3;
                 dsp.setRoom(r);
-                std::vector<Tap> taps;
-                for (int i = 0; i < 300; i++) {
-                    Tap t{0.01 + i * 0.001, i * 0.1, 0.1, {1, 0, 0}, 2, {0.01, 0.01, 0.01}};
-                    taps.push_back(t);
-                }
-                dsp.setTaps(taps);
                 m.on = false;
                 dsp.setMics(m);
                 run(20);

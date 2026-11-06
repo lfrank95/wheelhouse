@@ -51,7 +51,9 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WheelhouseProcessor)
 };
 
-class WebUiView;
+namespace wh {
+class NativeUi;
+}
 class WheelhouseEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     explicit WheelhouseEditor(WheelhouseProcessor&);
@@ -62,6 +64,6 @@ private:
     void timerCallback() override;
     void sendAudioInfo();
     WheelhouseProcessor& proc;
-    std::unique_ptr<WebUiView> web;
+    std::unique_ptr<wh::NativeUi> web; // the user interface
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WheelhouseEditor)
 };

@@ -1,5 +1,5 @@
 // Wheelhouse - DSP core, part of RotaryRoomDSP (member definitions; included at the end of RotaryRoomDSP.h).
-// Room: positions, image sources / ray taps, wall patches, cabinet directivity, per-block path geometry,
+// Room: positions, image sources, wall patches, cabinet directivity, per-block path geometry,
 // speaker layout and panning.
 #pragma once
 #include "../RotaryRoomDSP.h"
@@ -110,6 +110,9 @@ inline void RotaryRoomDSP::updatePatches() {
         const double d1 = std::sqrt(v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]),
                      d2 = std::sqrt(v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2]);
         p.dist = d1 + d2;
+        p.cx = cx[0];
+        p.cy = cx[1];
+        p.cz = cx[2];
         for (int k = 0; k < 3; k++) p.dep[k] = v1[k] / std::max(d1, 1e-6);
         p.azRoom = std::atan2(v2[1], v2[0]);
         p.el = v2[2] / std::max(d2, 1e-6);
@@ -129,7 +132,6 @@ inline void RotaryRoomDSP::updatePatches() {
                 p.init = false;
                 p.lp = 0;
                 p.zd = 0;
-                p.zlo = 0;
                 p.cab1 = 0;
             }
             if (on) {
@@ -143,7 +145,7 @@ inline void RotaryRoomDSP::updatePatches() {
 }
 
 // Rebuilds the acoustic model after a room change: clamps positions, derives per-band absorption from the material,
-// builds the image-source paths (box) or ray taps (tent) for both rotors, computes RT60 (Eyring), the
+// builds the image-source paths and wall patches for both rotors, computes RT60 (Eyring), the
 // pre-delay and the FDN delay lengths/decay gains, then refreshes the output rows and microphone paths.
 inline void RotaryRoomDSP::rebuildRoom() {
     auto clampd = [](double v, double lo, double hi) {
@@ -162,13 +164,9 @@ inline void RotaryRoomDSP::rebuildRoom() {
     // scattering coefficient (ISO 17497): how much of a reflection the surface spreads instead of mirroring.
     // Real walls are not mirrors - furniture, doors, panelling, plaster texture scatter a good part of the mid/high
     // range. Values for furnished rooms, not bare test walls: wood panelling / drywall with furniture ~0.5, stone 0.35,
-    // bare concrete 0.25, glass and tiles 0.15, tent canvas (slack, creased) 0.6.
+    // bare concrete 0.25, glass and tiles 0.15.
     double scatter = 0.5;
-    if (R.material == "tent") {
-        mat[0] = 1.9;
-        mat[2] = 0.75;
-        scatter = 0.6;
-    } else if (R.material == "concrete") {
+    if (R.material == "concrete") {
         mat[0] = 0.55;
         mat[2] = 1.1;
         scatter = 0.25;
@@ -183,134 +181,93 @@ inline void RotaryRoomDSP::rebuildRoom() {
     }
     roomScatter = scatter;
     double ab[3];
-    for (int i = 0; i < 3; i++)
-        ab[i] = R.hasAbsBands ? clampd(R.absBands[i], 0.03, 0.97) : clampd(R.absorb * mat[i], 0.03, 0.95);
+    for (int i = 0; i < 3; i++) ab[i] = clampd(R.absorb * mat[i], 0.03, 0.95);
     double reflG = std::sqrt(1 - ab[1]), hfRefl = std::sqrt((1 - ab[2]) / (1 - ab[1]));
     roomReflG = reflG;
     roomHfRefl = hfRefl;
     std::vector<Path> old = std::move(paths);
     std::vector<Path> np;
-    bool tent = R.shape == "tent";
-    if (tent) {
-        for (int r = 0; r < 2; r++) {
-            Path d;
-            d.rotor = r;
-            d.order = 0;
-            d.kOn = kOf(14000);
-            d.kDrum = kOf(18000);
-            np.push_back(d);
-            std::vector<Tap> sorted = tapsData;
-            std::sort(sorted.begin(), sorted.end(), [](const Tap& x, const Tap& y) { return y.E[1] < x.E[1]; });
-            size_t cap = r == 0 ? 190 : 70;
-            if (sorted.size() > cap) sorted.resize(cap);
-            for (auto& t : sorted) {
-                double gm = std::sqrt(std::max(t.E[1], 0.0)), gl = std::sqrt(std::max(t.E[0], 0.0)),
-                       gh = std::sqrt(std::max(t.E[2], 0.0));
-                if (gm < 1e-5 && gl < 1e-5) continue;
-                double hfRatio = gm > 0 ? std::min(1.0, gh / gm) : 0;
-                Path p;
-                p.rotor = r;
-                p.order = t.order;
-                p.trace = true;
-                p.fast = true;
-                p.dist = t.t * C_SOUND;
-                p.dep[0] = t.dep[0];
-                p.dep[1] = t.dep[1];
-                p.dep[2] = t.dep[2];
-                p.azRoom = t.az;
-                p.el = t.el;
-                p.gm = gm;
-                p.glr = gm > 0 ? gl / gm : 1;
-                p.kTrace = kOf(1500 + 14000 * hfRatio * hfRatio);
-                np.push_back(p);
-            }
-        }
-    } else {
-        for (int r = 0; r < 2; r++)
-            for (int nx = -3; nx <= 3; nx++)
-                for (int px = 0; px <= 1; px++) {
-                    int ox = std::abs(2 * nx - px);
-                    for (int ny = -3; ny <= 3; ny++)
-                        for (int py = 0; py <= 1; py++) {
-                            int oy = std::abs(2 * ny - py);
-                            for (int nz = -3; nz <= 3; nz++)
-                                for (int pz = 0; pz <= 1; pz++) {
-                                    int oz = std::abs(2 * nz - pz);
-                                    int order = ox + oy + oz;
-                                    if (order > R.order) continue;
-                                    double hf = std::pow(WALL_HF_KEEP, order) * std::pow(hfRefl, order);
-                                    Path p;
-                                    p.rotor = r;
-                                    p.order = order;
-                                    p.sx = 1 - 2 * px;
-                                    p.sy = 1 - 2 * py;
-                                    p.sz = 1 - 2 * pz;
-                                    p.ox = 2 * nx * R.Lx;
-                                    p.oy = 2 * ny * R.Ly;
-                                    p.oz = 2 * nz * R.Lz;
-                                    p.g = std::pow(reflG, order) * (order > 0 ? 0.9 : 1);
-                                    // each bounce dulls the treble
-                                    p.kOn = kOf(std::min(
-                                        20000.0,
-                                        (order == 0 ? 20000.0 : (r == 0 ? HORN_WALL_HF_HZ : DRUM_WALL_HF_HZ)) * hf));
-                                    // drum: the woofer and scoop do not reach above ~18 kHz, also on the direct path
-                                    // (same as the mic paths)
-                                    p.kDrum = kOf(std::min(20000.0, DRUM_WALL_HF_HZ * hf));
-                                    // exact mode: every image is rendered per sample (position, Doppler, directivity,
-                                    // panning); fast mode: order >= 2 uses the block-ramped float path with direction
-                                    // buckets
-                                    p.lin = order > 1 && !exactPaths;
-                                    p.fast = order > 1 && !exactPaths;
-                                    p.jit =
-                                        order > 0 ? (((r * 977 + (int) np.size() * 131) % 97) / 97.0) * 0.9 * order : 0;
-                                    // first order: the diffuse share leaves the image and comes from the illuminated
-                                    // wall patches below
-                                    p.hfScat = std::pow(1 - scatter, order);
-                                    if (order == 1 && scatter > 0) {
-                                        p.g *= std::sqrt(1 - scatter);
-                                        p.hfScat = 1;
-                                    }
-                                    np.push_back(p);
-                                }
-                        }
-                }
-        // Diffuse first-order reflection from wall patches: every surface is cut into up to 4 x 4 patches (~2.5 m).
-        // Each patch is lit by the rotor's beam (radiation model towards the patch, Doppler, cabinet) and re-radiates
-        // its scattered share (Lambert) towards the listener. So the scattered sound wanders over the walls as the
-        // horn and drum turn, instead of sitting at the mirror image. All of it goes into the wide (diffused) part.
-        if (R.order >= 1 && scatter > 0) {
-            const double Ls[3] = {R.Lx, R.Ly, R.Lz};
-            for (int r = 0; r < 2; r++)
-                for (int ax = 0; ax < 3; ax++)
-                    for (int side = 0; side < 2; side++) {
-                        const int ua = (ax + 1) % 3, va = (ax + 2) % 3;
-                        const int nu =
-                                      std::max(1, std::min(PATCH_MAX_PER_SIDE, (int) std::ceil(Ls[ua] / PATCH_SIZE_M))),
-                                  nv =
-                                      std::max(1, std::min(PATCH_MAX_PER_SIDE, (int) std::ceil(Ls[va] / PATCH_SIZE_M)));
-                        for (int iu = 0; iu < nu; iu++)
-                            for (int iv = 0; iv < nv; iv++) {
+    for (int r = 0; r < 2; r++)
+        for (int nx = -3; nx <= 3; nx++)
+            for (int px = 0; px <= 1; px++) {
+                int ox = std::abs(2 * nx - px);
+                for (int ny = -3; ny <= 3; ny++)
+                    for (int py = 0; py <= 1; py++) {
+                        int oy = std::abs(2 * ny - py);
+                        for (int nz = -3; nz <= 3; nz++)
+                            for (int pz = 0; pz <= 1; pz++) {
+                                int oz = std::abs(2 * nz - pz);
+                                int order = ox + oy + oz;
+                                if (order > R.order) continue;
+                                double hf = std::pow(WALL_HF_KEEP, order) * std::pow(hfRefl, order);
                                 Path p;
                                 p.rotor = r;
-                                p.order = 1;
-                                p.patch = true;
-                                p.fast = true;
-                                p.lin = true;
-                                p.hfScat = 0;
-                                p.axis = ax;
-                                p.at = side ? Ls[ax] : 0;
-                                p.u0 = Ls[ua] * iu / nu;
-                                p.u1 = Ls[ua] * (iu + 1) / nu;
-                                p.v0 = Ls[va] * iv / nv;
-                                p.v1 = Ls[va] * (iv + 1) / nv;
-                                const double hf = WALL_HF_KEEP * hfRefl;
-                                p.kTrace = kOf(std::min(20000.0, (r == 0 ? HORN_WALL_HF_HZ : DRUM_WALL_HF_HZ) * hf));
-                                p.gm = 0;
-                                p.active = false;
+                                p.order = order;
+                                p.sx = 1 - 2 * px;
+                                p.sy = 1 - 2 * py;
+                                p.sz = 1 - 2 * pz;
+                                p.ox = 2 * nx * R.Lx;
+                                p.oy = 2 * ny * R.Ly;
+                                p.oz = 2 * nz * R.Lz;
+                                p.g = std::pow(reflG, order) * (order > 0 ? 0.9 : 1);
+                                // each bounce dulls the treble
+                                p.kOn = kOf(std::min(
+                                    20000.0,
+                                    (order == 0 ? 20000.0 : (r == 0 ? HORN_WALL_HF_HZ : DRUM_WALL_HF_HZ)) * hf));
+                                // drum: the woofer and scoop do not reach above ~18 kHz, also on the direct path
+                                // (same as the mic paths)
+                                p.kDrum = kOf(std::min(20000.0, DRUM_WALL_HF_HZ * hf));
+                                // exact mode: every image is rendered per sample (position, Doppler, directivity,
+                                // panning); fast mode: order >= 2 uses the block-ramped float path with direction
+                                // buckets
+                                p.lin = order > 1 && !exactPaths;
+                                p.fast = order > 1 && !exactPaths;
+                                p.jit = order > 0 ? (((r * 977 + (int) np.size() * 131) % 97) / 97.0) * 0.9 * order : 0;
+                                // first order: the diffuse share leaves the image and comes from the illuminated
+                                // wall patches below
+                                p.hfScat = std::pow(1 - scatter, order);
+                                if (order == 1 && scatter > 0) {
+                                    p.g *= std::sqrt(1 - scatter);
+                                    p.hfScat = 1;
+                                }
                                 np.push_back(p);
                             }
                     }
-        }
+            }
+    // Diffuse first-order reflection from wall patches: every surface is cut into up to 4 x 4 patches (~2.5 m).
+    // Each patch is lit by the rotor's beam (radiation model towards the patch, Doppler, cabinet) and re-radiates
+    // its scattered share (Lambert) towards the listener. So the scattered sound wanders over the walls as the
+    // horn and drum turn, instead of sitting at the mirror image. All of it goes into the wide (diffused) part.
+    if (R.order >= 1 && scatter > 0) {
+        const double Ls[3] = {R.Lx, R.Ly, R.Lz};
+        for (int r = 0; r < 2; r++)
+            for (int ax = 0; ax < 3; ax++)
+                for (int side = 0; side < 2; side++) {
+                    const int ua = (ax + 1) % 3, va = (ax + 2) % 3;
+                    const int nu = std::max(1, std::min(PATCH_MAX_PER_SIDE, (int) std::ceil(Ls[ua] / PATCH_SIZE_M))),
+                              nv = std::max(1, std::min(PATCH_MAX_PER_SIDE, (int) std::ceil(Ls[va] / PATCH_SIZE_M)));
+                    for (int iu = 0; iu < nu; iu++)
+                        for (int iv = 0; iv < nv; iv++) {
+                            Path p;
+                            p.rotor = r;
+                            p.order = 1;
+                            p.patch = true;
+                            p.fast = true;
+                            p.lin = true;
+                            p.hfScat = 0;
+                            p.axis = ax;
+                            p.at = side ? Ls[ax] : 0;
+                            p.u0 = Ls[ua] * iu / nu;
+                            p.u1 = Ls[ua] * (iu + 1) / nu;
+                            p.v0 = Ls[va] * iv / nv;
+                            p.v1 = Ls[va] * (iv + 1) / nv;
+                            const double hf = WALL_HF_KEEP * hfRefl;
+                            p.kWall = kOf(std::min(20000.0, (r == 0 ? HORN_WALL_HF_HZ : DRUM_WALL_HF_HZ) * hf));
+                            p.gm = 0;
+                            p.active = false;
+                            np.push_back(p);
+                        }
+                }
     }
     roomScatterG = std::sqrt(scatter) * reflG;
     patchesDirty = true;
@@ -330,8 +287,8 @@ inline void RotaryRoomDSP::rebuildRoom() {
         if (p.order > 0 && !p.patch) nRefl++;
     nRefl /= 2;
 
-    double V = tent && R.tentVolume > 0 ? R.tentVolume : R.Lx * R.Ly * R.Lz;
-    double S = tent && R.tentSurface > 0 ? R.tentSurface : 2 * (R.Lx * R.Ly + R.Lx * R.Lz + R.Ly * R.Lz);
+    double V = R.Lx * R.Ly * R.Lz;
+    double S = 2 * (R.Lx * R.Ly + R.Lx * R.Lz + R.Ly * R.Lz);
     double rt[3];
     for (int i = 0; i < 3; i++)
         rt[i] = clampd(0.161 * V / (-S * std::log(1 - ab[i]) + (i == 2 ? 4 * 0.004 * V : 0)), 0.12, 12);
@@ -341,7 +298,7 @@ inline void RotaryRoomDSP::rebuildRoom() {
     double A = -S * std::log(1 - ab[1]);
     double rc2 = A / (16 * 3.14159265358979);
     double mfp = 4 * V / S / C_SOUND;
-    double tCover = tent ? 0.09 : clampd((R.order + 0.5) * mfp, 0.012, 0.25);
+    double tCover = clampd((R.order + 0.5) * mfp, 0.012, 0.25);
     preLen = std::max(32, std::min(8191, (int) std::lround(tCover * 0.55 * fs)));
     if (preIdx >= preLen) preIdx = 0;
     double base = clampd(mfp, 0.026, 0.08);
@@ -560,7 +517,7 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
     for (auto& p : paths) {
         const Rotor& r = rot[p.rotor];
         if (p.patch && !p.active) continue;
-        if (p.trace || p.patch) {
+        if (p.patch) {
             bool horn = p.rotor == 0;
             double a0 = r.ang, a1 = r.ang + TWO_PI * r.hz * bt;
             for (int e = 0; e < 2; e++) {
@@ -571,13 +528,13 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
                 if (e) {
                     p.d1 = d;
                     p.g1 = p.gm;
-                    p.kb = std::min(p.kTrace, airK(d));
+                    p.kb = std::min(p.kWall, airK(d));
                 } else {
                     p.d0 = d;
                     p.g0 = p.gm;
                 }
             }
-            // cabinet directivity along the real departure direction (no mirroring needed for traced rays)
+            // cabinet directivity along the real departure direction (towards the patch, no mirroring)
             double cg, cfc;
             cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
             p.cab0 = p.init ? p.cab1 : cg;
@@ -677,8 +634,6 @@ inline void RotaryRoomDSP::buildFastWorkingSet(int N) {
             r.kb = (float) p.kb;
             r.zd = (float) p.zd;
             r.lp = (float) p.lp;
-            r.zlo = (float) p.zlo;
-            r.glr = (float) p.glr;
             r.hf = (float) p.hf;
             for (int b = 0; b < 4; b++) {
                 r.bg[b] = p.bgA[b];
@@ -700,11 +655,64 @@ inline void RotaryRoomDSP::buildFastWorkingSet(int N) {
                     r.bi = -1;
             }
             r.horn = p.rotor == 0;
-            r.trace = p.trace;
             fastRT.push_back(r);
             fastIdx.push_back((int) q);
         }
     }
+}
+
+inline void RotaryRoomDSP::fillPathViz(PathViz& v) const {
+    const auto& L = rotaryPos;
+    const auto& H = listener;
+    v.roomLx = (float) room.Lx;
+    v.roomLy = (float) room.Ly;
+    v.cabX = (float) L.x;
+    v.cabY = (float) L.y;
+    v.cabYaw = (float) cabYaw;
+    v.lisX = (float) H.x;
+    v.lisY = (float) H.y;
+    v.lisYaw = (float) H.yaw;
+    v.hornAngle = (float) hornAngle();
+    v.drumAngle = (float) drumAngle();
+    // broadband level of the radiation towards cosE: power mean of the band gains
+    auto radiation = [&](int rotor, double cosE) {
+        float g[4];
+        const RotorDir& dm = rotor == 0 ? *dirHorn : dirDrum;
+        dm.at(cosE, g);
+        double sum = 0;
+        for (int b = 0; b < dm.nb; b++) sum += (double) g[b] * g[b];
+        return std::sqrt(sum / dm.nb);
+    };
+    int n = 0;
+    for (const auto& p : paths) {
+        if (n >= PathViz::MAX) break;
+        const Rotor& r = rot[p.rotor];
+        const double c = std::cos(r.ang), sn = r.dir * std::sin(r.ang);
+        PathViz::Item it;
+        it.rotor = (uint8_t) p.rotor;
+        if (p.patch) {
+            if (!p.active) continue;
+            it.patch = 1;
+            it.order = 1;
+            it.x = (float) p.cx;
+            it.y = (float) p.cy;
+            it.level = (float) (p.gm * p.cab1 * radiation(p.rotor, p.dep[0] * c + p.dep[1] * sn));
+        } else {
+            if (p.order > 2) continue;
+            // same geometry as the fast image paths in updatePathGeometry()
+            const double dxp = p.sx * c, dyp = p.sy * sn;
+            const double ix = p.icx + dxp * r.r, iy = p.icy + dyp * r.r;
+            const double wx = H.x - ix, wy = H.y - iy, wz = H.z - p.iz;
+            const double d = std::max(1e-6, std::sqrt(wx * wx + wy * wy + wz * wz));
+            it.order = (uint8_t) p.order;
+            it.x = (float) ix;
+            it.y = (float) iy;
+            it.level =
+                (float) (p.g / std::max(d, MIN_PATH_DIST) * p.cab1 * radiation(p.rotor, (dxp * wx + dyp * wy) / d));
+        }
+        v.item[n++] = it;
+    }
+    v.n = n;
 }
 
 } // namespace rotary

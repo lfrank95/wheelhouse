@@ -109,6 +109,16 @@ private:
     std::array<std::atomic<float>, 6> teleMicMeter{};
     std::atomic<int> droppedBlocks{0};
 
+public:
+    /** Latest snapshot of the rendered room paths (for the floor plan). Returns false if none is available yet.
+        Safe to call from the message thread; the audio thread refreshes it about 30 times a second. */
+    bool readPathViz(rotary::PathViz& out) const;
+
+private:
+    rotary::PathViz vizBuf;          // written by the audio thread under the sequence counter below (seqlock)
+    std::atomic<uint32_t> vizSeq{0}; // odd while writing
+    int vizCountdown = 0;            // samples until the next snapshot
+
     std::atomic<int> midiUpper{1}, midiLower{2}, midiPedal{3}, rotaryCC{1}, swellCC{11};
 
     // Keyboard split (one keyboard on the upper channel plays pedal | lower | upper) and octave transposition per

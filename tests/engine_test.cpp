@@ -130,6 +130,37 @@ int main() {
         CHECK(rebuilt && a < r * 0.3,
               "after a rebuild the replayed drawbars still apply (only percussion and noise left)");
     }
+    // 4b) floor plan snapshot: what the room model renders (direct, images, wall patches), horn level follows the turn
+    {
+        WheelhouseEngine e(false);
+        e.prepare(48000, 256);
+        rotary::PathViz v;
+        CHECK(!e.readPathViz(v), "no path snapshot before the first block");
+        e.handleMessage(msg("{\"type\":\"rotary\",\"v\":\"fast\"}"));
+        rms(e, 200);
+        double lo = 1e9, hi = 0;
+        bool direct[2] = {false, false}, ok = true;
+        int patches = 0, images = 0;
+        for (int b = 0; b < 400 && ok; b++) {
+            rms(e, 1);
+            ok = e.readPathViz(v);
+            for (int i = 0; i < v.n; i++) {
+                const auto& it = v.item[i];
+                if (it.patch)
+                    patches++;
+                else if (it.order > 0)
+                    images++;
+                else {
+                    direct[it.rotor] = true;
+                    if (it.rotor == 0) lo = std::min(lo, (double) it.level), hi = std::max(hi, (double) it.level);
+                }
+            }
+        }
+        printf("      horn direct level %.3f .. %.3f, %d image and %d patch entries\n", lo, hi, images, patches);
+        CHECK(ok && direct[0] && direct[1] && images > 0 && patches > 0,
+              "snapshot holds the direct paths of both rotors, image sources and wall patches");
+        CHECK(hi > lo * 1.5, "horn direct level changes as the horn turns (radiation model)");
+    }
     // 5) offline (bounce) switch and back
     {
         WheelhouseEngine e(true);

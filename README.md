@@ -3,22 +3,21 @@
 Open-source tonewheel organ with a physically modelled rotary speaker standing in a real room.
 Stereo, quad and 5.1 output, ASIO. Windows program (VST3 later).
 
-Tonradorgel mit Rotary-Lautsprecher (Typ 122): Horn und Trommel als rotierende Schallquellen in einem simulierten Raum. Die Oberfläche
-läuft in einem eingebetteten Browserfenster, die Klangberechnung nativ in C++ (`Source/RotaryRoomDSP.h`).
+Tonradorgel mit Rotary-Lautsprecher (Typ 122): Horn und Trommel als rotierende Schallquellen in einem simulierten Raum. Oberfläche und
+Klangberechnung laufen nativ in C++ (JUCE): `Source/ui/` und `Source/RotaryRoomDSP.h`.
 
 ## Bauen über GitHub Actions
 
 1. Push auf dieses Repository startet **Actions → Windows-Build** (beim ersten Mal 10–15 Minuten).
 2. Am Ende liegt unter **Artifacts** die Datei `Wheelhouse-win64.zip` mit `Wheelhouse.exe`.
 
-Der Workflow lädt JUCE 8.0.15, das WebView2-Paket (NuGet) und das Steinberg ASIO-SDK selbst herunter.
+Der Workflow lädt JUCE 8.0.15, die Schriften und das Steinberg ASIO-SDK selbst herunter.
 Schlägt der ASIO-Download fehl, wird ohne ASIO gebaut (nur WASAPI/DirectSound), das steht im Build-Log.
 
 ## Lokal bauen (Visual Studio 2022)
 
 ```
-nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory packages
-cmake -B build -A x64 -DASIO_SDK_DIR=C:/asiosdk/common -DJUCE_WEBVIEW2_PACKAGE_LOCATION=%cd%/packages
+cmake -B build -A x64 -DASIO_SDK_DIR=C:/asiosdk/common
 cmake --build build --config Release
 ```
 
@@ -26,7 +25,7 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
 
 ## Voraussetzungen auf dem Zielrechner
 
-* Windows 10/11 mit WebView2-Runtime (Windows 11: immer vorhanden, Windows 10: meist über Edge).
+* Windows 10/11 (keine weiteren Laufzeitkomponenten nötig).
 * Für ASIO: der ASIO-Treiber des Interfaces.
 
 ## Bedienung
@@ -75,7 +74,8 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Room**: Precision „Exact“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
   Richtwirkung, Panorama); „Fast“ fasst ab der 2. Ordnung nach Richtung zusammen. Exact mit 4.–5. Ordnung ist für starke Rechner.
 * **Room**: großer Grundriss (Rotary und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
-  Reflexionsordnung, Vorlagen; Zirkuszelt mit Strahlenverfolgung.
+  Reflexionsordnung, Vorlagen. Die Linien im Grundriss zeigen, was die Engine gerade rechnet: Direktschall,
+  Spiegelquellen bis 2. Ordnung und die angestrahlten Wandfelder, jeweils mit ihrem Pegel (Horn orange, Trommel braun).
 * **Output**: Stereo / Quad / 5.1, LFE, Master, freie Kanalzuordnung (Routing), Kanaltest. Monitoring (Quad/5.1): Trimm für
   die hinteren Kanäle und den Center, Divergence (Quelle vor dir zusätzlich als Phantom auf L/R).
 * **Abbildung**: Direktschall und der spiegelnde Teil jeder Reflexion werden leistungskonstant zwischen den zwei
@@ -100,7 +100,7 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Außenradius). Die Abstrahlung beider Rotoren stammt aus Randelement-Simulationen (`tools/acoustics`): das Signal
   wird einmal je Rotor in phasengleiche Linkwitz-Riley-Bänder zerlegt (Horn 4 Bänder, Trommel 3), jeder Schallweg
   mischt sie mit den Pegeln für seinen Winkel. Weil die Bänder phasengleich sind, ändert die Drehung nur den Pegel –
-  keine falsche Tonhöhenmodulation. Dasselbe Modell gilt für Direktschall, Spiegelbilder, Wandfelder, Zelt, Mikros
+  keine falsche Tonhöhenmodulation. Dasselbe Modell gilt für Direktschall, Spiegelbilder, Wandfelder, Mikros
   und die Einspeisung in den Nachhall. Mit Deflektor (Serie) schwankt das Horn über 2 kHz um ~7–13 dB, ohne um
   20–40 dB; die Trommel unter 200 Hz um < 2,5 dB, von 250–800 Hz um 6–17 dB.
 * **MIDI**: Kanäle für Upper (oder Omni), Lower und Pedal, Controller für Rotary und Swell. Alle MIDI-Eingänge sind aktiv.
@@ -195,7 +195,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 * `Source/RotaryRoomDSP.h` – Klangkern (Orgel, Rotary, Raum, Hall), ohne JUCE-Abhängigkeit: Klasse und Schnittstelle;
   die Rechnung steckt nach Themen in `Source/core/`:
   `Basics.h` (Bausteine, Datentypen, Raum-Konstanten), `Setup.h` (Tabellen, Stimmung, Charakter),
-  `Organ.h` (Tasten, Kontakte, Perkussion, Scanner), `Room.h` (Spiegelquellen, Zelt, Wandfelder, Geometrie je Block,
+  `Organ.h` (Tasten, Kontakte, Perkussion, Scanner), `Room.h` (Spiegelquellen, Wandfelder, Geometrie je Block,
   Lautsprecher), `Mics.h` (Mikros), `Render.h` (Ablauf je Teilblock: Rotoren, parallele Schallwege, Hall, Ausgang)
 * `Source/RotaryAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
@@ -206,24 +206,26 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 * `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
 * `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
 * `Source/PluginProcessor.*` – VST3: Busse, Parameter, Projektzustand, Editor
-* `Source/WebUi.h` – WebView und native Funktionen, von App und Plugin geteilt; mit Wächter (`WebWatchdog.h`):
-  antwortet die Seite eine Weile nicht (weiße Fläche, weil WebView2 seinen Anzeigeprozess verloren hat), wird die
-  WebView neu aufgebaut – wie Schließen und Öffnen des Fensters
-* `ui/` – Quelle der Oberfläche: `wheelhouse.html` (Gerüst), `style.css`, `js/*.js` (App, nach Themen: `core`,
-  `controls`, `header`, `cards`, `room`, `keyboard`, `main`), `tracer.js` (Strahlverfolgung im Zelt);
-  `python3 tools/build_ui.py` fügt alles zu `Resources/index.html` zusammen
-* Code-Stil: `.clang-format` (C++, `clang-format -i Source/*.h Source/*.cpp Source/core/*.h tests/*.cpp`) und
-  `.prettierrc.json` (Oberfläche, `prettier --write ui/js/*.js ui/style.css ui/tracer.js`), Zeilen bis 120 Zeichen
+* `Source/ui/` – die Oberfläche (JUCE-Komponenten), von App und Plugin geteilt; feste Bühne 1600 × 900, die aufs
+  Fenster skaliert wird: `NativeUi.h` (Hauptkomponente, Ereignisse der Engine, Tastatur), `UiState.h` (Zustand als
+  JSON mit denselben Schlüsseln wie früher, Vorgaben, Presets, Übernahme alter Speicherstände), `Actions.h` (Sender,
+  Positionen, Presets, Kanal-Zuordnung), `Controls.h` (Drehregler, Umschalter, Auswahl, Abschnitte, Tooltips),
+  `Cards.h` (Einstellungskarten, Mikro-Pult), `PlaySurface.h` (Rotary-Kabinett, Zugriegel, Grundriss),
+  `Keys.h` (Manuale, Pedal, Schweller), `Header.h` (Kopfleiste), `Theme.h` (Farben, Schriften, Holz)
+* Code-Stil: `.clang-format` (`clang-format -i Source/*.h Source/*.cpp Source/core/*.h Source/ui/*.h tests/*.cpp`),
+  Zeilen bis 120 Zeichen
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
 * `Resources/icon/` – App-Icon (Rotary über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
-  `bench.cpp` (Rechenlast je Stufe), `webwatch_test.cpp` (Wächter der Oberfläche), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
+  `bench.cpp` (Rechenlast je Stufe), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
   `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum),
   `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
-  dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros
+  dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros;
+  `ui_state_test.cpp` (alte Speicherstände laden in die native Oberfläche – braucht die JUCE-GUI-Module und ein
+  X-Display, unter Linux z. B. `xvfb-run`)
 
 ## Lizenz
 

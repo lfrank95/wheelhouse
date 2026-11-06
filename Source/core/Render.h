@@ -76,7 +76,6 @@ inline void RotaryRoomDSP::processBlock(float* const* out, int nCh, int N) {
         const FastPathRT& r = fastRT[i];
         p.zd = r.zd;
         p.lp = r.lp;
-        p.zlo = r.zlo;
     }
     if (micsOn) {
         micMeterN += N;
@@ -343,7 +342,6 @@ inline void RotaryRoomDSP::renderListenerJob(int job) {
     // slice of the fast paths (float working set, see FastPathRT)
     const size_t nf = fastRT.size(), f0 = nf * (size_t) job / (size_t) listenerJobs,
                  f1 = nf * (size_t) (job + 1) / (size_t) listenerJobs;
-    const float kLoBandF = (float) kLoBand;
     for (size_t qi = f0; qi < f1; qi++) {
         FastPathRT& r = fastRT[qi];
         const float* const* bands = r.horn ? bandHp : bandDp;
@@ -361,10 +359,6 @@ inline void RotaryRoomDSP::renderListenerJob(int job) {
                 r.bg[b] += r.dbg[b];
                 const float y1 = bands[b][ia];
                 xin += r.bg[b] * (y1 + (bands[b][ib] - y1) * fr);
-            }
-            if (r.trace) {
-                r.zlo += kLoBandF * (xin - r.zlo);
-                xin += (r.glr - 1.0f) * r.zlo;
             }
             r.lp += r.kb * (xin - r.lp);
             float v = r.lp * r.g;

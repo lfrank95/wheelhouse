@@ -143,18 +143,8 @@ struct Lcg {
     }
 };
 
-struct Tap {
-    double t;
-    double az;
-    double el;
-    double dep[3];
-    int order;
-    double E[3];
-};
-
 struct Path {
     int rotor = 0, order = 0;       // 0 = horn, 1 = drum; number of wall bounces (0 = direct)
-    bool trace = false;             // ray-traced tap (tent shape) instead of an image source
     bool fast = false, lin = false; // block-ramped float renderer / linear instead of sinc interpolation
     bool init = false;              // geometry computed at least once (else the start values are copied)
     double sx = 1, sy = 1, sz = 1;  // image source: mirror signs per axis ...
@@ -163,7 +153,7 @@ struct Path {
     // One-pole low-pass coefficients (see kOf): kOn wall treble loss, kAir air absorption, kDrum extra limit for the
     // drum, kc = min(cabinet, air, walls) at the block end, kb the coefficient actually used by the fast renderer.
     double kOn = 1, kAir = 1, kDrum = 1, kc = 1, kb = 1;
-    double lp = 0, zd = 0, zlo = 0;        // filter states: low-pass, drum low-pass, low-band shelf (traced taps)
+    double lp = 0, zd = 0;                 // filter states: low-pass, drum low-pass
     double icx = 0, icy = 0, iz = 0;       // image of the cabinet centre for this block
     double jit = 0;                        // tiny fixed extra length (m) that breaks up exact delay coincidences
     double d0 = 0, d1 = 0, g0 = 0, g1 = 0; // distance (m) and gain at the start / end of the sub-block
@@ -172,14 +162,15 @@ struct Path {
     double bx0 = 0, bx1 = 0; // direction as a continuous bucket coordinate (0..NB) at the start/end of the sub-block
     std::array<float, 8> gPrev{}, gNext{};              // speaker gains of the sharp part (exact paths)
     float bgA[4] = {1, 1, 1, 1}, bgB[4] = {1, 1, 1, 1}; // radiation band gains at the sub-block start / end
-    // Ray-traced taps (tent) and wall patches: fixed distance, departure direction, arrival azimuth/elevation,
-    // gain, low-band gain and wall low-pass
-    double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, glr = 1, kTrace = 1;
+    // Wall patches: distance, departure direction, arrival azimuth/elevation, gain and wall low-pass (see
+    // updatePatches)
+    double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, kWall = 1;
     // Wall patch (diffuse part of a first-order reflection): rectangle on the plane axis = at, spanning [u0,u1] x
     // [v0,v1] along the other two axes. updatePatches() fills dist/dep/azRoom/el/gm from its Lambert-weighted centroid.
     bool patch = false, active = true;
     int axis = 0;
     double at = 0, u0 = 0, u1 = 0, v0 = 0, v1 = 0;
+    double cx = 0, cy = 0, cz = 0; // Lambert-weighted centre of the patch
     // Specular share of the sharp fraction: (1 - scatter)^order; 1 for first-order images whose diffuse part goes to
     // the wall patches
     double hfScat = 1;
@@ -195,29 +186,26 @@ struct Rotor {
     int dir = 1;                     // +1 counter-clockwise seen from above (horn), -1 clockwise (drum)
 };
 
-/** Per-sub-block working set of one fast path (higher-order image or traced ray): everything the sample loop
+/** Per-sub-block working set of one fast path (higher-order image or wall patch): everything the sample loop
     needs, in float and in one cache line, with the per-sample increments precomputed. */
 /** Per-sub-block working copy of a fast path (compact, float, ramps precomputed). */
 struct FastPathRT {
     double ds, dds;      // delay in samples and its increment (double: a float would quantise the fractional delay)
     float g, dg;         // gain (path gain x cabinet) and its increment
     float kb;            // low-pass coefficient
-    float zd, lp, zlo;   // filter states (copied back to the Path after the block)
-    float glr;           // low-band gain (traced taps)
+    float zd, lp;        // filter states (copied back to the Path after the block)
     float hf;            // sharp share; the rest goes to the wide buckets
     float bx, dbx;       // continuous bucket coordinate and its per-sample increment
     float bg[4], dbg[4]; // radiation band gains (ramped)
     int bi, bj;          // bucket pair when the whole sub-block stays within one cell (bi < 0: generic path) ...
     float bf;            // ... and the weight between them
-    uint8_t horn, trace;
+    uint8_t horn;
 };
 
 struct Room {
-    double Lx = 6, Ly = 8, Lz = 2.8, absorb = 0.25, reverb = 1, tentVolume = 0, tentSurface = 0;
+    double Lx = 6, Ly = 8, Lz = 2.8, absorb = 0.25, reverb = 1;
     int order = 2;
-    std::string material = "wood", shape = "box";
-    bool hasAbsBands = false;
-    double absBands[3] = {0, 0, 0};
+    std::string material = "wood";
 };
 
 struct Character {
@@ -238,6 +226,25 @@ struct RoomInfo {
     double rt60[3] = {0, 0, 0};
     double rc = 0;
     int paths = 0;
+};
+
+/** What the room model renders right now, for the floor plan (see RotaryRoomDSP::fillPathViz). Coordinates in metres
+    (room corner = 0,0), level = linear amplitude at the listener incl. distance, cabinet and rotor radiation. */
+struct PathViz {
+    struct Item {
+        float x = 0, y = 0; // image source (rotor position mirrored) or patch centre on the wall
+        float level = 0;    // amplitude at the listener
+        uint8_t rotor = 0;  // 0 horn, 1 drum
+        uint8_t order = 0;  // wall bounces (0 = direct); patches: 1
+        uint8_t patch = 0;  // 1 = wall patch (diffuse part of a first-order reflection)
+    };
+    static constexpr int MAX = 160;
+    Item item[MAX];
+    int n = 0;
+    float roomLx = 0, roomLy = 0;         // room size
+    float cabX = 0, cabY = 0, cabYaw = 0; // cabinet centre and facing
+    float lisX = 0, lisY = 0, lisYaw = 0; // listener position and viewing direction
+    float hornAngle = 0, drumAngle = 0;   // physical rotor angles (rad, room coordinates)
 };
 
 } // namespace rotary

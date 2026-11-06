@@ -1,5 +1,5 @@
 #include "MainComponent.h"
-#include "WebUi.h"
+#include "ui/NativeUi.h"
 
 using namespace juce;
 
@@ -11,7 +11,7 @@ static File uiStateFile() {
 }
 
 MainComponent::MainComponent() {
-    WebUiHooks h;
+    wh::UiHooks h;
     h.dspMessage = [this](const var& m) {
         handleDspMessage(m);
     };
@@ -33,8 +33,12 @@ MainComponent::MainComponent() {
     h.chantest = [this](int ch, bool lfe) {
         engine.startTestTone(ch, lfe);
     };
-    web = std::make_unique<WebUiView>(h, "WheelhouseWebView");
+    h.readPaths = [this](rotary::PathViz& v) {
+        return engine.readPathViz(v);
+    };
+    web = std::make_unique<wh::NativeUi>(h);
     addAndMakeVisible(*web);
+    web->startIfNeeded();
 
     // Audio: 0 inputs, up to 16 outputs; restore the saved device setup from the properties file, otherwise use the
     // default device

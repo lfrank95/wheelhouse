@@ -1,6 +1,6 @@
 // Wheelhouse - DSP core (C++ port of processor7.js)
 // Signal chain: tonewheel organ -> scanner vibrato -> expression (swell) pedal -> Rotary amplifier
-// -> crossover -> rotating sources placed in a room (image sources / ray-traced taps, Doppler,
+// -> crossover -> rotating sources placed in a room (image sources and wall patches, Doppler,
 // cabinet directivity) -> 16-line feedback delay network (FDN) reverb -> speaker panning.
 // This file deliberately contains no JUCE code so the core can be built and tested without the framework.
 #pragma once
@@ -196,7 +196,7 @@ public:
         rotaryMode = mode;
         for (auto& r : rot) r.tgt = mode == "fast" ? r.fast : mode == "slow" ? r.slow : 0;
     }
-    /** Replaces the room description (dimensions in metres, absorption, material, shape) and rebuilds all paths. */
+    /** Replaces the room description (dimensions in metres, absorption, material) and rebuilds all paths. */
     void setRoom(const Room& r) {
         room = r;
         rebuildRoom();
@@ -239,14 +239,12 @@ public:
         cabTyaw = v;
         if (jump) cabYaw = v;
     }
-    /** Ray-traced reflection taps for the "tent" room shape (delay in s, direction, per-band energy). */
-    void setTaps(std::vector<Tap> taps) {
-        tapsData = std::move(taps);
-        if (room.shape == "tent") rebuildRoom();
-    }
 
     /** Derived room data for the UI: RT60 per band in seconds, critical distance in metres, number of paths. */
     RoomInfo info() const { return roomInfo; }
+    /** Snapshot of the rendered paths (direct, image sources up to second order, active wall patches) for display.
+        Call on the audio thread between blocks; cheap (about 100 directivity lookups). */
+    void fillPathViz(PathViz& v) const;
     // Microphone rig
     /** Microphone setup (types, patterns, positions, mixer groups) - see MicRig.h. */
     void setMics(const MicSetup& m) {
@@ -478,9 +476,9 @@ private:
     std::vector<float> hornRing, drumRing, hornCabRing;
     int wIdx = 0;
 
-    // ---------------- Room: Rotary/listener positions and acoustic paths (image sources or ray taps) ----------------
+    // ---------------- Room: Rotary/listener positions and acoustic paths (image sources and wall patches)
+    // ----------------
     Room room;
-    std::vector<Tap> tapsData;
     struct Pos {
         double x, y, tx, ty;
     } rotaryPos{3, 6, 3, 6};

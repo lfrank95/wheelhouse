@@ -230,7 +230,7 @@ inline void RotaryRoomDSP::micRebuildPaths() {
                 }
             continue;
         }
-        int maxO = std::max(0, std::min(R.shape == "tent" ? 1 : R.order, micSetup.roomOrder));
+        int maxO = std::max(0, std::min(R.order, micSetup.roomOrder));
         for (int r = 0; r < 2; r++)
             for (int nx = -3; nx <= 3; nx++)
                 for (int px = 0; px <= 1; px++) {

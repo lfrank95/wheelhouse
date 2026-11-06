@@ -4,7 +4,9 @@
 #include <atomic>
 #include "Engine.h"
 
-class WebUiView;
+namespace wh {
+class NativeUi;
+}
 
 // Standalone app: audio/MIDI devices, the WebView and the 30 Hz UI timer. Sound and settings live in the engine.
 class MainComponent : public juce::Component,
@@ -36,7 +38,7 @@ private:
 
     juce::AudioDeviceManager deviceManager;
     WheelhouseEngine engine{false};
-    std::unique_ptr<WebUiView> web;
+    std::unique_ptr<wh::NativeUi> web; // the user interface
 
     std::array<std::atomic<float>, 16> meterRms{};
     std::array<float, 16> meterAcc{};
