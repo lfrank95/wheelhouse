@@ -6,10 +6,15 @@ class WheelhouseApplication : public juce::JUCEApplication {
 public:
     const juce::String getApplicationName() override { return "Wheelhouse"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
-    bool moreThanOneInstanceAllowed() override { return false; }
+    bool moreThanOneInstanceAllowed() override {
+        wh::beginStartupLog(getApplicationVersion()); // runs before initialise(): first thing in the process
+        wh::logStartup("checking for another instance");
+        return false;
+    }
+    void anotherInstanceStarted(const juce::String&) override { wh::logStartup("another instance was started"); }
 
     void initialise(const juce::String&) override {
-        wh::beginStartupLog(getApplicationVersion());
+        wh::logStartup("initialising");
         mainWindow.reset(new MainWindow(getApplicationName()));
         wh::logStartup("window visible");
     }
