@@ -1,4 +1,10 @@
 #pragma once
+#if defined(_WIN32)
+// the two user32 functions for the physical key position (declared here: windows.h clashes with JUCE names)
+extern "C" __declspec(dllimport) short __stdcall VkKeyScanW(wchar_t ch);
+extern "C" __declspec(dllimport) unsigned int __stdcall MapVirtualKeyW(unsigned int code, unsigned int mapType);
+#pragma comment(lib, "user32.lib")
+#endif
 // Wheelhouse UI - the native user interface (JUCE components), shared by the standalone app and the plugin
 // editor. It talks to the engine through UiHooks (same messages as before) and receives the engine's events
 // through emitEventIfBrowserIsVisible(name, payload) - the name is kept from the former WebView host so the hosts'
@@ -119,7 +125,7 @@ public:
             if (stage.tab != "spielen") stage.setTab("spielen");
             return true;
         }
-        const int off = keyOffset(k.getTextCharacter());
+        const int off = keyOffset(k);
         if (off < 0) return false;
         const int code = k.getKeyCode();
         if (pcHeld.count(code)) return true; // key repeat
@@ -167,14 +173,16 @@ private:
         struct CardBox : Component {
             void paint(Graphics& g) override {
                 auto r = getLocalBounds().toFloat();
-                juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 30, {0, 12})
-                    .drawForRectangle(g, r.toNearestInt());
-                g.setColour(col::panel);
-                g.fillRoundedRectangle(r, 6);
-                g.setGradientFill(juce::ColourGradient(Colour(0xffd9b56a), 0, 0, Colour(0xff8a6a30), 0, 6, false));
-                g.fillRect(r.withHeight(6).reduced(3, 0));
-                g.setColour(col::segLine);
-                g.fillRect(0.f, 52.f, r.getWidth(), 1.f);
+                drawCached(g, r, 0, "card", [](Graphics& ig, Rectangle<float> l) {
+                    juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 30, {0, 12})
+                        .drawForRectangle(ig, l.toNearestInt());
+                    ig.setColour(col::panel);
+                    ig.fillRoundedRectangle(l, 6);
+                    ig.setGradientFill(juce::ColourGradient(Colour(0xffd9b56a), 0, 0, Colour(0xff8a6a30), 0, 6, false));
+                    ig.fillRect(l.withHeight(6).reduced(3, 0));
+                    ig.setColour(col::segLine);
+                    ig.fillRect(0.f, 52.f, l.getWidth(), 1.f);
+                });
                 g.setColour(col::text);
                 drawSpaced(g, title, {18, 6, 400, 46}, Fonts::make(18, 700), 2.4f, juce::Justification::centredLeft,
                            true);
@@ -425,13 +433,17 @@ private:
     }
     void timerCallback() override {
         startIfNeeded();
-        // animation: cabinet and floor plan follow the rotors
-        stage.rotaryPanel.repaint();
+        if (saveCountdown > 0 && --saveCountdown == 0) flushSave();
+    }
+    /** Animation on every display refresh (60 Hz or whatever the monitor runs at): cabinet and floor plan follow
+        the rotors. The rotor clock extrapolates between the engine's 30 Hz reports, so every frame is new. */
+    void animate() {
+        if (!isShowing()) return;
+        stage.rotaryPanel.repaintAnimated();
         if (stage.tab == "raum")
             stage.bigPlan.repaint();
         else if (stage.tab == "spielen")
             stage.roomPanel.plan.repaint();
-        if (saveCountdown > 0 && --saveCountdown == 0) flushSave();
     }
     void flushSave() {
         if (hooks.saveUi && ctx.ready) hooks.saveUi(ctx.st.save());
@@ -441,14 +453,34 @@ private:
         for (auto& [code, nm] : pcHeld) notes.off(nm.first, nm.second);
         pcHeld.clear();
     }
-    static int keyOffset(juce::juce_wchar c) {
+    /** Semitone offset of a computer key, by its physical position (the US layout's Z row = white keys from C):
+        on Windows via the scan code, so QWERTZ, AZERTY etc. play the same physical keys; elsewhere by character. */
+    static int keyOffset(const juce::KeyPress& k) {
+#if JUCE_WINDOWS
+        static const std::map<unsigned, int> scan{
+            {0x2C, 0},  {0x1F, 1},  {0x2D, 2},  {0x20, 3},  {0x2E, 4},  {0x2F, 5},  {0x22, 6},  {0x30, 7},
+            {0x23, 8},  {0x31, 9},  {0x24, 10}, {0x32, 11}, {0x33, 12}, {0x26, 13}, {0x34, 14}, {0x10, 12},
+            {0x03, 13}, {0x11, 14}, {0x04, 15}, {0x12, 16}, {0x13, 17}, {0x06, 18}, {0x14, 19}, {0x07, 20},
+            {0x15, 21}, {0x08, 22}, {0x16, 23}, {0x17, 24}, {0x0A, 25}, {0x18, 26}, {0x0B, 27}, { 0x19, 28 }};
+        const auto c = k.getTextCharacter();
+        if (c != 0) {
+            const short vk = VkKeyScanW((wchar_t) c); // virtual key of the typed character in the active layout
+            if (vk != -1) {
+                const unsigned sc = MapVirtualKeyW((unsigned) (vk & 0xff), 0 /* MAPVK_VK_TO_VSC */);
+                auto it = scan.find(sc);
+                return it != scan.end() ? it->second : -1;
+            }
+        }
+        return -1;
+#else
         static const std::map<juce::juce_wchar, int> map{
             {'z', 0},  {'s', 1},  {'x', 2},  {'d', 3},  {'c', 4},  {'v', 5},  {'g', 6},  {'b', 7},
             {'h', 8},  {'n', 9},  {'j', 10}, {'m', 11}, {',', 12}, {'l', 13}, {'.', 14}, {'q', 12},
             {'2', 13}, {'w', 14}, {'3', 15}, {'e', 16}, {'r', 17}, {'5', 18}, {'t', 19}, {'6', 20},
             {'y', 21}, {'7', 22}, {'u', 23}, {'i', 24}, {'9', 25}, {'o', 26}, {'0', 27}, {'p', 28}};
-        auto it = map.find(juce::CharacterFunctions::toLowerCase(c));
+        auto it = map.find(juce::CharacterFunctions::toLowerCase(k.getTextCharacter()));
         return it != map.end() ? it->second : -1;
+#endif
     }
 
     UiHooks hooks;
@@ -460,6 +492,9 @@ private:
     RotorClock clock;
     juce::TooltipWindow tooltips{this, 450};
     Stage stage;
+    juce::VBlankAttachment vblank{this, [this] {
+                                      animate();
+                                  }};
     std::map<int, std::pair<int, int>> pcHeld;
     int saveCountdown = 0, slowSync = 0;
     bool started = false;

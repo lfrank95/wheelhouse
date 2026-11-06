@@ -42,6 +42,13 @@ public:
     RotaryPanel(Ctx& c, Actions& a, RotorClock& rc) : ctx(c), act(a), clock(rc) { ctx.reg(this); }
     ~RotaryPanel() override { ctx.unreg(this); }
     void sync() override { repaint(); }
+    /** Per-frame repaint: only the cabinet and the rpm readouts move. */
+    void repaintAnimated() {
+        if (cabRect.isEmpty())
+            repaint();
+        else
+            repaint(cabRect.withRight((float) getWidth() - 16).expanded(4).toNearestInt());
+    }
     void paint(Graphics& g) override {
         drawInset(g, getLocalBounds().toFloat());
         auto r = getLocalBounds().toFloat().reduced(16, 14);
@@ -635,13 +642,18 @@ public:
             clip.addRoundedRectangle(rr, 6);
             g.reduceClipRegion(clip);
             draw(g);
-            juce::DropShadow(juce::Colours::black.withAlpha(0.8f), 14, {0, 4}).drawForPath(g, [&] {
-                Path p;
-                p.addRectangle(rr.expanded(30));
-                p.addRoundedRectangle(rr, 6);
-                p.setUsingNonZeroWinding(false);
-                return p;
-            }());
+            drawCached(g, rr, 0, "planShade", [](Graphics& ig, Rectangle<float> l) { // inner shadow over the plan
+                Path c;
+                c.addRoundedRectangle(l, 6);
+                ig.reduceClipRegion(c);
+                juce::DropShadow(juce::Colours::black.withAlpha(0.8f), 14, {0, 4}).drawForPath(ig, [&] {
+                    Path p;
+                    p.addRectangle(l.expanded(30));
+                    p.addRoundedRectangle(l, 6);
+                    p.setUsingNonZeroWinding(false);
+                    return p;
+                }());
+            });
         }
         g.setColour(Colour(0xff24302a));
         g.drawRoundedRectangle(rr.reduced(0.5f), 6, 1);

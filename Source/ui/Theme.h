@@ -3,6 +3,7 @@
 // The whole UI is laid out on a fixed 1600 x 900 stage that is scaled to the window, so sizes here are in stage px.
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "BinaryData.h"
+#include <map>
 
 namespace wh {
 
@@ -86,7 +87,49 @@ inline float spacedWidth(const juce::String& s, const juce::Font& f, float spaci
 }
 
 /** The wood of the console (diagonal grain over a dark gradient), with rounded corners and a soft shadow. */
-inline void drawWood(juce::Graphics& g, juce::Rectangle<float> r, float radius = 10) {
+/** Draws something static (wood, shadows, inset panels) from a cached image instead of painting it again: blurred
+    drop shadows cost several milliseconds each, far too much for 60 frames per second. The image is rendered at the
+    physical pixel scale of the target, so it stays sharp at any window size; `fn` paints into `local` (the
+    rectangle at its own origin plus `pad` for content reaching outside, e.g. a shadow). Content must depend only on
+    the rectangle's size, never on its position. */
+class PaintCache : public juce::DeletedAtShutdown {
+public:
+    JUCE_DECLARE_SINGLETON_INLINE(PaintCache, false)
+    ~PaintCache() override { clearSingletonInstance(); }
+    void draw(juce::Graphics& g, juce::Rectangle<float> r, float pad, const juce::String& key,
+              const std::function<void(juce::Graphics&, juce::Rectangle<float>)>& fn) {
+        const float sc = g.getInternalContext().getPhysicalPixelScaleFactor();
+        const juce::String k = key + ":" + juce::String(r.getWidth(), 1) + "x" + juce::String(r.getHeight(), 1) + "@" +
+                               juce::String(sc, 3);
+        auto it = images.find(k);
+        if (it == images.end()) {
+            if (images.size() > 48) images.clear(); // window resized many times: start over
+            const int w = (int) std::ceil((r.getWidth() + 2 * pad) * sc),
+                      h = (int) std::ceil((r.getHeight() + 2 * pad) * sc);
+            juce::Image img(juce::Image::ARGB, juce::jmax(1, w), juce::jmax(1, h), true);
+            {
+                juce::Graphics ig(img);
+                ig.addTransform(juce::AffineTransform::scale(sc));
+                fn(ig, {pad, pad, r.getWidth(), r.getHeight()});
+            }
+            it = images.emplace(k, img).first;
+        }
+        juce::Graphics::ScopedSaveState s(g);
+        g.setImageResamplingQuality(juce::Graphics::lowResamplingQuality);
+        g.drawImageTransformed(it->second,
+                               juce::AffineTransform::scale(1.f / sc).translated(r.getX() - pad, r.getY() - pad));
+    }
+
+private:
+    std::map<juce::String, juce::Image> images;
+};
+
+inline void drawCached(juce::Graphics& g, juce::Rectangle<float> r, float pad, const juce::String& key,
+                       const std::function<void(juce::Graphics&, juce::Rectangle<float>)>& fn) {
+    PaintCache::getInstance()->draw(g, r, pad, key, fn);
+}
+
+inline void drawWoodUncached(juce::Graphics& g, juce::Rectangle<float> r, float radius) {
     juce::DropShadow(juce::Colours::black.withAlpha(0.6f), 30, {0, 10}).drawForPath(g, [&] {
         juce::Path p;
         p.addRoundedRectangle(r, radius);
@@ -112,8 +155,12 @@ inline void drawWood(juce::Graphics& g, juce::Rectangle<float> r, float radius =
     g.drawHorizontalLine((int) r.getY() + 1, r.getX() + radius, r.getRight() - radius);
 }
 
-/** A recessed black panel inside the wood (inset shadow). */
-inline void drawInset(juce::Graphics& g, juce::Rectangle<float> r, float radius = 6) {
+inline void drawWood(juce::Graphics& g, juce::Rectangle<float> r, float radius = 10) {
+    drawCached(g, r, 48, "wood" + juce::String(radius),
+               [=](juce::Graphics& ig, juce::Rectangle<float> l) { drawWoodUncached(ig, l, radius); });
+}
+
+inline void drawInsetUncached(juce::Graphics& g, juce::Rectangle<float> r, float radius) {
     juce::Path p;
     p.addRoundedRectangle(r, radius);
     g.setColour(col::panel);
@@ -127,6 +174,12 @@ inline void drawInset(juce::Graphics& g, juce::Rectangle<float> r, float radius 
     juce::DropShadow(juce::Colours::black.withAlpha(0.7f), 8, {0, 2}).drawForPath(g, outer);
     g.setColour(Colour(0x1fffdcb4));
     g.drawHorizontalLine((int) r.getBottom(), r.getX() + radius, r.getRight() - radius);
+}
+
+/** A recessed black panel inside the wood (inset shadow). */
+inline void drawInset(juce::Graphics& g, juce::Rectangle<float> r, float radius = 6) {
+    drawCached(g, r, 2, "inset" + juce::String(radius),
+               [=](juce::Graphics& ig, juce::Rectangle<float> l) { drawInsetUncached(ig, l, radius); });
 }
 
 /** Small "field" box (buttons, selects): dark fill, brown border, or amber when active. */
