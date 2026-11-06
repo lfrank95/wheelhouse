@@ -25,6 +25,16 @@ inline void RotaryRoomDSP::drawbarAmps(int man, double* amps) const {
 inline void RotaryRoomDSP::schedule(int m, int w, double d, double baseDelay, double spreadScale, double bounceScale) {
     double t0 = sampleClock + baseDelay + fastRand() * staggerS * spreadScale * (m == 2 ? 1.6 : 1.0);
     events.push_back({t0, m, w, d, curRamp});
+    // chatter: before it settles, the spring touches the bus bar a few times for tens of microseconds while it
+    // wipes along (the "smack" of the click); the slower the key, the more of it
+    if (spreadScale > 0.6 && fastRand() < 0.75) {
+        const int n = 1 + (int) (3 * fastRand() * std::min(1.0, (spreadScale - 0.35) / 1.4));
+        for (int b = 0; b < n; b++) {
+            const double t = t0 - (0.0002 + 0.0014 * fastRand()) * fs, dur = (0.00003 + 0.00009 * fastRand()) * fs;
+            events.push_back({t, m, w, d, curRamp});
+            events.push_back({t + dur, m, w, -d, curRamp});
+        }
+    }
     if (fastRand() < std::min(0.95, bounceP * bounceScale)) {
         int n = fastRand() < 0.4 ? 2 : 1;
         double t = t0;
@@ -59,7 +69,8 @@ inline void RotaryRoomDSP::noteOn(int k, int man, int velocity) {
     double keyed = 0;
     for (double a : amps) keyed += a * a;
     keyed = std::min(1.2, std::sqrt(keyed / 3));
-    clickEnv = std::max(clickEnv, (man == 2 ? 0.6 : 1.0) * (0.35 + 0.83 * v) * keyed);
+    clickEnv = std::max(clickEnv, (man == 2 ? 0.6 : 1.0) * (0.25 + 0.95 * v) * keyed);
+    clickDecay = std::exp(-1 / ((0.0012 + 0.004 * std::pow(1 - v, 1.5)) * fs)); // slow press: longer scrape
     orgMech.key(man, std::max(1, std::min(127, velocity)) / 127.0, true);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0, spread, bounce); });
     if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
@@ -78,6 +89,7 @@ inline void RotaryRoomDSP::noteOff(int k, int man, int velocity) {
     for (double a : amps) keyed += a * a;
     keyed = std::min(1.2, std::sqrt(keyed / 3));
     clickEnv = std::max(clickEnv, 0.35 * (0.5 + v) * keyed);
+    clickDecay = std::exp(-1 / ((0.0012 + 0.003 * (1 - v)) * fs));
     orgMech.key(man, velocity > 0 ? std::min(127, velocity) / 127.0 : 0.5, false);
     curRamp = (float) (0.5 + 1.2 * v);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0, 0.5 + 1.0 * (1 - v), 0.6 + 0.5 * v); });
@@ -143,7 +155,12 @@ inline void RotaryRoomDSP::prepareRunout(int N) {
 inline void RotaryRoomDSP::renderOrgan(int N) {
     const double gs = gainStep;
     const double percDecay = std::exp(-1 / ((perc.fast ? percShortS : percLongS) * fs / 6.9));
-    const double clickDecay = std::exp(-1 / (0.002 * fs));
+    // contact smoothing (see cgain) and the band of the scrape noise (the contact spring on the bus bar: no
+    // energy at the very top, nothing below the tone)
+    const double kContact = 1 - std::exp(-1 / (0.00008 * fs));
+    const double clickGain = 1.6 * click * std::pow(2.0, 2 * click - 1); // 1.6 x click, rising to twice that at 1
+    const double kHp = 1 - std::exp(-2 * 3.14159265358979 * 400 / fs),
+                 kLp = 1 - std::exp(-2 * 3.14159265358979 * 3200 / fs);
     const double percLevel = (perc.soft ? 0.6 : 1.0) * percLevelUser;
     const double vibDepth = vibDepthSec * fs;
     const bool vibChorus = vibChorusMode;
@@ -188,6 +205,16 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
                 g2 = g2 < t2 ? std::min(t2, g2 + st) : std::max(t2, g2 - st);
                 gain[2][w] = g2;
             }
+            // the contact itself: smooth approach to the ramped value
+            float& c0 = cgain[0][w];
+            float& c1 = cgain[1][w];
+            float& c2 = cgain[2][w];
+            if (c0 != g0) c0 = std::abs(c0 - g0) < 1e-5f ? g0 : c0 + (float) kContact * (g0 - c0);
+            if (c1 != g1) c1 = std::abs(c1 - g1) < 1e-5f ? g1 : c1 + (float) kContact * (g1 - c1);
+            if (c2 != g2) c2 = std::abs(c2 - g2) < 1e-5f ? g2 : c2 + (float) kContact * (g2 - c2);
+            g0 = c0;
+            g1 = c1;
+            g2 = c2;
             const float pg = percG[w];
             const double gsum = (double) g0 + g1 + g2;
             if (gsum + leakHum > 1e-6 || pg > 0) {
@@ -227,7 +254,10 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
         sDry += ps * percEnv * percLevel * 0.9;
         percEnv *= percDecay;
         if (clickEnv > 1e-4) {
-            sDry += (fastRand() * 2 - 1) * clickEnv * click * 0.35;
+            const double nz = fastRand() * 2 - 1;
+            clickLp += kLp * (nz - clickLp);
+            clickHp += kHp * (clickLp - clickHp);
+            sDry += (clickLp - clickHp) * clickEnv * clickGain; // 0.5: about as loud as one drawbar at 8; 1: +12 dB
             clickEnv *= clickDecay;
         }
         sVib *= organGain;

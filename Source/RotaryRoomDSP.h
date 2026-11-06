@@ -179,7 +179,7 @@ public:
     /** Current cathode voltage of the amp model, for the UI. */
     double ampCathode() const { return amp.cathodeVoltage(); }
     /** Active amp simulation quality level. */
-    /** Key click level 0..1 (contact noise on key press/release). */
+    /** Key click level 0..1 (contact noise on key press/release): 0.5 about as loud as one drawbar, 1 = +12 dB. */
     void setClick(double v) { click = v; }
     /** Expression (swell) pedal position 0..1; also shapes the bass response like the original pedal. */
     void setVolume(double v) { volume = v; }
@@ -380,6 +380,9 @@ private:
     double scanStray = 0;
     void configureScanner();
     std::array<float, 92> gain[3]{}, target[3]{};
+    // what the key contact actually passes: the ramped gain smoothed once more (the spring wipes onto the bus bar
+    // and the contact resistance falls gradually - no kink at the end of the ramp, hence a softer click)
+    std::array<float, 92> cgain[3]{};
     std::array<uint8_t, 61> keys[3]{};
     int numKeysUpper = 0;
     int drawbars[3][9] = {{8, 8, 8, 0, 0, 0, 0, 0, 0}, {0, 0, 8, 4, 0, 0, 0, 0, 0}, {6, 3, 0, 0, 0, 0, 0, 0, 0}};
@@ -393,7 +396,8 @@ private:
     SpringReverb spring;
     std::vector<float> orgBuf;
     Perc perc;
-    double percEnv = 0, click = 0.5, clickEnv = 0, organGain = 0.05;
+    double percEnv = 0, click = 0.5, clickEnv = 0, clickDecay = 0.99, organGain = 0.05;
+    double clickHp = 0, clickLp = 0; // contact scrape noise: band-limited (one-pole high and low pass states)
     struct Event {
         double t;
         int m;

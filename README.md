@@ -55,8 +55,13 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Jedes Rad hat leichte 2. und 3. Harmonische (eigene Streuung), die oberen Räder werden von den Tonradfiltern bedämpft.
 * **Vibrato/Chorus**: Scanner als 16-stufige LC-Laufzeitkette, der Abtaster gleitet über die Abgriffe;
   mit höherer Stufe mehr Laufzeit und etwas mehr Höhenverlust.
-* **Anschlag**: MIDI-Velocity steuert Key-Click (Kontakte schließen schneller und härter, mehr Prellen) beim Drücken und
-  Loslassen. Mit der Maus: Klick vorne auf der Taste = hart, hinten = weich.
+* **Key-Click**: kein Effekt, sondern das Schalten selbst. Die neun Kontaktfedern einer Taste schließen in 0,1–0,35 ms
+  (je nach Kontaktzustand) und zu leicht verschiedenen Zeiten, prellen und flattern beim Aufwischen auf die
+  Sammelschiene kurz (30–120 µs), und der laufende Sinus springt mit vollem Sprung ein: das gibt den Knack samt
+  Bass-Wumms. Dazu das Kratzen der Feder als bandbegrenztes Rauschen (400 Hz–3,2 kHz, 1–5 ms). MIDI-Velocity ist
+  Tastengeschwindigkeit: schnell = Kontakte schnappen fast gleichzeitig und hart zu (scharf, lauter, mehr Prellen),
+  langsam = nacheinander und schmatzend. Click-Regler: 0,5 etwa so laut wie ein Zugriegel auf 8, 1 = +12 dB.
+  Mit der Maus: Klick vorne auf der Taste = hart, hinten = weich.
 * **Rotary**: Drehzahlen und Hochlauf/Auslauf für Horn und Trommel, Bremse, Endstufe (Modell 122 / 122 früh / 147,
   Qualität Eco / HQ / Ultra, Drive, Netzteil-Sag), Gehäuse (Hornfach, Resonanz, Mechanik, Unrund, Sperrholz/Spanplatte,
   Deflektoren In/Out), Aufstellung (Balance, Ausrichtung).

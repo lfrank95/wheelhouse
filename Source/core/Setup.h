@@ -185,7 +185,9 @@ inline void RotaryRoomDSP::applyCharacter() {
     leakHum = std::pow(10.0, -(78 - 16 * c.leak) / 20);
     staggerS = (0.0008 + 0.0045 * c.contact) * fs;
     bounceP = 0.15 + 0.7 * c.contact;
-    gainStep = 1 / ((0.0003 + 0.0004 * (1 - c.contact)) * fs);
+    // contact closing time: a snapping spring closes in well under 0.1 ms (the click is nearly the full step of the
+    // switched sine, loud and with its bass thump); worn, dirty contacts close more gradually
+    gainStep = 1 / ((0.0001 + 0.00025 * (1 - c.contact)) * fs);
     busK = c.busComp ? 0.035 + 0.05 * c.cond : 0;
     // Mechanics: the organ's generator/run motor follows "Motor"; the Rotary's motors, belts and relay follow its own
     // setting or, on auto, the condition (a serviced cabinet is quiet, a road-worn one rumbles and clunks)
