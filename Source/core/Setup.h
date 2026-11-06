@@ -69,7 +69,7 @@ inline void RotaryRoomDSP::init() {
     lp2.set("lp", 4500, 0.5, fs);
     hp1.set("hp", 800, 0.6, fs);
     hp2.set("hp", 560, 0.7, fs);
-    cabDelay = (int) std::lround(0.0017 * fs);
+    cabDelay = (int) std::lround(0.0005 * fs); // first slat reflection; the compartment's own decay follows
     cabLp.set("lp", 3200, 0.7, fs);
     hornRes.set("peak", 1700, 1.4, fs, 3.5);
     hornRes2.set("peak", 4200, 2.0, fs, 2.0);
@@ -94,6 +94,7 @@ inline void RotaryRoomDSP::init() {
     lowerCabRing.assign(DL, 0.f);
     consoleRing.assign(DL, 0.f);
     body.prepare(fs);
+    hornBox.prepare(fs);
     rotaryMech.prepare(fs);
     orgMech.prepare(fs, GEARS);
     spk.az = {0, 45, 90, 135, 180, -135, -90, -45};
@@ -115,6 +116,10 @@ inline void RotaryRoomDSP::init() {
     dirHornOpen.build(rotordir::HORN_OPEN);
     dirDrum.build(rotordir::DRUM);
     dirHorn = deflector ? &dirHornDefl : &dirHornOpen;
+    cabHornDefl.build(cabdir::HORN_DEFLECTOR, cabdir::CAB_NA, cabdir::CAB_NZ, cabdir::CAB_NE, 4);
+    cabHornOpen.build(cabdir::HORN_OPEN, cabdir::CAB_NA, cabdir::CAB_NZ, cabdir::CAB_NE, 4);
+    cabDrum.build(cabdir::DRUM, cabdir::CAB_NA, cabdir::CAB_NZ, cabdir::CAB_NE, 3);
+    cabHorn = deflector ? &cabHornDefl : &cabHornOpen;
     splitH.prepare(rotordir::HORN_EDGES, 3, fs);
     splitD.prepare(rotordir::DRUM_EDGES, 2, fs);
     for (auto& b : bandH) b.assign(DL, 0.f);

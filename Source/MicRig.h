@@ -103,6 +103,7 @@ struct MicPath {
     double band[3] = {1, 1, 1};
     double lp = 0, zlo = 0, zhi = 0, zd = 0;
     float bgA[4] = {1, 1, 1, 1}, bgB[4] = {1, 1, 1, 1}; // radiation band gains at sub-block start / end (fast paths)
+    float zi = 0, ei = 0; // departure direction as cabinet-table coordinates for this block
     bool init = false;
 };
 

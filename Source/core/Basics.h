@@ -162,6 +162,7 @@ struct Path {
     double bx0 = 0, bx1 = 0; // direction as a continuous bucket coordinate (0..NB) at the start/end of the sub-block
     std::array<float, 8> gPrev{}, gNext{};              // speaker gains of the sharp part (exact paths)
     float bgA[4] = {1, 1, 1, 1}, bgB[4] = {1, 1, 1, 1}; // radiation band gains at the sub-block start / end
+    float zi = 0, ei = 0; // departure direction as cabinet-table coordinates (azimuth, elevation) for this block
     // Wall patches: distance, departure direction, arrival azimuth/elevation, gain and wall low-pass (see
     // updatePatches)
     double dist = 0, dep[3] = {0, 0, 0}, azRoom = 0, el = 0, gm = 0, kWall = 1;

@@ -142,6 +142,7 @@ public:
     void setDeflector(bool on) {
         deflector = on;
         dirHorn = on ? &dirHornDefl : &dirHornOpen;
+        cabHorn = on ? &cabHornDefl : &cabHornOpen;
     }
     bool hasDeflector() const { return deflector; }
     /** Cabinet detail: level of the horn-compartment reflection 0..1, rotor speed wobble 0..1 (negative = derive from
@@ -297,6 +298,11 @@ private:
     void prepSpeakers();
     void panGains(double az, double hfrac, float* out) const;
     void cabinet(double dx, double dy, double dz, double& g, double& fc) const;
+    // Cabinet radiation tables (CabinetDirectivity.h): table coordinates of a departure direction (real cabinet
+    // frame, not normalised) and of a rotor's mouth angle (cos, dir * sin), and the band gains for them
+    void cabDir(double dx, double dy, double dz, float& zi, float& ei) const;
+    float mouthIdx(double c, double s) const;
+    void radiate(bool horn, float ai, float zi, float ei, float* gb) const;
     void schedule(int m, int w, double d, double baseDelay);
     void retarget();
     void applyDelta(int m, int w, double d);
@@ -422,6 +428,9 @@ private:
     int cabDelay = 0;
     RotorDir dirHornDefl, dirHornOpen, dirDrum;
     const RotorDir* dirHorn = &dirHornDefl;
+    // the same rotors as heard outside the louvred cabinet (box shadowing, diffraction, beaming of the openings)
+    CabinetDir cabHornDefl, cabHornOpen, cabDrum;
+    const CabinetDir* cabHorn = &cabHornDefl;
     bool deflector = true;
     LRBandSplit splitH, splitD;            // in-phase bands of the horn / drum signal (radiation model)
     std::vector<float> bandH[4], bandD[3]; // ring buffers of those bands, same indexing as hornRing / drumRing
@@ -434,6 +443,7 @@ private:
     // relay); consoleRing: the organ console (generator, run motor, keys). All three are placed in the room without
     // rotation.
     CabinetBody body;
+    CompartmentReverb hornBox; // reverberant field of the upper compartment (feeds hornCabRing)
     RotaryMechanics rotaryMech;
     OrganMechanics orgMech;
     int cabBoard = 0;
@@ -455,6 +465,7 @@ private:
     // directivity, drum AM, cabinet). The late reverb is built from these, so it carries the rotation's chorus and,
     // per delay line, a little of its movement - instead of a static copy of the amplifier signal.
     static constexpr int RDIR = 6;
+    float rdZi[RDIR] = {}, rdEi[RDIR] = {}; // reverb feed directions as cabinet-table coordinates
     double rdX[RDIR] = {}, rdY[RDIR] = {}, rdCab[RDIR] = {}, rdLpH[RDIR] = {}, rdLpD[RDIR] = {}, rdZd[RDIR] = {},
            rdSig[RDIR] = {};
     void staticBlock(bool lisOn, bool micsOn);
@@ -497,6 +508,7 @@ private:
     std::array<int, SUB> writeIdxBuf{};
     std::array<double, SUB> hornCosBuf{}, hornSinBuf{}, drumCosBuf{}, drumSinBuf{}, hornSigBuf{}, drumSigBuf{},
         staticRevFeed{};
+    std::array<float, SUB> hornAiBuf{}, drumAiBuf{}; // mouth angles as cabinet-table coordinates, per sample
     double micRaw[6][SUB] = {};
     void renderListenerJob(int job);
     void renderMicJob(int micIndex);

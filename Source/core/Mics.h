@@ -313,10 +313,9 @@ inline void RotaryRoomDSP::micBlock(double bt) {
             const Rotor& r = rot[p.rotor];
             double icx = p.sx * rotaryPos.x + p.ox, icy = p.sy * rotaryPos.y + p.oy, iz = p.sz * r.h + p.oz;
             double vx = m.x - icx, vy = m.y - icy, vz = m.z - iz, dist = std::sqrt(vx * vx + vy * vy + vz * vz);
-            double cg, cfc;
-            cabinet(p.sx * vx, p.sy * vy, p.sz * vz, cg, cfc); // vx points image -> mic, i.e. the radiation direction
-            p.cab = cg;
-            p.kc = std::min(std::min(kOf(cfc), airK(dist)), p.kRefl);
+            cabDir(p.sx * vx, p.sy * vy, p.sz * vz, p.zi, p.ei); // vx points image -> mic, i.e. the radiation direction
+            p.cab = 1;                                           // the cabinet is in the radiation table
+            p.kc = std::min(airK(dist), p.kRefl);
             double cth = -(vx * m.ax + vy * m.ay + vz * m.az) / std::max(dist, 1e-6);
             for (int b = 0; b < 3; b++) p.band[b] = m.a[b] + (1 - m.a[b]) * cth;
             if (p.exact) continue;
@@ -327,9 +326,8 @@ inline void RotaryRoomDSP::micBlock(double bt) {
                 double dxp = p.sx * c, dyp = p.sy * sn;
                 double wx = m.x - (icx + dxp * r.r), wy = m.y - (icy + dyp * r.r), wz = m.z - iz;
                 double d = std::sqrt(wx * wx + wy * wy + wz * wz) + p.jit;
-                double cosE = (dxp * wx + dyp * wy) / d;
                 double g = p.g * p.cab / std::max(d, 0.1);
-                (horn ? *dirHorn : dirDrum).at(cosE, e ? p.bgB : p.bgA);
+                radiate(horn, mouthIdx(c, sn), p.zi, p.ei, e ? p.bgB : p.bgA);
                 if (e) {
                     p.d1 = d;
                     p.g1 = g;

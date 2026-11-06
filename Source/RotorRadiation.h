@@ -2,7 +2,9 @@
 #pragma once
 #include <cmath>
 #include <algorithm>
+#include <vector>
 #include "RotorDirectivity.h"
+#include "CabinetDirectivity.h"
 
 namespace rotary {
 
@@ -93,6 +95,61 @@ struct RotorDir {
         if (i >= NT) i = NT - 1;
         const float f = (float) (x - i);
         for (int b = 0; b < MAXB; b++) go[b] = g[i][b] + (g[i + 1][b] - g[i][b]) * f;
+    }
+};
+
+/** Band gains of a rotor as heard outside the cabinet (CabinetDirectivity.h): tabulated over the mouth angle, the
+    path azimuth and elevation, all relative to the cabinet front. Lookups take table coordinates (see idxA / idxDir)
+    so that the per-sample paths can interpolate them cheaply; trilinear, periodic in angle and azimuth. */
+struct CabinetDir {
+    static constexpr int MAXB = 4;
+    int na = 0, nz = 0, ne = 0, nb = 0;
+    std::vector<float> g; // [a][z][e][MAXB], linear gains
+    void build(const short* tab, int NA, int NZ, int NE, int NB) {
+        na = NA;
+        nz = NZ;
+        ne = NE;
+        nb = NB;
+        g.assign((size_t) NA * NZ * NE * MAXB, 0.f);
+        for (int i = 0; i < NA * NZ * NE; i++)
+            for (int b = 0; b < NB; b++) g[(size_t) i * MAXB + b] = (float) std::pow(10.0, tab[i * NB + b] / 200.0);
+    }
+    /** Mouth angle (radians, relative to the cabinet front) -> table coordinate 0..na. */
+    inline float idxA(double a) const {
+        double x = a / 6.283185307179586;
+        x -= std::floor(x);
+        return (float) (x * na);
+    }
+    /** Path direction (radians relative to the cabinet front; dz / horizontal distance) -> table coordinates. */
+    inline void idxDir(double az, double el, float& zi, float& ei) const {
+        double x = az / 6.283185307179586;
+        x -= std::floor(x);
+        zi = (float) (x * nz);
+        ei = (float) ((el / 3.141592653589793 + 0.5) * (ne - 1));
+    }
+    inline void at(float ai, float zi, float ei, float* go) const {
+        if (ai < 0) ai += (float) na;
+        if (zi < 0) zi += (float) nz;
+        int a0 = (int) ai, z0 = (int) zi;
+        const float fa = ai - a0, fz = zi - z0;
+        if (a0 >= na) a0 -= na;
+        if (z0 >= nz) z0 -= nz;
+        const int a1 = a0 + 1 == na ? 0 : a0 + 1, z1 = z0 + 1 == nz ? 0 : z0 + 1;
+        if (ei < 0) ei = 0;
+        if (ei > ne - 1) ei = (float) (ne - 1);
+        int e0 = (int) ei;
+        if (e0 >= ne - 1) e0 = ne - 2;
+        const float fe = ei - e0;
+        const float* p000 = &g[(((size_t) a0 * nz + z0) * ne + e0) * MAXB];
+        const float* p010 = &g[(((size_t) a0 * nz + z1) * ne + e0) * MAXB];
+        const float* p100 = &g[(((size_t) a1 * nz + z0) * ne + e0) * MAXB];
+        const float* p110 = &g[(((size_t) a1 * nz + z1) * ne + e0) * MAXB];
+        const float w00 = (1 - fa) * (1 - fz), w01 = (1 - fa) * fz, w10 = fa * (1 - fz), w11 = fa * fz;
+        for (int b = 0; b < MAXB; b++) {
+            const float lo = w00 * p000[b] + w01 * p010[b] + w10 * p100[b] + w11 * p110[b];
+            const float hi = w00 * p000[b + MAXB] + w01 * p010[b + MAXB] + w10 * p100[b + MAXB] + w11 * p110[b + MAXB];
+            go[b] = lo + (hi - lo) * fe;
+        }
     }
 };
 

@@ -52,6 +52,16 @@ inline void RotaryRoomDSP::cabinet(double dx, double dy, double dz, double& g, d
     fc = (fwd > 0 ? 16000 : 16000 - 14000 * b * b) * (1 - 0.7 * vert * vert);
 }
 
+inline void RotaryRoomDSP::cabDir(double dx, double dy, double dz, float& zi, float& ei) const {
+    cabDrum.idxDir(std::atan2(dy, dx) - cabYaw, std::atan2(dz, std::hypot(dx, dy)), zi, ei);
+}
+inline float RotaryRoomDSP::mouthIdx(double c, double s) const {
+    return cabDrum.idxA(std::atan2(s, c) - cabYaw);
+}
+inline void RotaryRoomDSP::radiate(bool horn, float ai, float zi, float ei, float* gb) const {
+    (horn ? *cabHorn : cabDrum).at(ai, zi, ei, gb);
+}
+
 /** Lambert weights of the wall patches for the current cabinet and listener position (4 x 4 sample points per
     patch): scattered energy  s R^2 * cos(in) cos(out) dA / (pi d1^2 d2^2)  for a unit source, and its centroid,
     which sets the patch's delay, departure direction and arrival azimuth. Per rotor only the strongest patches
@@ -520,11 +530,12 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
         if (p.patch) {
             bool horn = p.rotor == 0;
             double a0 = r.ang, a1 = r.ang + TWO_PI * r.hz * bt;
+            cabDir(p.dep[0], p.dep[1], p.dep[2], p.zi, p.ei); // real departure direction (towards the patch)
             for (int e = 0; e < 2; e++) {
                 double an = e ? a1 : a0, c = std::cos(an), sn = r.dir * std::sin(an);
                 double cosE = p.dep[0] * c + p.dep[1] * sn;
                 double d = p.dist - r.r * cosE;
-                (horn ? *dirHorn : dirDrum).at(cosE, e ? p.bgB : p.bgA); // same radiation model as the box room
+                radiate(horn, mouthIdx(c, sn), p.zi, p.ei, e ? p.bgB : p.bgA); // rotor + cabinet towards the patch
                 if (e) {
                     p.d1 = d;
                     p.g1 = p.gm;
@@ -534,12 +545,7 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
                     p.g0 = p.gm;
                 }
             }
-            // cabinet directivity along the real departure direction (towards the patch, no mirroring)
-            double cg, cfc;
-            cabinet(p.dep[0], p.dep[1], p.dep[2], cg, cfc);
-            p.cab0 = p.init ? p.cab1 : cg;
-            p.cab1 = cg;
-            p.kb = std::min(p.kb, kOf(cfc));
+            p.cab0 = p.cab1 = 1; // the cabinet is in the radiation table
             setBx(p, bucketX(p.azRoom - H.yaw));
             p.hf = p.patch ? 0
                            : std::min(1.0, std::max(0.0, 1 - p.el * p.el) * SHARP_GAIN) *
@@ -555,11 +561,11 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
         double vx = p.icx + p.sx * r.r * ca - H.x, vy = p.icy + p.sy * r.r * sa - H.y, vz = p.iz - H.z;
         double hd = std::hypot(vx, vy), dist = std::hypot(hd, vz);
         p.kAir = airK(dist);
-        double cg, cfc;
-        cabinet(-p.sx * vx, -p.sy * vy, -p.sz * vz, cg, cfc);
-        p.cab0 = p.cab1 != 0 ? p.cab1 : cg;
-        p.cab1 = cg;
-        p.kc = std::min(std::min(kOf(cfc), p.kAir), p.kOn); // kOn: treble lost at the walls (per bounce)
+        // departure direction from the real cabinet (the image geometry mirrored back); the cabinet's shadowing and
+        // the beaming of its openings are in the radiation table together with the rotor's own pattern
+        cabDir(-p.sx * vx, -p.sy * vy, -p.sz * vz, p.zi, p.ei);
+        p.cab0 = p.cab1 = 1;
+        p.kc = std::min(p.kAir, p.kOn); // kOn: treble lost at the walls (per bounce)
         if (p.fast) {
             double a0 = r.ang, a1 = r.ang + TWO_PI * r.hz * bt;
             bool horn = p.rotor == 0;
@@ -568,9 +574,8 @@ inline void RotaryRoomDSP::updatePathGeometry(double bt) {
                 double dxp = p.sx * c, dyp = p.sy * sn;
                 double wx = H.x - (p.icx + dxp * r.r), wy = H.y - (p.icy + dyp * r.r), wz = H.z - p.iz;
                 double d = std::sqrt(wx * wx + wy * wy + wz * wz) + p.jit;
-                double cosE = (dxp * wx + dyp * wy) / d;
                 double g = p.g / (d > MIN_PATH_DIST ? d : MIN_PATH_DIST);
-                (horn ? *dirHorn : dirDrum).at(cosE, e ? p.bgB : p.bgA);
+                radiate(horn, mouthIdx(c, sn), p.zi, p.ei, e ? p.bgB : p.bgA);
                 if (e) {
                     p.d1 = d;
                     p.g1 = g;
@@ -674,14 +679,15 @@ inline void RotaryRoomDSP::fillPathViz(PathViz& v) const {
     v.lisYaw = (float) H.yaw;
     v.hornAngle = (float) hornAngle();
     v.drumAngle = (float) drumAngle();
-    // broadband level of the radiation towards cosE: power mean of the band gains
-    auto radiation = [&](int rotor, double cosE) {
-        float g[4];
-        const RotorDir& dm = rotor == 0 ? *dirHorn : dirDrum;
-        dm.at(cosE, g);
+    // broadband level of rotor + cabinet towards a departure direction (real cabinet frame): power mean of the bands
+    auto radiation = [&](int rotor, double c, double sn, double dx, double dy, double dz) {
+        float g[4], zi, ei;
+        cabDir(dx, dy, dz, zi, ei);
+        radiate(rotor == 0, mouthIdx(c, sn), zi, ei, g);
+        const int nb = rotor == 0 ? 4 : 3;
         double sum = 0;
-        for (int b = 0; b < dm.nb; b++) sum += (double) g[b] * g[b];
-        return std::sqrt(sum / dm.nb);
+        for (int b = 0; b < nb; b++) sum += (double) g[b] * g[b];
+        return std::sqrt(sum / nb);
     };
     int n = 0;
     for (const auto& p : paths) {
@@ -696,7 +702,7 @@ inline void RotaryRoomDSP::fillPathViz(PathViz& v) const {
             it.order = 1;
             it.x = (float) p.cx;
             it.y = (float) p.cy;
-            it.level = (float) (p.gm * p.cab1 * radiation(p.rotor, p.dep[0] * c + p.dep[1] * sn));
+            it.level = (float) (p.gm * radiation(p.rotor, c, sn, p.dep[0], p.dep[1], p.dep[2]));
         } else {
             if (p.order > 2) continue;
             // same geometry as the fast image paths in updatePathGeometry()
@@ -707,8 +713,8 @@ inline void RotaryRoomDSP::fillPathViz(PathViz& v) const {
             it.order = (uint8_t) p.order;
             it.x = (float) ix;
             it.y = (float) iy;
-            it.level =
-                (float) (p.g / std::max(d, MIN_PATH_DIST) * p.cab1 * radiation(p.rotor, (dxp * wx + dyp * wy) / d));
+            it.level = (float) (p.g / std::max(d, MIN_PATH_DIST) *
+                                radiation(p.rotor, c, sn, p.sx * wx / d, p.sy * wy / d, p.sz * wz / d));
         }
         v.item[n++] = it;
     }

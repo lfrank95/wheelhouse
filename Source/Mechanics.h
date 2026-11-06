@@ -23,6 +23,61 @@
 namespace rotary {
 
 // ---------------------------------------------------------------------------------------------------------------
+// Horn compartment: the reverberant field inside the upper box
+// ---------------------------------------------------------------------------------------------------------------
+/** What the horn radiates into the upper compartment and does not leave through the louvres at once bounces between
+    the top board, the shelf, the back and the slats: a dense, very short reverberation that leaves through all three
+    louvred faces alike (the direct, directional part goes through the cabinet radiation tables). Interior 0.70 x
+    0.48 x 0.25 m: mean free path 4V/S = 0.30 m (0.9 ms between reflections), the decay set by the open louvre area
+    plus what the horn, motor and panels absorb: RT60 = 0.161 V / A. A four-line feedback delay network with
+    incommensurate delays around that mean free path; the output is normalised to unit energy, so the horn-box level
+    control keeps its old meaning (level of the compartment sound as a whole). */
+struct CompartmentReverb {
+    void prepare(double sampleRate) {
+        fs = sampleRate;
+        const double ms[4] = {0.83, 1.21, 1.67, 2.39}; // ms: around the mean free path, mutually prime ratios
+        for (int i = 0; i < 4; i++) {
+            len[i] = std::max(2, (int) std::lround(ms[i] * 1e-3 * fs));
+            buf[i].assign((size_t) len[i], 0.f);
+            pos[i] = 0;
+        }
+        const double V = 0.70 * 0.48 * 0.25, A = 0.17 + 0.10; // open louvre area (half of 3 faces) + absorption
+        rt60 = 0.161 * V / A;                                 // ~ 50 ms
+        for (int i = 0; i < 4; i++) g[i] = std::pow(10.0, -3.0 * (len[i] / fs) / rt60);
+        // unit energy output: measure the impulse response once (the mixing makes a closed form awkward)
+        norm = 1;
+        double e = 0;
+        const int n = (int) (rt60 * 3 * fs);
+        for (int i = 0; i < n; i++) {
+            const double y = tick(i == 0 ? 1.0 : 0.0);
+            e += y * y;
+        }
+        norm = 1.0 / std::sqrt(std::max(e, 1e-12));
+        for (int i = 0; i < 4; i++) {
+            std::fill(buf[i].begin(), buf[i].end(), 0.f);
+            pos[i] = 0;
+        }
+    }
+    inline double tick(double x) {
+        double out[4];
+        for (int i = 0; i < 4; i++) out[i] = buf[i][(size_t) pos[i]];
+        // Householder feedback (energy preserving mixing), per-line decay
+        const double sum = 0.5 * (out[0] + out[1] + out[2] + out[3]);
+        double y = 0;
+        for (int i = 0; i < 4; i++) {
+            const double fb = (out[i] - sum) * g[i];
+            buf[i][(size_t) pos[i]] = (float) (x + fb);
+            if (++pos[i] >= len[i]) pos[i] = 0;
+            y += out[i];
+        }
+        return y * norm;
+    }
+    double fs = 48000, rt60 = 0.05, norm = 1, g[4] = {0, 0, 0, 0};
+    std::vector<float> buf[4];
+    int len[4] = {2, 2, 2, 2}, pos[4] = {0, 0, 0, 0};
+};
+
+// ---------------------------------------------------------------------------------------------------------------
 // Cabinet body: woofer vented box, air modes of the lower compartment, plate modes of the wooden panels
 // ---------------------------------------------------------------------------------------------------------------
 struct CabinetBody {

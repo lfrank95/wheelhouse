@@ -156,7 +156,7 @@ inline void RotaryRoomDSP::renderRotors(int N) {
         const int wi = wIdx;
         hornRing[wi] = (float) hi;
         drumRing[wi] = (float) lo;
-        hornCabRing[wi] = (float) cabLp.run(hi);
+        hornCabRing[wi] = (float) cabLp.run(hornBox.tick(hi)); // compartment reverberation, dulled by the slats
         {
             float hb[4], dbb[3];
             splitH.run(hi, hb);
@@ -186,6 +186,8 @@ inline void RotaryRoomDSP::renderRotors(int N) {
         writeIdxBuf[(size_t) n] = wi;
         hornCosBuf[(size_t) n] = hornCos;
         hornSinBuf[(size_t) n] = hornSin;
+        hornAiBuf[(size_t) n] = mouthIdx(hornCos, hornSin);
+        drumAiBuf[(size_t) n] = mouthIdx(drumCos, drumSin);
         drumCosBuf[(size_t) n] = drumCos;
         drumSinBuf[(size_t) n] = drumSin;
         hornSigBuf[(size_t) n] = hi;
@@ -207,15 +209,9 @@ inline void RotaryRoomDSP::staticBlock(bool lisOn, bool micsOn) {
         const double a = TWO_PI * (k + 0.5) / RDIR;
         rdX[k] = std::cos(a);
         rdY[k] = std::sin(a);
-        double fc;
-        cabinet(rdX[k], rdY[k], 0.25, rdCab[k], fc);
+        rdCab[k] = 1; // the cabinet's directivity is in the radiation table
+        cabDir(rdX[k], rdY[k], 0.25, rdZi[k], rdEi[k]);
     }
-    {
-        double m = 0;
-        for (int k = 0; k < RDIR; k++) m += rdCab[k];
-        m /= RDIR;
-        for (int k = 0; k < RDIR; k++) rdCab[k] /= m;
-    } // same reverb level as before
     float tmp[8];
     auto set = [](StaticPath& p, double ds, const float* g, double scale) {
         p.d0 = p.init ? p.d1 : ds;
@@ -297,13 +293,13 @@ inline void RotaryRoomDSP::renderListenerJob(int job) {
             double dxp = p.sx * ca, dyp = p.sy * sa;
             double vx = H.x - (p.icx + dxp * rr), vy = H.y - (p.icy + dyp * rr), vz = H.z - p.iz;
             double dist = std::sqrt(vx * vx + vy * vy + vz * vz) + p.jit;
-            double cosE = (dxp * vx + dyp * vy) / dist;
             double rp = wi - dist * fsc;
             if (rp < 0) rp += DM + 1;
             int i1 = (int) rp;
             double fr = rp - i1;
             float gb[4];
-            (horn ? *dirHorn : dirDrum).at(cosE, gb); // radiation of the rotor towards this path
+            radiate(horn, horn ? hornAiBuf[(size_t) n] : drumAiBuf[(size_t) n], p.zi, p.ei,
+                    gb); // rotor + cabinet towards this path
             const float* const* bands = horn ? bandHp : bandDp;
             const int nb = horn ? 4 : 3;
             double v = 0;
@@ -414,7 +410,7 @@ inline void RotaryRoomDSP::renderMicJob(int i) {
                 int i1 = (int) rp;
                 double fr = rp - i1;
                 float gb[4];
-                (horn ? *dirHorn : dirDrum).at(cosE, gb);
+                radiate(horn, horn ? hornAiBuf[(size_t) n] : drumAiBuf[(size_t) n], p.zi, p.ei, gb);
                 v = sinc.readBands(horn ? bandHp : bandDp, gb, horn ? 4 : 3, DM, i1, fr);
                 if (horn) { // when the horn points away, sound reaches the mic via the horn compartment (reflection
                             // inside the cabinet)
@@ -535,7 +531,7 @@ inline void RotaryRoomDSP::reverbSample(int n, const MixParams& mp) {
             double fr = rp - i1;
             float gb[4];
             double vh = 0;
-            dirHorn->at(cH, gb);
+            cabHorn->at(hornAiBuf[(size_t) n], rdZi[k], rdEi[k], gb);
             for (int b = 0; b < 4; b++) {
                 const double y1 = bandH[b][(size_t) (i1 & DM)];
                 vh += gb[b] * (y1 + (bandH[b][(size_t) ((i1 + 1) & DM)] - y1) * fr);
@@ -545,7 +541,7 @@ inline void RotaryRoomDSP::reverbSample(int n, const MixParams& mp) {
             i1 = (int) rp;
             fr = rp - i1;
             double vd = 0;
-            dirDrum.at(cD, gb);
+            cabDrum.at(drumAiBuf[(size_t) n], rdZi[k], rdEi[k], gb);
             for (int b = 0; b < 3; b++) {
                 const double y1 = bandD[b][(size_t) (i1 & DM)];
                 vd += gb[b] * (y1 + (bandD[b][(size_t) ((i1 + 1) & DM)] - y1) * fr);

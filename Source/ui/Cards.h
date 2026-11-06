@@ -67,8 +67,8 @@ inline const std::map<String, String>& cardTips() {
         {"Power Amp/Quality", L"Eco: static curve, low CPU. HQ: tubes and output transformer as a circuit, 2× "
                               L"oversampling. Ultra: 4× oversampling."},
         {"Power Amp/Plate / cath.", "Live plate and cathode readings of the output tubes."},
-        {"Cabinet/Horn box",
-         "Sound from the back of the horn bouncing around inside the horn compartment and leaking out."},
+        {"Cabinet/Horn box", "Level of the horn compartment's own reverberation (what bounces between top board, "
+                             "shelf and slats before it leaves through the louvres, all sides alike)."},
         {"Cabinet/Resonance", "Cabinet panel resonances: the wooden walls vibrate along and colour the low mids."},
         {"Cabinet/Mechanics", L"Mechanical noise: motors, belts, bearings, relays and the slow motor clutching in. "
                               L"Auto follows Organ › Condition."},
