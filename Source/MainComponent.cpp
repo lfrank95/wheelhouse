@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "ui/NativeUi.h"
+#include "StartupLog.h"
 
 using namespace juce;
 
@@ -36,9 +37,12 @@ MainComponent::MainComponent() {
     h.readPaths = [this](rotary::PathViz& v) {
         return engine.readPathViz(v);
     };
+    wh::logStartup("building UI");
     web = std::make_unique<wh::NativeUi>(h);
     addAndMakeVisible(*web);
+    wh::logStartup("UI built, loading state");
     web->startIfNeeded();
+    wh::logStartup("UI started");
 
     // Audio: 0 inputs, up to 16 outputs; restore the saved device setup from the properties file, otherwise use the
     // default device
@@ -50,12 +54,20 @@ MainComponent::MainComponent() {
     auto settingsFile = po.getDefaultFile();
     std::unique_ptr<XmlElement> savedState;
     if (settingsFile.existsAsFile()) savedState = XmlDocument::parse(settingsFile);
+    wh::logStartup("initialising audio");
     deviceManager.initialise(0, 16, savedState.get(), true);
+    if (auto* d = deviceManager.getCurrentAudioDevice())
+        wh::logStartup("audio device: " + d->getTypeName() + " / " + d->getName() + ", " +
+                       juce::String(d->getCurrentSampleRate()) + " Hz, " +
+                       juce::String(d->getCurrentBufferSizeSamples()) + " samples");
+    else
+        wh::logStartup("no audio device");
     deviceManager.addAudioCallback(this);
     deviceManager.addChangeListener(this);
     enableAllMidiInputs();
     deviceManager.addMidiInputDeviceCallback({}, this);
     startTimerHz(30);
+    wh::logStartup("main component constructed");
 }
 
 MainComponent::~MainComponent() {

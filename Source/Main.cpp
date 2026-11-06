@@ -1,5 +1,6 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "MainComponent.h"
+#include "StartupLog.h"
 
 class WheelhouseApplication : public juce::JUCEApplication {
 public:
@@ -7,7 +8,11 @@ public:
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override { return false; }
 
-    void initialise(const juce::String&) override { mainWindow.reset(new MainWindow(getApplicationName())); }
+    void initialise(const juce::String&) override {
+        wh::beginStartupLog(getApplicationVersion());
+        mainWindow.reset(new MainWindow(getApplicationName()));
+        wh::logStartup("window visible");
+    }
     void shutdown() override { mainWindow = nullptr; }
     void systemRequestedQuit() override { quit(); }
 
@@ -16,7 +21,9 @@ public:
         explicit MainWindow(juce::String name)
             : DocumentWindow(name, juce::Colour(0xff14120f), DocumentWindow::allButtons) {
             setUsingNativeTitleBar(true);
+            wh::logStartup("creating main component");
             setContentOwned(new MainComponent(), true);
+            wh::logStartup("main component ready");
             setResizable(true, true);
             setResizeLimits(960, 540, 10000, 10000);
             centreWithSize(1600, 900);
