@@ -5,3 +5,4 @@ asiosdk*/
 build/
 packages/
 test_dsp
+__pycache__/
