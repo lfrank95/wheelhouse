@@ -6,3 +6,4 @@ build/
 packages/
 test_dsp
 __pycache__/
+installer/Output/

@@ -9,7 +9,10 @@ Klangberechnung laufen nativ in C++ (JUCE): `Source/ui/` und `Source/RotaryRoomD
 ## Bauen über GitHub Actions
 
 1. Push auf dieses Repository startet **Actions → Windows-Build** (beim ersten Mal 10–15 Minuten).
-2. Am Ende liegt unter **Artifacts** die Datei `Wheelhouse-win64.zip` mit `Wheelhouse.exe`.
+2. Am Ende liegen unter **Artifacts**:
+   * `Wheelhouse-Setup-win64` – der Installer `Wheelhouse-Setup-<Version>.exe` (App und VST3-Plugin),
+   * `Wheelhouse-win64` – nur `Wheelhouse.exe`, `Wheelhouse-VST3-win64` – nur das Plugin,
+   * `Wheelhouse-map` – Linker-Map zum Auflösen von Absturzprotokollen.
 
 Der Workflow lädt JUCE 8.0.15, die Schriften und das Steinberg ASIO-SDK selbst herunter.
 Schlägt der ASIO-Download fehl, wird ohne ASIO gebaut (nur WASAPI/DirectSound), das steht im Build-Log.
@@ -23,9 +26,22 @@ cmake --build build --config Release
 
 JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLists liegt.
 
+## Installieren
+
+`Wheelhouse-Setup-<Version>.exe` starten (braucht Administratorrechte). Wählbar: App und Plugin, nur App oder nur Plugin.
+
+* App nach `C:\Program Files\Wheelhouse\`, Startmenü-Eintrag, optional Desktop-Symbol.
+* Plugin nach `C:\Program Files\Common Files\VST3\Wheelhouse.vst3` – dort suchen alle gängigen DAWs.
+* Ein Update installiert man einfach drüber; laufende Instanzen werden vorher geschlossen. Deinstallieren über
+  Windows-Einstellungen → Apps. Einstellungen und Presets in `%APPDATA%\Wheelhouse` bleiben dabei erhalten.
+* Der Installer ist nicht signiert: Windows SmartScreen meldet beim ersten Start „unbekannter Herausgeber“ →
+  „Weitere Informationen“ → „Trotzdem ausführen“.
+
+Installer lokal bauen: Inno Setup 6, dann `iscc /DAppVersion=0.1.0 /DBuildDir=..\build installer\Wheelhouse.iss`.
+
 ## Voraussetzungen auf dem Zielrechner
 
-* Windows 10/11 (keine weiteren Laufzeitkomponenten nötig).
+* Windows 10/11, 64 Bit. Keine weiteren Laufzeitkomponenten nötig (C++-Laufzeit ist statisch gelinkt).
 * Für ASIO: der ASIO-Treiber des Interfaces.
 
 ## Bedienung
@@ -136,8 +152,9 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 
 ## VST3
 
-Derselbe Klangkern und dieselbe Oberfläche als Instrument-Plugin (`Wheelhouse.vst3`, Artefakt „Wheelhouse-VST3-win64“).
-Den Ordner `Wheelhouse.vst3` nach `C:\Program Files\Common Files\VST3\` kopieren.
+Derselbe Klangkern und dieselbe Oberfläche als Instrument-Plugin (`Wheelhouse.vst3`). Der Installer legt es nach
+`C:\Program Files\Common Files\VST3\`; ohne Installer den Ordner `Wheelhouse.vst3` aus dem Artefakt
+„Wheelhouse-VST3-win64“ dorthin kopieren.
 
 * **Ausgänge**: Hauptbus Stereo, Quad oder 5.1 (je nach Spur der DAW) plus vier optionale Stereo-Busse
   „Direct 9/10“ … „Direct 15/16“ für die Mikro-Einzelausgänge (Ziel im Mixer der Karte Mics). Der Hauptbus heißt „Main“.
@@ -241,6 +258,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   Zeilen bis 120 Zeichen
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
+* `installer/` – Inno-Setup-Skript `Wheelhouse.iss`, Setup-Icon und Bilder des Assistenten
 * `Resources/icon/` – App-Icon (Rotary über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),

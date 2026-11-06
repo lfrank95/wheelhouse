@@ -42,6 +42,26 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          $ver = (Select-String -Path CMakeLists.txt -Pattern 'project\(Wheelhouse VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          & $iscc /Qp "/DAppVersion=$ver" "/DBuildDir=$PWD\build" installer\Wheelhouse.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          Get-ChildItem installer\Output
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wheelhouse-Setup-win64
+          path: installer/Output/*.exe
+          if-no-files-found: error
+
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
