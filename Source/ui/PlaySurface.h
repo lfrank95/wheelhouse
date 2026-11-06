@@ -13,15 +13,18 @@ using juce::Rectangle;
 /** Rotor angles for drawing: the telemetry arrives irregularly, so the drawn rotors run on their own clock and
     are pulled gently towards the reported angles (a big difference, e.g. start or stop, snaps). */
 struct RotorClock {
-    double horn = 0, drum = 0, hornHz = 0.75, drumHz = -0.62, t = 0;
+    double horn = 0, drum = 0, hornHz = 0.75, drumHz = -0.62, t = nowMs();
     static double nowMs() { return juce::Time::getMillisecondCounterHiRes(); }
+    /** Wraps an angle to 0 .. 2 pi: the drawing code hands angles to float arithmetic, which cannot step through an
+        arc once the angle is in the millions (that hung the first paint on a machine with a long uptime). */
+    static double wrap(double a) { return a - std::floor(a / (2 * PI)) * 2 * PI; }
     void report(double h, double d, double hHz, double dHz) {
-        const double now = nowMs(), dt = (now - t) / 1000;
+        const double now = nowMs(), dt = juce::jlimit(0.0, 0.5, (now - t) / 1000);
         auto pull = [&](double shown, double hz, double reported) {
-            const double cur = shown + hz * 2 * PI * dt;
+            const double cur = wrap(shown + hz * 2 * PI * dt);
             double e = reported - cur;
             e -= std::round(e / (2 * PI)) * 2 * PI;
-            return std::abs(e) > 1.2 ? reported : cur + e * 0.2;
+            return std::abs(e) > 1.2 ? reported : wrap(cur + e * 0.2);
         };
         horn = pull(horn, hornHz, h);
         drum = pull(drum, drumHz, d);
@@ -29,8 +32,8 @@ struct RotorClock {
         drumHz = dHz;
         t = now;
     }
-    double hornNow() const { return horn + hornHz * 2 * PI * (nowMs() - t) / 1000; }
-    double drumNow() const { return drum + drumHz * 2 * PI * (nowMs() - t) / 1000; }
+    double hornNow() const { return wrap(horn + hornHz * 2 * PI * juce::jlimit(0.0, 0.5, (nowMs() - t) / 1000)); }
+    double drumNow() const { return wrap(drum + drumHz * 2 * PI * juce::jlimit(0.0, 0.5, (nowMs() - t) / 1000)); }
 };
 
 // ---------------- Rotary panel ----------------
