@@ -1,0 +1,22 @@
+# Code style for Wheelhouse (clang-format 18). Run: clang-format -i Source/*.h Source/*.cpp Source/core/*.h tests/*.cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+NamespaceIndentation: None
+PointerAlignment: Left
+SpaceAfterCStyleCast: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Inline
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+BreakBeforeBraces: Attach
+SortIncludes: Never
+ReflowComments: true
+Cpp11BracedListStyle: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1

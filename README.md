@@ -192,18 +192,26 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 
 ## Dateien
 
-* `Source/RotaryRoomDSP.h` – Klangkern (Orgel, Rotary, Raum, Hall), ohne JUCE-Abhängigkeit
+* `Source/RotaryRoomDSP.h` – Klangkern (Orgel, Rotary, Raum, Hall), ohne JUCE-Abhängigkeit: Klasse und Schnittstelle;
+  die Rechnung steckt nach Themen in `Source/core/`:
+  `Basics.h` (Bausteine, Datentypen, Raum-Konstanten), `Setup.h` (Tabellen, Stimmung, Charakter),
+  `Organ.h` (Tasten, Kontakte, Perkussion, Scanner), `Room.h` (Spiegelquellen, Zelt, Wandfelder, Geometrie je Block,
+  Lautsprecher), `Mics.h` (Mikros), `Render.h` (Ablauf je Teilblock: Rotoren, parallele Schallwege, Hall, Ausgang)
 * `Source/RotaryAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
 * `Source/SpringReverb.h` – Federhall
 * `Source/Mechanics.h` – Rotary-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Rotary und Orgel
-* `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `RotaryRoomDSP.h`)
+* `Source/MicRig.h` – Mikrotypen und Pult (die Berechnung steckt in `Source/core/Mics.h`)
 * `Source/RotorRadiation.h`, `Source/RotorDirectivity.h` – Bandzerlegung und Abstrahltabellen von Horn und Trommel
 * `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
 * `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
 * `Source/PluginProcessor.*` – VST3: Busse, Parameter, Projektzustand, Editor
 * `Source/WebUi.h` – WebView und native Funktionen, von App und Plugin geteilt
-* `ui/wheelhouse.html`, `ui/tracer.js` – Quelle der Oberfläche; `python3 tools/build_ui.py` erzeugt daraus `Resources/index.html`
+* `ui/` – Quelle der Oberfläche: `wheelhouse.html` (Gerüst), `style.css`, `js/*.js` (App, nach Themen: `core`,
+  `controls`, `header`, `cards`, `room`, `keyboard`, `main`), `tracer.js` (Strahlverfolgung im Zelt);
+  `python3 tools/build_ui.py` fügt alles zu `Resources/index.html` zusammen
+* Code-Stil: `.clang-format` (C++, `clang-format -i Source/*.h Source/*.cpp Source/core/*.h tests/*.cpp`) und
+  `.prettierrc.json` (Oberfläche, `prettier --write ui/js/*.js ui/style.css ui/tracer.js`), Zeilen bis 120 Zeichen
 * `Source/Workers.h` – Thread-Pool für die Raumberechnung
 * `Source/FastMath.h` – schnelle atan-Näherung für die Röhrenmodelle
 * `Resources/icon/` – App-Icon (Rotary über Zugriegeln); `python3 tools/make_icon.py` erzeugt SVG und PNG neu

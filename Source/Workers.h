@@ -1,9 +1,9 @@
 #pragma once
 // Wheelhouse - small persistent worker pool for splitting the room rendering across CPU cores.
 //
-// setJob(fn) once, then run(jobs) executes fn(job) for job = 0..jobs-1 on the workers and the calling thread and returns when all
-// are done. Workers spin briefly after a job (the next sub-block usually follows within a millisecond) and then
-// sleep on a condition variable, so an idle pool costs nothing. No allocation happens in run().
+// setJob(fn) once, then run(jobs) executes fn(job) for job = 0..jobs-1 on the workers and the calling thread and
+// returns when all are done. Workers spin briefly after a job (the next sub-block usually follows within a millisecond)
+// and then sleep on a condition variable, so an idle pool costs nothing. No allocation happens in run().
 
 #include <atomic>
 #include <condition_variable>
@@ -21,7 +21,8 @@
 // Declared by hand (identical to the Windows headers) so this header does not pull <windows.h> into JUCE code.
 extern "C" __declspec(dllimport) void* __stdcall GetCurrentThread();
 extern "C" __declspec(dllimport) int __stdcall SetThreadPriority(void* thread, int priority);
-extern "C" __declspec(dllimport) void* __stdcall AvSetMmThreadCharacteristicsW(const wchar_t* task, unsigned long* index);
+extern "C"
+    __declspec(dllimport) void* __stdcall AvSetMmThreadCharacteristicsW(const wchar_t* task, unsigned long* index);
 extern "C" __declspec(dllimport) int __stdcall AvSetMmThreadPriority(void* handle, int priority);
 #if defined(_MSC_VER)
 #pragma comment(lib, "avrt.lib")
@@ -56,7 +57,10 @@ public:
 
     /** Runs job(0..jobs-1) on all threads and returns when every job has finished. */
     void run(int jobs) {
-        if (threads == 1 || jobs <= 1) { for (int j = 0; j < jobs; j++) job(j); return; }
+        if (threads == 1 || jobs <= 1) {
+            for (int j = 0; j < jobs; j++) job(j);
+            return;
+        }
         // One atomic word describes the batch: generation | job count | next job index. A worker claims a job with
         // fetch_add and sees generation and count together, so a straggler from the previous batch can never run a
         // job of the next one twice or early.
@@ -71,7 +75,8 @@ public:
 
 private:
     static constexpr int GEN_SHIFT = 40, COUNT_SHIFT = 24;
-    static constexpr uint64_t NEXT_MASK = (1ull << COUNT_SHIFT) - 1, COUNT_MASK = (1ull << (GEN_SHIFT - COUNT_SHIFT)) - 1;
+    static constexpr uint64_t NEXT_MASK = (1ull << COUNT_SHIFT) - 1,
+                              COUNT_MASK = (1ull << (GEN_SHIFT - COUNT_SHIFT)) - 1;
 
     void workOnJobs() {
         for (;;) {
@@ -87,7 +92,8 @@ private:
     // to zero (decaying filters would otherwise slow down by a factor of 100 on x86).
     static void prepareThread() {
 #if defined(__SSE__) || defined(_M_X64) || defined(_M_IX86)
-        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON); _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+        _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 #endif
 #if defined(_WIN32)
         unsigned long index = 0;
@@ -95,8 +101,9 @@ private:
         if (task) AvSetMmThreadPriority(task, 1 /* AVRT_PRIORITY_HIGH */);
         SetThreadPriority(GetCurrentThread(), 15 /* THREAD_PRIORITY_TIME_CRITICAL */);
 #elif defined(__unix__) || defined(__APPLE__)
-        sched_param sp{}; sp.sched_priority = sched_get_priority_max(SCHED_FIFO) - 2;
-        pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);   // needs permission; stays normal otherwise
+        sched_param sp{};
+        sp.sched_priority = sched_get_priority_max(SCHED_FIFO) - 2;
+        pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp); // needs permission; stays normal otherwise
 #endif
     }
     void workerLoop() {
@@ -106,10 +113,13 @@ private:
             // spin for a short while: sub-blocks arrive every ~1.3 ms, a sleeping thread would add wake-up latency
             // (only right after a job: an idle pool sleeps and costs nothing, even at real-time priority)
             const auto t0 = std::chrono::steady_clock::now();
-            while ((state.load(std::memory_order_acquire) >> GEN_SHIFT) == seen && !quit.load(std::memory_order_acquire)) {
+            while ((state.load(std::memory_order_acquire) >> GEN_SHIFT) == seen &&
+                   !quit.load(std::memory_order_acquire)) {
                 if (std::chrono::steady_clock::now() - t0 > std::chrono::microseconds(300)) {
                     std::unique_lock<std::mutex> lock(mtx);
-                    cv.wait(lock, [&] { return (state.load(std::memory_order_acquire) >> GEN_SHIFT) != seen || quit.load(); });
+                    cv.wait(lock, [&] {
+                        return (state.load(std::memory_order_acquire) >> GEN_SHIFT) != seen || quit.load();
+                    });
                 }
             }
             if (quit.load(std::memory_order_acquire)) return;
@@ -119,7 +129,10 @@ private:
     }
     void stop() {
         if (workers.empty()) return;
-        { std::lock_guard<std::mutex> lock(mtx); quit = true; }
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            quit = true;
+        }
         cv.notify_all();
         for (auto& w : workers) w.join();
         workers.clear();
@@ -128,9 +141,9 @@ private:
     int threads = 1;
     std::vector<std::thread> workers;
     std::function<void(int)> job;
-    std::atomic<uint64_t> state { 0 };
-    std::atomic<int> done { 0 };
-    std::atomic<bool> quit { false };
+    std::atomic<uint64_t> state{0};
+    std::atomic<int> done{0};
+    std::atomic<bool> quit{false};
     std::mutex mtx;
     std::condition_variable cv;
 };

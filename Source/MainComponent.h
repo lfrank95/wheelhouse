@@ -17,8 +17,8 @@ public:
 
 private:
     void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
-                                          float* const* outputChannelData, int numOutputChannels,
-                                          int numSamples, const juce::AudioIODeviceCallbackContext& context) override;
+                                          float* const* outputChannelData, int numOutputChannels, int numSamples,
+                                          const juce::AudioIODeviceCallbackContext& context) override;
     void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
     void audioDeviceStopped() override;
     void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
@@ -33,11 +33,11 @@ private:
     juce::Component::SafePointer<juce::DialogWindow> settingsWindow;
 
     juce::AudioDeviceManager deviceManager;
-    WheelhouseEngine engine { false };
+    WheelhouseEngine engine{false};
     std::unique_ptr<juce::WebBrowserComponent> web;
 
-    std::array<std::atomic<float>, 16> meterRms {};
-    std::array<float, 16> meterAcc {};
+    std::array<std::atomic<float>, 16> meterRms{};
+    std::array<float, 16> meterAcc{};
     int meterCount = 0;
     std::vector<float> scratch[16];
 

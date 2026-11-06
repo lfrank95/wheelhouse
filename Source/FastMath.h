@@ -18,7 +18,8 @@ inline double atanFast(double x) {
     double ax = std::fabs(x);
     bool inv = ax > 1;
     double t = inv ? 1 / ax : ax, t2 = t * t;
-    double r = t * (0.99997726 + t2 * (-0.33262347 + t2 * (0.19354346 + t2 * (-0.11643287 + t2 * (0.05265332 + t2 * -0.01172120)))));
+    double r = t * (0.99997726 +
+                    t2 * (-0.33262347 + t2 * (0.19354346 + t2 * (-0.11643287 + t2 * (0.05265332 + t2 * -0.01172120)))));
     if (inv) r = 1.5707963267948966 - r;
     return x < 0 ? -r : r;
 }

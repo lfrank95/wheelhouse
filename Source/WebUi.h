@@ -20,18 +20,25 @@ struct WebUiHooks {
     std::function<juce::var()> params;
 };
 
-// Everything is served from BinaryData: "/" = index.html, otherwise the file name (e.g. /fonts/BarlowCondensed-SemiBold.ttf)
+// Everything is served from BinaryData: "/" = index.html, otherwise the file name (e.g.
+// /fonts/BarlowCondensed-SemiBold.ttf)
 inline std::optional<juce::WebBrowserComponent::Resource> wheelhouseResource(const juce::String& url) {
     using namespace juce;
     String file = url.upToFirstOccurrenceOf("?", false, false).fromLastOccurrenceOf("/", false, false);
     if (file.isEmpty()) file = "index.html";
     for (int i = 0; i < BinaryData::namedResourceListSize; i++) {
         if (file != BinaryData::originalFilenames[i]) continue;
-        int size = 0; const char* p = BinaryData::getNamedResource(BinaryData::namedResourceList[i], size);
+        int size = 0;
+        const char* p = BinaryData::getNamedResource(BinaryData::namedResourceList[i], size);
         if (p == nullptr) return std::nullopt;
-        std::vector<std::byte> data((size_t) size); std::memcpy(data.data(), p, (size_t) size);
-        String mime = file.endsWith(".html") ? "text/html" : file.endsWith(".ttf") ? "font/ttf" : file.endsWith(".woff2") ? "font/woff2" : file.endsWith(".js") ? "text/javascript" : "application/octet-stream";
-        return WebBrowserComponent::Resource { std::move(data), mime };
+        std::vector<std::byte> data((size_t) size);
+        std::memcpy(data.data(), p, (size_t) size);
+        String mime = file.endsWith(".html")    ? "text/html"
+                      : file.endsWith(".ttf")   ? "font/ttf"
+                      : file.endsWith(".woff2") ? "font/woff2"
+                      : file.endsWith(".js")    ? "text/javascript"
+                                                : "application/octet-stream";
+        return WebBrowserComponent::Resource{std::move(data), mime};
     }
     return std::nullopt;
 }
@@ -39,17 +46,37 @@ inline std::optional<juce::WebBrowserComponent::Resource> wheelhouseResource(con
 inline juce::WebBrowserComponent::Options wheelhouseWebOptions(WebUiHooks h, const juce::String& dataFolder) {
     using namespace juce;
     using Done = WebBrowserComponent::NativeFunctionCompletion;
-    return WebBrowserComponent::Options {}
+    return WebBrowserComponent::Options{}
         .withBackend(WebBrowserComponent::Options::Backend::webview2)
-        .withWinWebView2Options(WebBrowserComponent::Options::WinWebView2 {}
-                                    .withUserDataFolder(File::getSpecialLocation(File::SpecialLocationType::tempDirectory).getChildFile(dataFolder)))
+        .withWinWebView2Options(WebBrowserComponent::Options::WinWebView2{}.withUserDataFolder(
+            File::getSpecialLocation(File::SpecialLocationType::tempDirectory).getChildFile(dataFolder)))
         .withNativeIntegrationEnabled()
         .withResourceProvider([](const auto& url) { return wheelhouseResource(url); })
-        .withNativeFunction("dsp", [h](const Array<var>& a, Done done) { if (a.size() > 0 && h.dspMessage) h.dspMessage(a[0]); done(var()); })
-        .withNativeFunction("audioSettings", [h](const Array<var>&, Done done) { if (h.audioSettings) h.audioSettings(); done(var()); })
-        .withNativeFunction("audioInfo", [h](const Array<var>&, Done done) { if (h.audioInfo) h.audioInfo(); done(var()); })
-        .withNativeFunction("saveUi", [h](const Array<var>& a, Done done) { if (a.size() > 0 && h.saveUi) h.saveUi(a[0].toString()); done(var()); })
+        .withNativeFunction("dsp",
+                            [h](const Array<var>& a, Done done) {
+                                if (a.size() > 0 && h.dspMessage) h.dspMessage(a[0]);
+                                done(var());
+                            })
+        .withNativeFunction("audioSettings",
+                            [h](const Array<var>&, Done done) {
+                                if (h.audioSettings) h.audioSettings();
+                                done(var());
+                            })
+        .withNativeFunction("audioInfo",
+                            [h](const Array<var>&, Done done) {
+                                if (h.audioInfo) h.audioInfo();
+                                done(var());
+                            })
+        .withNativeFunction("saveUi",
+                            [h](const Array<var>& a, Done done) {
+                                if (a.size() > 0 && h.saveUi) h.saveUi(a[0].toString());
+                                done(var());
+                            })
         .withNativeFunction("loadUi", [h](const Array<var>&, Done done) { done(h.loadUi ? var(h.loadUi()) : var("")); })
-        .withNativeFunction("chantest", [h](const Array<var>& a, Done done) { if (a.size() > 0 && h.chantest) h.chantest((int) a[0], a.size() > 1 && (bool) a[1]); done(var()); })
+        .withNativeFunction("chantest",
+                            [h](const Array<var>& a, Done done) {
+                                if (a.size() > 0 && h.chantest) h.chantest((int) a[0], a.size() > 1 && (bool) a[1]);
+                                done(var());
+                            })
         .withNativeFunction("params", [h](const Array<var>&, Done done) { done(h.params ? h.params() : var()); });
 }

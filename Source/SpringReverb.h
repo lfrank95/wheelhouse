@@ -1,5 +1,6 @@
 #pragma once
-// Wheelhouse – spring reverb (organ/Accutronics tank, as in the A-100 and Rotary 122RV: inside the organ, before the Rotary)
+// Wheelhouse – spring reverb (organ/Accutronics tank, as in the A-100 and Rotary 122RV: inside the organ, before the
+// Rotary)
 //
 // Model after Välimäki, Parker & Abel ("Parametric spring reverberation effect", 2010) and Parker ("Efficient
 // dispersion generation structures for spring reverb emulation", 2011):
@@ -8,7 +9,8 @@
 //     a lowpass at the transition frequency and damping per round trip.
 //   * The travel time wobbles slightly (springs are not rigid) – this gives the lively "drip".
 //   * Two or three springs of different lengths run in parallel.
-//   * The driver stage before the tank saturates softly; the pickup transducer at the output is band-limited (about 100 Hz – 5 kHz).
+//   * The driver stage before the tank saturates softly; the pickup transducer at the output is band-limited (about 100
+//   Hz – 5 kHz).
 //   * "Kick": a knock against the tank – the springs hit their stops hard (the famous crash).
 
 #include <cmath>
@@ -27,15 +29,31 @@ public:
     /** Wet level 0..1 (the dry signal always passes through unchanged). */
     void setMix(double m) { mix = std::max(0.0, std::min(1.0, m)); }
     /** Decay time T60 in seconds, 0.5..8. */
-    void setDecay(double t60) { decay = std::max(0.5, std::min(8.0, t60)); updateGains(); }
+    void setDecay(double t60) {
+        decay = std::max(0.5, std::min(8.0, t60));
+        updateGains();
+    }
     /** Tone 0..1: lowpass on the wet signal, 2.2 kHz (dark) .. 5.5 kHz (bright). */
-    void setTone(double t) { tone = std::max(0.0, std::min(1.0, t)); toneLp.set("lp", 2200 + 3300 * tone, 0.6, fs); }
+    void setTone(double t) {
+        tone = std::max(0.0, std::min(1.0, t));
+        toneLp.set("lp", 2200 + 3300 * tone, 0.6, fs);
+    }
     /** Drive 0..1: saturation of the driver stage in front of the tank. */
     void setDrive(double d) { drive = std::max(0.0, std::min(1.0, d)); }
     /** Number of parallel springs, 2 or 3. */
-    void setSprings(int n) { n = std::max(2, std::min(3, n)); if (n != nSpr) { nSpr = n; updateGains(); } }
+    void setSprings(int n) {
+        n = std::max(2, std::min(3, n));
+        if (n != nSpr) {
+            nSpr = n;
+            updateGains();
+        }
+    }
     /** Knock against the tank; strength 0.2..1.5 (default 1) */
-    void kick(double strength = 1) { if (!enabled) return; kickEnv = std::max(kickEnv, std::max(0.2, std::min(1.5, strength))); kickPh = 0; }
+    void kick(double strength = 1) {
+        if (!enabled) return;
+        kickEnv = std::max(kickEnv, std::max(0.2, std::min(1.5, strength)));
+        kickPh = 0;
+    }
     /** True when the reverb is active. */
     bool isEnabled() const { return enabled; }
 
@@ -69,15 +87,17 @@ public:
 
 private:
     static constexpr double TWO_PI_S = 6.283185307179586;
-    static constexpr int NAP = 90;      // allpass stages per spring
+    static constexpr int NAP = 90; // allpass stages per spring
 
     struct Spring {
-        std::vector<float> dl; int len = 1000, idx = 0;
-        std::vector<float> apX, apY; int K = 6, apIdx = 0;   // stretched allpass filters: shared ring buffer of length K per stage
-        double a = 0.6, g = 0.7, fbz = 0;
+        std::vector<float> dl;
+        int len = 1000, idx = 0;
+        std::vector<float> apX, apY;
+        int K = 6, apIdx = 0; // stretched allpass filters: shared ring buffer of length K per stage
+        double a = 0.6, g = 0.7;
         Biquad lp1, lp2, dcb;
         double modPh = 0, modInc = 0, modDepth = 0, modZ = 0, td = 0.035;
-        double tapFrac = 0.3; int tapLen = 300;
+        int tapLen = 300;
     };
 
     /** All springs in one pass: the allpass chains are evaluated stage by stage across springs so the CPU can
@@ -85,37 +105,61 @@ private:
     double springsTick(double in) {
         double v[3], sumOut = 0;
         for (int s = 0; s < nSpr; s++) v[s] = springRead(spr[s]);
-        const int K = spr[0].K, j = spr[0].apIdx;   // all springs share K and advance their index together
+        const int K = spr[0].K, j = spr[0].apIdx; // all springs share K and advance their index together
         if (nSpr == 3) {
-            float *X0 = spr[0].apX.data(), *Y0 = spr[0].apY.data(), *X1 = spr[1].apX.data(), *Y1 = spr[1].apY.data(), *X2 = spr[2].apX.data(), *Y2 = spr[2].apY.data();
+            float *X0 = spr[0].apX.data(), *Y0 = spr[0].apY.data(), *X1 = spr[1].apX.data(), *Y1 = spr[1].apY.data(),
+                  *X2 = spr[2].apX.data(), *Y2 = spr[2].apY.data();
             const double a0 = spr[0].a, a1 = spr[1].a, a2 = spr[2].a;
             for (int k = 0; k < NAP; k++) {
                 const int i = k * K + j;
-                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i]; X0[i] = (float) v[0]; Y0[i] = (float) y0; v[0] = y0;
-                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i]; X1[i] = (float) v[1]; Y1[i] = (float) y1; v[1] = y1;
-                double y2 = a2 * v[2] + X2[i] - a2 * Y2[i]; X2[i] = (float) v[2]; Y2[i] = (float) y2; v[2] = y2;
+                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i];
+                X0[i] = (float) v[0];
+                Y0[i] = (float) y0;
+                v[0] = y0;
+                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i];
+                X1[i] = (float) v[1];
+                Y1[i] = (float) y1;
+                v[1] = y1;
+                double y2 = a2 * v[2] + X2[i] - a2 * Y2[i];
+                X2[i] = (float) v[2];
+                Y2[i] = (float) y2;
+                v[2] = y2;
             }
         } else {
             float *X0 = spr[0].apX.data(), *Y0 = spr[0].apY.data(), *X1 = spr[1].apX.data(), *Y1 = spr[1].apY.data();
             const double a0 = spr[0].a, a1 = spr[1].a;
             for (int k = 0; k < NAP; k++) {
                 const int i = k * K + j;
-                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i]; X0[i] = (float) v[0]; Y0[i] = (float) y0; v[0] = y0;
-                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i]; X1[i] = (float) v[1]; Y1[i] = (float) y1; v[1] = y1;
+                double y0 = a0 * v[0] + X0[i] - a0 * Y0[i];
+                X0[i] = (float) v[0];
+                Y0[i] = (float) y0;
+                v[0] = y0;
+                double y1 = a1 * v[1] + X1[i] - a1 * Y1[i];
+                X1[i] = (float) v[1];
+                Y1[i] = (float) y1;
+                v[1] = y1;
             }
         }
-        for (int s = 0; s < nSpr; s++) { spr[s].apIdx = (j + 1) % K; sumOut += springWrite(spr[s], in, v[s]) * (s == 1 ? -1 : 1); }
+        for (int s = 0; s < nSpr; s++) {
+            spr[s].apIdx = (j + 1) % K;
+            sumOut += springWrite(spr[s], in, v[s]) * (s == 1 ? -1 : 1);
+        }
         return sumOut;
     }
     /** Read the modulated delay line of one spring (input of its allpass chain). */
     double springRead(Spring& S) {
         // travel time wobbles slightly (filtered noise + slow sine)
-        S.modPh += S.modInc; if (S.modPh > 1) S.modPh -= 1;
+        S.modPh += S.modInc;
+        if (S.modPh > 1) S.modPh -= 1;
         S.modZ += 0.0008 * ((rnd() * 2 - 1) - S.modZ);
         double off = S.len - 2 - S.modDepth * (0.5 + 0.35 * std::sin(TWO_PI_S * S.modPh) + 6 * S.modZ);
-        double rp = S.idx - off; const int L = (int) S.dl.size(); while (rp < 0) rp += L;
-        int i0 = (int) rp; double fr = rp - i0;
-        int ia = i0 % L, ib = ia + 1; if (ib == L) ib = 0;
+        double rp = S.idx - off;
+        const int L = (int) S.dl.size();
+        while (rp < 0) rp += L;
+        int i0 = (int) rp;
+        double fr = rp - i0;
+        int ia = i0 % L, ib = ia + 1;
+        if (ib == L) ib = 0;
         return S.dl[(size_t) ia] + (S.dl[(size_t) ib] - S.dl[(size_t) ia]) * fr;
     }
     /** Damping, DC blocking and feedback write of one spring; returns the spring's output. */
@@ -124,7 +168,8 @@ private:
         v = S.dcb.run(v);
         double w = in + v * S.g;
         const int L = (int) S.dl.size();
-        S.dl[(size_t) S.idx] = (float) w; S.idx = S.idx + 1 == L ? 0 : S.idx + 1;
+        S.dl[(size_t) S.idx] = (float) w;
+        S.idx = S.idx + 1 == L ? 0 : S.idx + 1;
         return v;
     }
 
@@ -132,31 +177,47 @@ private:
         // transition frequency of the dispersion ~4.3 kHz: stretch factor K = fs / (2·fc)
         const double fc = 4300;
         int K = std::max(1, (int) std::lround(fs / (2 * fc)));
-        const double TD[3] = {0.0331, 0.0397, 0.0289};    // travel times of the springs in seconds (type 4, long)
+        const double TD[3] = {0.0331, 0.0397, 0.0289}; // travel times of the springs in seconds (type 4, long)
         const double AA[3] = {0.62, 0.58, 0.66};
         for (int s = 0; s < 3; s++) {
             Spring& S = spr[s];
-            S.td = TD[s]; S.K = K; S.a = AA[s];
+            S.td = TD[s];
+            S.K = K;
+            S.a = AA[s];
             // the allpass chain adds delay of its own: subtract its low-frequency group delay
             double apDelay = NAP * K * (1 - S.a) / (1 + S.a);
             S.len = std::max(16, (int) std::lround(S.td * fs - apDelay));
-            S.dl.assign((size_t) S.len + 64, 0.f); S.idx = 0;
-            S.apX.assign((size_t) (NAP * K), 0.f); S.apY.assign((size_t) (NAP * K), 0.f); S.apIdx = 0;
-            S.lp1.set("lp", fc * 0.92, 0.707, fs); S.lp2.set("lp", fc * 0.92, 0.9, fs);
+            S.dl.assign((size_t) S.len + 64, 0.f);
+            S.idx = 0;
+            S.apX.assign((size_t) (NAP * K), 0.f);
+            S.apY.assign((size_t) (NAP * K), 0.f);
+            S.apIdx = 0;
+            S.lp1.set("lp", fc * 0.92, 0.707, fs);
+            S.lp2.set("lp", fc * 0.92, 0.9, fs);
             S.dcb.set("hp", 35, 0.7, fs);
-            S.modInc = (0.37 + 0.21 * s) / fs; S.modDepth = 0.00025 * fs; S.modPh = 0.3 * s;
+            S.modInc = (0.37 + 0.21 * s) / fs;
+            S.modDepth = 0.00025 * fs;
+            S.modPh = 0.3 * s;
             S.tapLen = std::max(8, (int) std::lround(S.len * (0.45 + 0.07 * s)));
         }
         inHp.set("hp", 120, 0.7, fs);
-        outLp.set("lp", 5200, 0.7, fs); outLp2.set("lp", 6000, 0.6, fs); outHp.set("hp", 90, 0.7, fs);
+        outLp.set("lp", 5200, 0.7, fs);
+        outLp2.set("lp", 6000, 0.6, fs);
+        outHp.set("hp", 90, 0.7, fs);
         setTone(tone);
         updateGains();
     }
     void updateGains() {
-        for (int s = 0; s < 3; s++) spr[s].g = std::pow(10.0, -3.0 * spr[s].td * 1.3 / decay);   // 1.3: the allpass chain and lowpasses lengthen the effective round-trip time
+        for (int s = 0; s < 3; s++)
+            spr[s].g = std::pow(
+                10.0, -3.0 * spr[s].td * 1.3 /
+                          decay); // 1.3: the allpass chain and lowpasses lengthen the effective round-trip time
         outGain = 0.55 / std::sqrt((double) nSpr);
     }
-    double rnd() { seed = seed * 1664525u + 1013904223u; return seed / 4294967296.0; }
+    double rnd() {
+        seed = seed * 1664525u + 1013904223u;
+        return seed / 4294967296.0;
+    }
 
     const double fs;
     bool enabled = false, ringing = false;

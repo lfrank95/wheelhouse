@@ -31,21 +31,23 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    WheelhouseEngine engine { true };
-    std::array<std::atomic<float>, 16> meterRms {};
+    WheelhouseEngine engine{true};
+    std::array<std::atomic<float>, 16> meterRms{};
     int blockSize() const { return lastBlock; }
     juce::var paramValues() const;
     juce::StringArray mainChannelNames() const;
 
 private:
     static BusesProperties buses();
-    void timerCallback() override;          // latency changes -> host
-    void handleAsyncUpdate() override;      // after a bounce: back to the real-time quality
+    void timerCallback() override;     // latency changes -> host
+    void handleAsyncUpdate() override; // after a bounce: back to the real-time quality
     std::vector<juce::RangedAudioParameter*> plist;
     std::unique_ptr<std::atomic<float>[]> hostVals;
     std::vector<float> scratch[16];
-    std::array<float, 16> meterAcc {}; int meterCount = 0;
-    int lastBlock = 512; bool wasOffline = false;
+    std::array<float, 16> meterAcc{};
+    int meterCount = 0;
+    int lastBlock = 512;
+    bool wasOffline = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WheelhouseProcessor)
 };
 
@@ -54,6 +56,7 @@ public:
     explicit WheelhouseEditor(WheelhouseProcessor&);
     ~WheelhouseEditor() override;
     void resized() override;
+
 private:
     void timerCallback() override;
     void sendAudioInfo();
