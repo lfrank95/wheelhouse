@@ -176,9 +176,8 @@ WheelhouseEditor::WheelhouseEditor(WheelhouseProcessor& p) : AudioProcessorEdito
     h.params = [this] {
         return proc.paramValues();
     };
-    web = std::make_unique<WebBrowserComponent>(wheelhouseWebOptions(h, "WheelhouseWebViewPlugin"));
+    web = std::make_unique<WebUiView>(h, "WheelhouseWebViewPlugin");
     addAndMakeVisible(*web);
-    web->goToURL(WebBrowserComponent::getResourceProviderRoot());
     setResizable(true, true);
     setResizeLimits(960, 540, 3200, 1800);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio(16.0 / 9.0);

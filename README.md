@@ -206,7 +206,9 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 * `Source/Engine.*` – gemeinsamer Kern von App und Plugin: Nachrichten der Oberfläche, Echtzeit-Regeln, gespeicherter Zustand, Parameter
 * `Source/MainComponent.*` – App: Audio-/MIDI-Geräte und Fenster (JUCE)
 * `Source/PluginProcessor.*` – VST3: Busse, Parameter, Projektzustand, Editor
-* `Source/WebUi.h` – WebView und native Funktionen, von App und Plugin geteilt
+* `Source/WebUi.h` – WebView und native Funktionen, von App und Plugin geteilt; mit Wächter (`WebWatchdog.h`):
+  antwortet die Seite eine Weile nicht (weiße Fläche, weil WebView2 seinen Anzeigeprozess verloren hat), wird die
+  WebView neu aufgebaut – wie Schließen und Öffnen des Fensters
 * `ui/` – Quelle der Oberfläche: `wheelhouse.html` (Gerüst), `style.css`, `js/*.js` (App, nach Themen: `core`,
   `controls`, `header`, `cards`, `room`, `keyboard`, `main`), `tracer.js` (Strahlverfolgung im Zelt);
   `python3 tools/build_ui.py` fügt alles zu `Resources/index.html` zusammen
@@ -218,7 +220,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
 * `tests/` – Messungen und Prüfungen (`g++ -O2 -std=c++17 -ISource tests/<name>.cpp`):
   `regression.cpp` (Referenz aufnehmen/vergleichen, Klang muss bitgleich oder ≥ 90 dB identisch bleiben),
   `asan_all_test.cpp` (alle Betriebsarten mit AddressSanitizer), `threads_test.cpp` (mehrere Kerne: gleiches Ergebnis wie ein Kern),
-  `bench.cpp` (Rechenlast je Stufe), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
+  `bench.cpp` (Rechenlast je Stufe), `webwatch_test.cpp` (Wächter der Oberfläche), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
   `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum),
   `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros

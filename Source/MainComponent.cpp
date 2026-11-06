@@ -33,9 +33,8 @@ MainComponent::MainComponent() {
     h.chantest = [this](int ch, bool lfe) {
         engine.startTestTone(ch, lfe);
     };
-    web = std::make_unique<WebBrowserComponent>(wheelhouseWebOptions(h, "WheelhouseWebView"));
+    web = std::make_unique<WebUiView>(h, "WheelhouseWebView");
     addAndMakeVisible(*web);
-    web->goToURL(WebBrowserComponent::getResourceProviderRoot());
 
     // Audio: 0 inputs, up to 16 outputs; restore the saved device setup from the properties file, otherwise use the
     // default device

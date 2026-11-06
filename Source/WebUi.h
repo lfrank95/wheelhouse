@@ -7,9 +7,12 @@
 //   saveUi(json) / loadUi()   the UI's own state (file in the standalone, project in the plugin)
 //   chantest(ch, lfe)   0.5 s test tone on one output
 //   params()            plugin: current values of the automatable parameters ({id: value}), null otherwise
+//   pong()              answer to the host's "ping" event (watchdog, see WebUiView)
 #include <juce_gui_extra/juce_gui_extra.h>
+#include <cstdint>
 #include <functional>
 #include "BinaryData.h"
+#include "WebWatchdog.h"
 
 struct WebUiHooks {
     std::function<void(const juce::var&)> dspMessage;
@@ -18,6 +21,7 @@ struct WebUiHooks {
     std::function<juce::String()> loadUi;
     std::function<void(int, bool)> chantest;
     std::function<juce::var()> params;
+    std::function<void()> pong;
 };
 
 // Everything is served from BinaryData: "/" = index.html, otherwise the file name (e.g.
@@ -78,5 +82,60 @@ inline juce::WebBrowserComponent::Options wheelhouseWebOptions(WebUiHooks h, con
                                 if (a.size() > 0 && h.chantest) h.chantest((int) a[0], a.size() > 1 && (bool) a[1]);
                                 done(var());
                             })
-        .withNativeFunction("params", [h](const Array<var>&, Done done) { done(h.params ? h.params() : var()); });
+        .withNativeFunction("params", [h](const Array<var>&, Done done) { done(h.params ? h.params() : var()); })
+        .withNativeFunction("pong", [h](const Array<var>&, Done done) {
+            if (h.pong) h.pong();
+            done(var());
+        });
 }
+
+/** The WebView with a watchdog. WebView2 can lose the process that draws the page (GPU or driver reset, a crash,
+    memory pressure in the host); the page then stays white and JUCE does not notice - closing and reopening the
+    window helped because that builds a new WebView. Here the host sends a "ping" event once a second and the page
+    answers with pong(). If no answer comes in time while the view is on screen (see WebWatchdog), the WebView is
+    rebuilt; the page then reloads its state from the engine exactly as after reopening the window. */
+class WebUiView : public juce::Component, private juce::Timer {
+public:
+    WebUiView(WebUiHooks hooks, juce::String userDataFolder) : folder(std::move(userDataFolder)) {
+        hooks.pong = [this] {
+            watch.pong(juce::Time::getMillisecondCounter());
+        };
+        h = std::move(hooks);
+        build();
+        startTimer(1000);
+    }
+    ~WebUiView() override { stopTimer(); }
+
+    void emitEventIfBrowserIsVisible(const juce::Identifier& name, const juce::var& payload) {
+        if (web) web->emitEventIfBrowserIsVisible(name, payload);
+    }
+    void resized() override {
+        if (web) web->setBounds(getLocalBounds());
+    }
+    int restartCount() const { return restarts; }
+
+private:
+    void build() {
+        web = nullptr;
+        web = std::make_unique<juce::WebBrowserComponent>(wheelhouseWebOptions(h, folder));
+        addAndMakeVisible(*web);
+        web->setBounds(getLocalBounds());
+        web->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+        watch.reset(juce::Time::getMillisecondCounter());
+    }
+    void timerCallback() override {
+        const bool showing = isShowing();
+        if (showing) web->emitEventIfBrowserIsVisible("ping", juce::var());
+        if (watch.tick(juce::Time::getMillisecondCounter(), showing)) {
+            restarts++;
+            build();
+            watch.rebuilt(juce::Time::getMillisecondCounter());
+        }
+    }
+
+    WebUiHooks h;
+    juce::String folder;
+    std::unique_ptr<juce::WebBrowserComponent> web;
+    WebWatchdog watch;
+    int restarts = 0;
+};

@@ -6635,6 +6635,7 @@ if (NATIVE) {
     syncAll();
   });
   B.addEventListener('resend', () => pushAll());
+  B.addEventListener('ping', () => nativeInvoke('pong')); // watchdog: the host rebuilds the view if this stops
   B.addEventListener('midi', m => {
     if (learnTarget && (m.type === 'noteOn' || m.type === 'noteOut') && m.note !== undefined) {
       setSplit(learnTarget, m.note);
