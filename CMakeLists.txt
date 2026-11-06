@@ -31,6 +31,7 @@ juce_add_gui_app(Wheelhouse
 target_sources(Wheelhouse PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
+    Source/StartupLog.cpp
     Source/Engine.cpp)
 
 target_include_directories(Wheelhouse PRIVATE Source)
@@ -63,6 +64,7 @@ target_link_libraries(Wheelhouse PRIVATE
 
 if(MSVC)
     target_compile_options(Wheelhouse PRIVATE /O2 /fp:fast /utf-8)   # sources are UTF-8 (UI texts)
+    target_link_options(Wheelhouse PRIVATE /MAP)                      # map file: resolves crash-log addresses
 endif()
 
 # ---------------- VST3 instrument (same engine and UI as the app) ----------------

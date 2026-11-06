@@ -18,8 +18,12 @@ inline void logStartup(const juce::String& line) {
     f.appendText(juce::Time::getCurrentTime().toString(true, true, true, true) + "  " + line + "\n");
 }
 
+/** Backtrace of the current thread as module-relative addresses (resolved with the linker map file); on other
+    platforms the symbolised JUCE backtrace. Defined in StartupLog.cpp. */
+juce::String rawBacktrace();
+
 inline void crashHandler(void*) {
-    logStartup("CRASH\n" + juce::SystemStats::getStackBacktrace());
+    logStartup("CRASH\n" + rawBacktrace());
 }
 
 /** Starts a fresh log for this run and installs the crash handler. */

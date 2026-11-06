@@ -49,6 +49,13 @@ jobs:
           path: build/Wheelhouse_artefacts/Release/*.exe
           if-no-files-found: error
 
+      - name: Upload linker map (for crash logs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wheelhouse-map
+          path: build/Wheelhouse_artefacts/Release/*.map
+          if-no-files-found: warn
+
       - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
