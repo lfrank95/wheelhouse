@@ -94,6 +94,10 @@ private:
 #if defined(__SSE__) || defined(_M_X64) || defined(_M_IX86)
         _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
         _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+#elif defined(__aarch64__) || defined(__arm64__)
+        uint64_t fpcr; // Apple Silicon / ARM64: FZ bit of the floating-point control register
+        asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+        asm volatile("msr fpcr, %0" : : "r"(fpcr | (uint64_t(1) << 24)));
 #endif
 #if defined(_WIN32)
         unsigned long index = 0;

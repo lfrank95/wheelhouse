@@ -1,4 +1,4 @@
-name: Windows build
+name: Build
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,4 +82,47 @@ jobs:
         with:
           name: Wheelhouse-VST3-win64
           path: build/WheelhousePlugin_artefacts/Release/VST3/
+          if-no-files-found: error
+
+  mac:
+    name: macOS (VST3)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download fonts (Barlow Condensed, Yellowtail)
+        continue-on-error: true
+        run: |
+          mkdir -p Resources/fonts
+          base=https://raw.githubusercontent.com/google/fonts/main
+          for f in ofl/barlowcondensed/BarlowCondensed-Medium.ttf ofl/barlowcondensed/BarlowCondensed-SemiBold.ttf \
+                   ofl/barlowcondensed/BarlowCondensed-Bold.ttf apache/yellowtail/Yellowtail-Regular.ttf; do
+            curl -fsSL "$base/$f" -o "Resources/fonts/$(basename $f)"
+          done
+          ls -la Resources/fonts
+
+      - name: Configure (Universal Binary: Apple Silicon + Intel)
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target WheelhousePlugin_VST3 --parallel
+
+      - name: Sign (ad hoc) and package
+        run: |
+          vst=$(find build/WheelhousePlugin_artefacts -name Wheelhouse.vst3 -type d -maxdepth 4 | head -1)
+          echo "bundle: $vst"
+          lipo -info "$vst/Contents/MacOS/Wheelhouse"
+          codesign --force --deep --sign - "$vst"
+          codesign --verify --deep --strict "$vst"
+          mkdir -p dist
+          ditto -c -k --keepParent "$vst" dist/Wheelhouse-VST3-macOS.zip
+          ls -la dist
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wheelhouse-VST3-macOS
+          path: dist/Wheelhouse-VST3-macOS.zip
           if-no-files-found: error

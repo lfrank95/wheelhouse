@@ -109,4 +109,6 @@ target_link_libraries(WheelhousePlugin PRIVATE
 
 if(MSVC)
     target_compile_options(WheelhousePlugin PRIVATE /O2 /fp:fast /utf-8)
+elseif(APPLE)
+    target_compile_options(WheelhousePlugin PRIVATE -O3 -fno-math-errno -ffp-contract=fast)
 endif()
