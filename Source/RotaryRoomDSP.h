@@ -371,8 +371,11 @@ private:
     void drawbarAmps(int man, double* amps) const;
     // One-pole low-pass coefficient for cutoff f (Hz), clamped below Nyquist
     double kOf(double f) const { return 1 - std::exp(-TWO_PI * std::min(f, fs * 0.45) / fs); }
-    // Air absorption low-pass for a path of length d metres (see AIR_HF_PER_M)
-    double airK(double d) const { return kOf(std::max(AIR_HF_MIN_HZ, AIR_HF_PER_M / std::max(d, 1.0))); }
+    // Air absorption low-pass for a path of length d metres (see AIR_DB_PER_M_8K)
+    double airK(double d) const {
+        const double a = std::pow(10.0, 0.1 * AIR_DB_PER_M_8K * std::max(d, 0.5)) - 1; // (8 kHz / fc)^2
+        return kOf(std::min(20000.0, std::max(AIR_HF_MIN_HZ, 8000.0 / std::sqrt(std::max(a, 1e-9)))));
+    }
 
     // Semitone offset of each drawbar relative to the 8' fundamental (16', 5 1/3', 8', 4', 2 2/3', 2', 1 3/5', 1 1/3',
     // 1')

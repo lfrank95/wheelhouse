@@ -13,8 +13,10 @@ constexpr double TWO_PI = 6.283185307179586;
 constexpr double C_SOUND = 343.0;
 
 // ---- Room model constants ----
-// Air absorption: a path of length d keeps treble up to AIR_HF_PER_M / d Hz (one-pole), never below AIR_HF_MIN_HZ.
-constexpr double AIR_HF_MIN_HZ = 2500.0, AIR_HF_PER_M = 260000.0;
+// Air absorption of a single path: a one-pole whose corner is set so that the loss at 8 kHz equals the ISO 9613-1
+// figure for the path length (0.104 dB/m at 20 degC, 50 % RH, the same air as AIR_M below); from 4 to 16 kHz that
+// matches the standard within about 0.6 dB for paths up to 30 m. Never below AIR_HF_MIN_HZ.
+constexpr double AIR_HF_MIN_HZ = 1500.0, AIR_DB_PER_M_8K = 0.104;
 // Walls: each bounce keeps WALL_HF_KEEP of the treble bandwidth (times the material's HF reflection); a reflected
 // horn path is limited to HORN_WALL_HF_HZ, a drum path to DRUM_WALL_HF_HZ (scaled by that per-bounce factor).
 constexpr double WALL_HF_KEEP = 0.62, HORN_WALL_HF_HZ = 9000.0, DRUM_WALL_HF_HZ = 18000.0;

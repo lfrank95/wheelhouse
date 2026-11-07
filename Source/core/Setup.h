@@ -121,7 +121,9 @@ inline void RotaryRoomDSP::init() {
     for (int b = 0; b < 4; b++) bandHp[b] = bandH[b].data();
     for (int b = 0; b < 3; b++) bandDp[b] = bandD[b].data();
     preBuf.assign(8192, 0.f);
-    revInK = 1 - std::exp(-TWO_PI * 6000 / fs);
+    // the reverb input: the air and the octave decay filters shape the top now, this only keeps the very top (the
+    // interpolated, modulated reads) out of the loop
+    revInK = 1 - std::exp(-TWO_PI * 12000 / fs);
     revHpK = 1 - std::exp(-TWO_PI * 45 / fs);
     prepSpeakers();
     rebuildRoom();

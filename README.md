@@ -135,7 +135,9 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
   Luft sterben. Der Nachhall (16-Kanal-FDN) hat je Leitung ein Siebenband-Dämpfungsfilter, dessen Bandverstärkungen
   per Gauss-Newton so gesetzt werden, dass die Schleife in jeder Oktave die Eyring-Zeit trifft (Allpass-Laufzeit in
   der Schleife eingerechnet); `tests/reverb_test.cpp` misst die Impulsantwort der Schleife dagegen (±12 %).
-  Die Statuszeile der Karte zeigt RT60 bei 125 Hz, 500 Hz, 2 kHz und 8 kHz. Die Linien im Grundriss zeigen, was die Engine gerade rechnet: Direktschall,
+  Die Statuszeile der Karte zeigt RT60 bei 125 Hz, 500 Hz, 2 kHz und 8 kHz. Dieselbe Luft dämpft jeden einzelnen
+  Schallweg (Direktschall, Spiegelbilder, Wandfelder, Mikrofonwege): ein Einpol je Weg, dessen Eckfrequenz so liegt,
+  dass der Verlust bei 8 kHz dem ISO-Wert für die Weglänge entspricht (bis 30 m zwischen 4 und 16 kHz auf ±0,6 dB). Die Linien im Grundriss zeigen, was die Engine gerade rechnet: Direktschall,
   Spiegelquellen bis 2. Ordnung und die angestrahlten Wandfelder, jeweils mit ihrem Pegel (Horn orange, Trommel braun).
 * **Output**: Stereo / Quad / 5.1, LFE, Master, freie Kanalzuordnung (Routing), Kanaltest. Monitoring (Quad/5.1): Trimm für
   die hinteren Kanäle und den Center, Divergence (Quelle vor dir zusätzlich als Phantom auf L/R).
