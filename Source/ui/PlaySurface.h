@@ -602,8 +602,9 @@ public:
         for (auto& v : *tables()["vib"].getArray()) vib.push_back({v[0], v[1].toString()});
         KnobOpts kv;
         kv.label = "Vibrato";
-        kv.tip = L"Scanner vibrato/chorus. V1–V3: vibrato in three depths. C1–C3: chorus (vibrato mixed with the dry "
-                 L"signal). C3 is the classic.";
+        kv.tip = L"Scanner vibrato/chorus: the B-3's LC delay line and rotating capacitor as a circuit. V1–V3: vibrato "
+                 L"in three depths (8/12/16 of the 18 line sections). C1–C3: chorus (half the signal bypasses the "
+                 L"line). C3 is the classic.";
         kv.opts = vib;
         kv.def = "c3";
         kv.get = [&c] {

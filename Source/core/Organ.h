@@ -108,20 +108,6 @@ inline void RotaryRoomDSP::noteOff(int k, int man, int velocity) {
     }
 }
 
-// Scanner taps for the current vibrato depth: V1/V2/V3 scan a shorter or longer part of the same LC line, so
-// the deeper settings also reach taps with more treble loss (about -0.5 dB per section above a few kHz).
-inline void RotaryRoomDSP::configureScanner() {
-    const double depth = vibDepthSec > 0 ? vibDepthSec : 0.0008;
-    const double sectionsMax = 18 * depth / 0.0008; // line sections reached at the far end of the sweep
-    for (int k = 0; k < SCAN_TAPS; k++) {
-        double frac = k / (double) (SCAN_TAPS - 1);
-        scanDelay[(size_t) k] = 20 + frac * 2 * depth * fs;
-        double sections = frac * sectionsMax;
-        scanK[(size_t) k] = kOf(16000 * std::pow(0.94, sections));
-        scanGain[(size_t) k] = std::pow(10.0, -0.08 * sections / 20); // slight level loss along the line
-    }
-}
-
 // Recomputes all tonewheel target gains from the currently held keys (after drawbar or percussion changes).
 inline void RotaryRoomDSP::retarget() {
     events.clear();
@@ -186,9 +172,6 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
     const double kHp = 1 - std::exp(-2 * 3.14159265358979 * 400 / fs),
                  kLp = 1 - std::exp(-2 * 3.14159265358979 * 3200 / fs);
     const double percLevel = (perc.soft ? 0.6 : 1.0) * percLevelUser;
-    const double vibDepth = vibDepthSec * fs;
-    const bool vibChorus = vibChorusMode;
-    const double vibInc = 6.87 / fs;
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
     if ((int) orgBuf.size() < N)
         orgBuf.assign((size_t) N, 0.f); // pre-sized in init(); only grows for unusually large host blocks
@@ -303,57 +286,9 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
         sVib *= organGain;
         sDry *= organGain;
 
-        double s = sDry;
-        if (vibDepth > 0) {
-            // ---- Scanner vibrato: delay line with 16 taps; a rotating capacitor sweeps tap 1 -> 16 -> 1 (triangle).
-            //      Each stator plate couples to the rotor over ~1.3 plate widths (smooth but audibly stepped
-            //      crossfade), stray capacitance lets every plate leak in a little, and each tap carries the treble
-            //      loss of the LC sections in front of it. ----
-            vibBuf[vibW] = (float) sVib;
-            vibPh += vibInc;
-            if (vibPh >= 1) vibPh -= 1;
-            const double pos = (1 - std::fabs(2 * vibPh - 1)) * (SCAN_TAPS - 1);
-            double wet = 0, wsum = 0;
-            // only the 2-3 plates under the rotor need their own tap; a tap that comes into reach starts its filter
-            // from the current input (its weight starts at zero, so this is seamless)
-            const int k0 = std::max(0, (int) std::ceil(pos - 1.3)),
-                      k1 = std::min(SCAN_TAPS - 1, (int) std::floor(pos + 1.3));
-            for (int k = k0; k <= k1; k++) {
-                double rp = vibW - scanDelay[(size_t) k];
-                if (rp < 0) rp += 2048;
-                int ri = (int) rp;
-                double rf = rp - ri;
-                double x = vibBuf[(size_t) ri] + (vibBuf[(size_t) ((ri + 1) & 2047)] - vibBuf[(size_t) ri]) * rf;
-                if (!scanActive[(size_t) k]) {
-                    scanLp[(size_t) k] = x;
-                    scanActive[(size_t) k] = 1;
-                }
-                scanLp[(size_t) k] += scanK[(size_t) k] * (x - scanLp[(size_t) k]);
-                double u = std::fabs(pos - k), c = u < 1.3 ? std::cos(0.5 * 3.14159265358979 * u / 1.3) : 0,
-                       wgt = c * c;
-                wet += wgt * scanLp[(size_t) k] * scanGain[(size_t) k];
-                wsum += wgt;
-            }
-            for (int k = 0; k < SCAN_TAPS; k++)
-                if (k < k0 || k > k1) scanActive[(size_t) k] = 0;
-            // stray capacitance: every plate leaks in a little (about -40 dB each); summed, that is roughly the
-            // middle of the line with its treble loss
-            {
-                double rp = vibW - scanDelay[SCAN_TAPS / 2];
-                if (rp < 0) rp += 2048;
-                int ri = (int) rp;
-                double rf = rp - ri;
-                double x = vibBuf[(size_t) ri] + (vibBuf[(size_t) ((ri + 1) & 2047)] - vibBuf[(size_t) ri]) * rf;
-                scanStray += scanK[SCAN_TAPS / 2] * (x - scanStray);
-                const double ws = 0.008 * SCAN_TAPS;
-                wet += ws * scanStray * scanGain[SCAN_TAPS / 2];
-                wsum += ws;
-            }
-            wet /= wsum;
-            vibW = (vibW + 1) & 2047;
-            s += vibChorus ? 0.6 * sVib + 0.6 * wet : wet;
-        } else
-            s += sVib;
+        // scanner vibrato / chorus: the LC line and the rotating capacitor (a circuit, see ScannerVibrato.h);
+        // the manuals routed past it stay in sDry
+        double s = sDry + scanner.process(sVib);
         s = (s + expLp.run(s) * expBass) * expGain;
         // mains hum enters after the expression pedal (preamp heaters, supply): audible even with the swell closed
         mainsPh += mainsHz / fs;

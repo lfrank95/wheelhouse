@@ -20,6 +20,7 @@
 #include "MicRig.h"
 #include "SpringReverb.h"
 #include "Mechanics.h"
+#include "ScannerVibrato.h"
 namespace rotary {
 
 class RotaryRoomDSP {
@@ -96,12 +97,7 @@ public:
     /** Vibrato/chorus knob position: "v1".."v3" (vibrato) or "c1".."c3" (chorus); anything else = off. */
     void setVib(const std::string& v) {
         vibMode = v;
-        vibDepthSec = (v == "v1" || v == "c1")   ? 0.00022
-                      : (v == "v2" || v == "c2") ? 0.00045
-                      : (v == "v3" || v == "c3") ? 0.0008
-                                                 : 0.0;
-        vibChorusMode = !v.empty() && v[0] == 'c';
-        configureScanner();
+        scanner.setMode(v);
     }
     /** Mains frequency (50 or 60 Hz): only the hum changes; the synchronous motor is geared for 20 Hz main-shaft speed
      * either way. */
@@ -407,12 +403,6 @@ private:
     // Key velocity
     bool velocityClick = true;
     float curRamp = 1; // ramp speed of the events being scheduled right now (set by noteOn/noteOff)
-    // Scanner vibrato: delay line with 16 taps, each tap has the treble loss of the LC sections before it
-    static constexpr int SCAN_TAPS = 16;
-    std::array<double, SCAN_TAPS> scanDelay{}, scanK{}, scanLp{}, scanGain{};
-    std::array<uint8_t, SCAN_TAPS> scanActive{};
-    double scanStray = 0;
-    void configureScanner();
     std::array<float, 92> gain[3]{}, target[3]{};
     // what the key contact actually passes: the ramped gain smoothed once more (the spring wipes onto the bus bar
     // and the contact resistance falls gradually - no kink at the end of the ramp, hence a softer click)
@@ -466,13 +456,9 @@ private:
     Character chr;
     double leakHum = 0, staggerS = 0, bounceP = 0, gainStep = 0, busK = 0, motorLevel = 0, rotorWobble = 0, sagAmt = 0;
 
-    // ---------------- Scanner vibrato (delay-line based, 2048-sample buffer) ----------------
+    // ---------------- Scanner vibrato: the LC line and the capacitive scanner as a circuit (ScannerVibrato.h) ----
     std::string vibMode = "c3";
-    double vibDepthSec = 0.0008;
-    bool vibChorusMode = true;
-    std::vector<float> vibBuf;
-    int vibW = 0;
-    double vibPh = 0;
+    scan::Scanner scanner;
 
     // ---------------- Expression pedal, crossover and cabinet filters ----------------
     // expLp: bass boost of the expression pedal; cabLp: horn-compartment colouration (crossover, drivers and horn

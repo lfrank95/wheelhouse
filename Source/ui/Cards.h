@@ -37,7 +37,8 @@ inline const std::map<String, String>& cardTips() {
         {L"Percussion · Vibrato · Click/Fast decay", "Decay time of the percussion when set to Fast."},
         {L"Percussion · Vibrato · Click/Slow decay", "Decay time of the percussion when set to Slow."},
         {L"Percussion · Vibrato · Click/Vibrato",
-         L"Scanner vibrato/chorus. V1–V3: vibrato. C1–C3: chorus (vibrato mixed with dry). C3 is the classic."},
+         L"Scanner vibrato/chorus: the B-3's LC delay line and rotating capacitor as a circuit. V1–V3 scan 8/12/16 of "
+         L"the 18 line sections. C1–C3: chorus (half the signal bypasses the line). C3 is the classic."},
         {L"Percussion · Vibrato · Click/Click",
          "Velocity: a fast stroke closes all nine contacts almost at once and hard, a slow press one after another and "
          "softer. Fixed: always the same."},

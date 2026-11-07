@@ -81,8 +81,18 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Generator**: Übersprechen wie im echten Tonradgenerator: je Kammer vier Räder im Oktavabstand (gleiche Seite
   4 Oktaven, etwa −39 dB; Nachbarseite etwa −47 dB) plus schwaches Übersprechen der Nachbarleitungen im Kabelbaum.
   Jedes Rad hat leichte 2. und 3. Harmonische (eigene Streuung), die oberen Räder werden von den Tonradfiltern bedämpft.
-* **Vibrato/Chorus**: Scanner als 16-stufige LC-Laufzeitkette, der Abtaster gleitet über die Abgriffe;
-  mit höherer Stufe mehr Laufzeit und etwas mehr Höhenverlust.
+* **Vibrato/Chorus**: die Scanner-Einheit der B-3 als Schaltung (`ScannerVibrato.h`). Die Laufzeitkette ist das
+  18-gliedrige Netzwerk aus gekoppelten Spulen (450 mH, Kopplung 0,15) und 5,6-nF-Kondensatoren mit 2,7 nF und 15 kΩ
+  (R77) am Ende, getrieben von der 12BH7-Stufe: etwa 1 ms Laufzeit, flach bis 4 kHz, −3 dB bei 5,8 kHz; die
+  Fehlanpassung des Abschlusses an den Wellenwiderstand (≈ 9 kΩ) ergibt Reflexionen und damit ein paar dB Welligkeit
+  entlang der Abgriffe. Der Abtaster ist der kapazitive Teiler der 16 Statorplatten (≈ 25 pF) gegen die Streukapazität
+  des Rotors (412 U/min); die Plattenkapazität folgt der Überlappungsfläche, dazu Exzentrizität, Plattenstreuung und
+  Bauteiltoleranzen. Übergänge zwischen den Abgriffen, die leichte Amplitudenmodulation und das Ausdünnen der Höhen
+  bei V3 (benachbarte Abgriffe sind dort um 4 kHz weit außer Phase) entstehen so aus der Schaltung. V1/V2/V3 lesen
+  8/12/16 Abschnitte (≈ ±0,65/1,0/1,3 % Tonhöhe), C1–C3 legen einen Widerstand in Reihe zur Leitung, sodass die
+  Hälfte des Signals an ihr vorbeigeht. Annahmen: Quellwiderstand des Treibers, Spulenwiderstand, Belegung der
+  Abgriffe für V1/V2 (nach dem Schema der älteren 25-gliedrigen Leitung), Streukapazität. `tools/acoustics/scanner.py`
+  rechnet die Leitung im Frequenzbereich, `tests/scanner_test.cpp` prüft das Echtzeitmodell dagegen.
 * **Key-Click**: kein Effekt, sondern das Schalten selbst. Die neun Kontaktfedern einer Taste schließen in 0,1–0,35 ms
   (je nach Kontaktzustand) und zu leicht verschiedenen Zeiten, prellen und flattern beim Aufwischen auf die
   Sammelschiene kurz (30–120 µs), und der laufende Sinus springt mit vollem Sprung ein: das gibt den Knack samt
@@ -314,6 +324,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum),
   `cabinet_test.cpp` (Gehäusetabellen: Interpolation, Abschattung vorn/hinten, Drehung des Gehäuses),
   `speakers_test.cpp` (Lautsprechernetzwerk gegen die Frequenzbereichsrechnung, Klirr, Spulenerwärmung),
+  `scanner_test.cpp` (Vibrato-Leitung: Laufzeit, Grenzfrequenz, Welligkeit; Abtaster: Tonhöhenhub V1–V3, Rate, Pegel),
   `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros;
   `ui_state_test.cpp` (alte Speicherstände laden in die native Oberfläche – braucht die JUCE-GUI-Module und ein

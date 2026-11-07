@@ -61,9 +61,9 @@ inline void RotaryRoomDSP::init() {
             xtVar[w] = (float) std::pow(10.0, (rh() * 2 - 1) * 6 / 20); // +-6 dB per organ
         }
     }
-    configureScanner();
+    scanner.prepare(fs);
+    scanner.setMode(vibMode);
     applyCharacter();
-    vibBuf.assign(2048, 0.f);
     expLp.set("lp", 180, 0.7, fs);
     cabDelay = (int) std::lround(0.0005 * fs); // first slat reflection; the compartment's own decay follows
     cabLp.set("lp", 3200, 0.7, fs);
