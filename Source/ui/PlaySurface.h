@@ -767,10 +767,11 @@ public:
         } else if (drag == PairRot) {
             st().set("mics.roomYaw", std::atan2(w.y - st().num("mics.roomY"), w.x - st().num("mics.roomX")));
             act.sendMics();
-        } else {
-            const String o = drag == RotaryPos ? "rotaryPos" : "listener";
-            st().set(o + ".x", w.x);
-            st().set(o + ".y", w.y);
+        } else if (drag == RotaryPos)
+            act.moveRotary(w.x, w.y);
+        else {
+            st().set("listener.x", w.x);
+            st().set("listener.y", w.y);
             act.clampPos();
             act.sendPos();
         }

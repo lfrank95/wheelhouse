@@ -141,6 +141,23 @@ public:
         ctx.send(Ctx::obj({{"type", "cabYaw"}, {"v", rad}, {"jump", jump}}));
         ctx.syncAll();
     }
+    /** Moves the cabinet; the room pair keeps its place relative to it (it was set up around the cabinet). */
+    void moveRotary(double x, double y) {
+        const double ox = st.num("rotaryPos.x"), oy = st.num("rotaryPos.y");
+        st.set("rotaryPos.x", x);
+        st.set("rotaryPos.y", y);
+        clampPos();
+        sendPos();
+        roomPairFollow(st.num("rotaryPos.x") - ox, st.num("rotaryPos.y") - oy);
+    }
+    /** The room pair is shifted with the cabinet (turning the cabinet leaves it where it stands, as in a studio). */
+    void roomPairFollow(double dx, double dy) {
+        if (!st.flag("mics.placed") || (dx == 0 && dy == 0)) return;
+        const double Lx = st.num("room.Lx"), Ly = st.num("room.Ly");
+        st.set("mics.roomX", clampd(st.num("mics.roomX") + dx, 0.3, Lx - 0.3));
+        st.set("mics.roomY", clampd(st.num("mics.roomY") + dy, 0.3, Ly - 0.3));
+        sendMics();
+    }
     void faceListener() {
         setCabYaw(
             std::atan2(st.num("listener.y") - st.num("rotaryPos.y"), st.num("listener.x") - st.num("rotaryPos.x")));
