@@ -184,9 +184,32 @@ Derselbe Klangkern und dieselbe Oberfläche als Instrument-Plugin (`Wheelhouse.v
 
 `Source/RotaryAmp.h` rechnet die Rotary-Endstufe als Schaltung: 12AU7-Treiber, Gegentakt-Endstufe mit 2 × 6550,
 gemeinsamer Kathodenwiderstand, Ausgangsübertrager mit Kern-Hysterese, Netzteil mit Sag (beim 5U4 deutlich weicher).
-**HQ** löst die Röhren mit Newton-Iteration bei 2-fachem Oversampling, **Ultra** zusätzlich mit dynamischer Last
-(Streuinduktivität, Trommelresonanz), Drossel-Netzteil, Wirbelströmen und 4-fachem Oversampling. **Eco** ist eine
-statische Gegentakt-Kennlinie.
+**HQ** löst die Röhren mit Newton-Iteration bei 2-fachem Oversampling, **Ultra** zusätzlich mit Drossel-Netzteil,
+Wirbelströmen und 4-fachem Oversampling. **Eco** ist eine statische Gegentakt-Kennlinie.
+
+## Weiche und Lautsprecher
+
+`Source/Speakers.h` rechnet alles hinter dem Ausgangsübertrager als eine Schaltung, und die Endstufe sieht sie in
+jedem (überabgetasteten) Schritt als ihre Last – bei Eco über eine Ersatzquelle mit dem Innenwiderstand der Stufe:
+
+* **Weiche** 800 Hz, 2. Ordnung, 16 Ω, Werte aus dem Leslie-Schaltplan: Woofer 5,2 mH in Serie, 12,5 µF parallel;
+  Horn 7,8 µF in Serie, 3,2 mH parallel. An ohmschen 16 Ω lägen die Zweige bei 620 Hz und 1 kHz – erst die echten
+  Treiberimpedanzen bringen sie auf 800 Hz.
+* **Jensen 15"** als elektromechanisches Modell (Schwingspule mit Semi-Induktivität, Antrieb, Membran, Federung)
+  im Bassreflex-Mittelfach (100 l, 44 Hz, undichtes Fach), Abstrahlung als Kolben in den Halbraum.
+* **Jensen V21** ebenso, dazu Rückkammer, Kompressionskammer und der Hornweg als Wellenleiter (Krümmer + Horn nach
+  der Geometrie aus `tools/acoustics`, Wandverluste, Mündung als Strahlungswiderstand ∥ Mündungsmasse). Die
+  zurücklaufende Welle wirkt auf die Membran: daher die Stehwellen bei 1,2 und 3 kHz (±5 dB) und das Abrollen über
+  4 kHz.
+* **Rückwirkung**: die 122 hat keine Gegenkopplung, ihre Pentoden treiben die Weiche fast wie eine Stromquelle
+  (≈ 110 Ω an der 16-Ω-Wicklung). Impedanzspitzen werden dadurch lauter – ein Bassbuckel um 80 Hz, wo Woofer und
+  Bassreflex die höchste Impedanz haben. Die 147 mit Kathoden-Gegenkopplung bleibt straffer.
+* **Nichtlinear**: Antriebskraft und Federung des 15" hängen vom Hub ab (Spule 0,6 mm außermittig: k2 ≈ 3 % bei voller
+  Leistung, 100 Hz), Kompressionskammer und Hornhals des V21 verzerren die Luft (k2 ≈ 8 % bei voller Leistung,
+  proportional zum Pegel), beide Schwingspulen erwärmen sich mit zwei Zeitkonstanten (20 s laut ins Horn: −0,9 dB).
+
+Treiberdaten sind Schätzungen aus Unterlagen der Zeit, keine Messungen. `tools/acoustics/speakers.py` rechnet dasselbe
+Netzwerk im Frequenzbereich; `tests/speakers_test.cpp` vergleicht das Echtzeitmodell damit (±0,5 dB).
 
 ## Vorverstärker
 
@@ -251,6 +274,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   `Organ.h` (Tasten, Kontakte, Perkussion, Scanner), `Room.h` (Spiegelquellen, Wandfelder, Geometrie je Block,
   Lautsprecher), `Mics.h` (Mikros), `Render.h` (Ablauf je Teilblock: Rotoren, parallele Schallwege, Hall, Ausgang)
 * `Source/RotaryAmp.h` – Röhrenendstufe und Ausgangsübertrager
+* `Source/Speakers.h` – Weiche, 15"-Woofer im Bassreflexfach, V21 mit Hornwellenleiter (Last der Endstufe)
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
 * `Source/SpringReverb.h` – Federhall
 * `Source/Mechanics.h` – Rotary-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Rotary und Orgel
@@ -278,6 +302,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   `bench.cpp` (Rechenlast je Stufe), `organ_features_test.cpp` (Click nach Anschlag, Scanner),
   `mechanics_test.cpp` (Pegel der Mechanik, Plattenresonanzen, Pedal-Spektrum),
   `cabinet_test.cpp` (Gehäusetabellen: Interpolation, Abschattung vorn/hinten, Drehung des Gehäuses),
+  `speakers_test.cpp` (Lautsprechernetzwerk gegen die Frequenzbereichsrechnung, Klirr, Spulenerwärmung),
   `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros;
   `ui_state_test.cpp` (alte Speicherstände laden in die native Oberfläche – braucht die JUCE-GUI-Module und ein

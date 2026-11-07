@@ -15,11 +15,13 @@
 //   0 Standard – static push-pull transfer curve with bias shift and sag (very cheap)
 //   1 HQ       – circuit solved per sample (2× oversampling): driver, grid current/blocking, cathode bias, sag,
 //   transformer with hysteresis 2 Ultra    – 4×, choke-input supply (ringing), driver supply through 10 kΩ, screen
-//   current, loudspeaker load
-//                (voice coil + drum resonance), tube tolerance with drift, eddy currents in the core
+//   current, tube tolerance with drift, eddy currents in the core
+// In HQ and Ultra the output transformer drives the loudspeaker network of Speakers.h (crossover, woofer, V21, horn)
+// at every oversampled step; in Standard the static stage drives it through a Thevenin source.
 #pragma once
 #include <cmath>
 #include "FastMath.h"
+#include "Speakers.h"
 #include <vector>
 #include <algorithm>
 #include <cstdint>
@@ -257,6 +259,9 @@ public:
     int getQuality() const { return quality; }
     /** Latency in samples introduced by the oversampling filters (0 without oversampling). */
     int latency() const { return ovs.delay; }
+    /** Voice-coil temperature rise (K) of woofer and horn driver. */
+    double coilTempWoofer() const { return spk.coilTempW(); }
+    double coilTempHorn() const { return spk.coilTempH(); }
 
     // State for display (volts / mA)
     /** Plate supply voltage Vb in volts (sags under load). */
@@ -266,18 +271,49 @@ public:
     /** Total plate current of both output tubes in mA. */
     double plateCurrentMA() const { return 1000 * (lastIp[0] + lastIp[1]); }
 
-    /** Mono, in place. x: signal from the organ preamp (roughly ±0.3) */
+    /** Only the transformer voltage (x, in place); the loudspeaker outputs are discarded (tests, measurements). */
     void process(float* x, int n) {
+        float lo[256], hi[256];
+        for (int i = 0; i < n; i += 256) process(x + i, lo, hi, std::min(256, n - i));
+    }
+    /** x: signal from the organ preamp (roughly ±0.3), in place: normalised voltage at the transformer. lo / hi:
+        what the woofer (cone + port) and the horn radiate, normalised so that at 2 kHz 1 at the terminals
+        (voltage drive) gives 1. */
+    void process(float* x, float* lo, float* hi, int n) {
         if (quality == 0) {
             processStandard(x, n);
+            for (int i = 0; i < n; i++) {
+                // Thevenin drive of the network: EMF behind the output impedance of the stage, scaled so that the
+                // terminal voltage at 1 kHz is x * VFULL (VFULL: 40 W into 16 ohm)
+                const double e = x[i] * VFULL * stdEmfK;
+                spk.beginSample();
+                double G, Ih;
+                spk.companion(G, Ih);
+                const double v = (e / stdRs - Ih) / (G + 1 / stdRs);
+                spk.step(v);
+                double l, h_;
+                spk.endSample(spk.wooferU(), spk.throatWave(), l, h_);
+                lo[i] = (float) (l * LEVEL / VFULL);
+                hi[i] = (float) (h_ * LEVEL / VFULL);
+            }
             return;
         }
-        double up[8], dn[8];
+        double up[8], dn[8], du[8], da[8];
         const int OS = ovs.os;
+        const double outK = LEVEL * nTurns * outNorm / kin;
         for (int i = 0; i < n; i++) {
             ovs.upsample((double) x[i] * kin, up);
-            for (int k = 0; k < OS; k++) dn[k] = tick(up[k]);
+            spk.beginSample();
+            for (int k = 0; k < OS; k++) {
+                dn[k] = tick(up[k]);
+                du[k] = spk.wooferU();
+                da[k] = spk.throatWave();
+            }
             double y = ovs.downsample(dn);
+            double l, h_;
+            spk.endSample(dsU.downsample(du), dsA.downsample(da), l, h_);
+            lo[i] = (float) (l * outK);
+            hi[i] = (float) (h_ * outK);
             // highpass to remove DC (4 Hz)
             double w = y - dcX + dcR * dcY;
             dcX = y;
@@ -463,32 +499,15 @@ private:
     }
 
     // ---------- Loudspeaker load (referred to the primary, full winding) ----------
+    // The loudspeaker network (Speakers.h) at the 16 ohm secondary, referred to the full primary: V_s = V_p / n,
+    // I_p = I_s / n -> I_p = (G_s / n^2) V_p + Ih_s / n.
     void loadCompanion(double& G, double& Ih) {
-        if (quality < 2) {
-            G = 1 / Raa;
-            Ih = 0;
-            return;
-        }
-        const double h = dt;
-        double Yt = 1 / Rm + h / Lm + Cm / h;
-        double c = -L0 * li / h + (-liLm + Cm * lvm / h) / Yt;
-        double Zeq = R0 + L0 / h + 1 / Yt;
-        G = 1 / Zeq;
-        Ih = -c / Zeq;
-        // Ifull = (V − c)/Zeq, V = 2v → Ifull = 2v·G + Ih
+        double Gs, Ihs;
+        spk.companion(Gs, Ihs);
+        G = Gs / (nTurns * nTurns);
+        Ih = Ihs / nTurns;
     }
-    void loadUpdate(double V) {
-        if (quality < 2) return;
-        const double h = dt;
-        double G, Ih;
-        loadCompanion(G, Ih);
-        double i = V * G + Ih;
-        double Yt = 1 / Rm + h / Lm + Cm / h;
-        double vm = (i - liLm + Cm * lvm / h) / Yt;
-        liLm += h * vm / Lm;
-        lvm = vm;
-        li = i;
-    }
+    void loadUpdate(double V) { spk.step(V / nTurns); }
 
     void drift() {
         // Ultra: the tubes slowly drift apart (warming up), ±1 %
@@ -501,7 +520,10 @@ private:
     void configure() {
         int os = quality == 0 ? 1 : quality == 1 ? (fs >= 75000 ? 1 : 2) : (fs >= 150000 ? 1 : fs >= 75000 ? 2 : 4);
         ovs.init(os);
+        dsU.init(os);
+        dsA.init(os);
         dt = 1 / (fs * os);
+        spk.prepare(fs, os);
         itDrv = quality == 2 ? 6 : 3;
         itOut = quality == 2 ? 8 : 4;
         dcR = 1 - 2 * PI * 4 / fs;
@@ -541,19 +563,18 @@ private:
         fluxK = 0.8 * bs * 2 * PI * 35 / 700; // 700 V peak at 35 Hz → 80 % of Bs
         imScale = 1 / (fluxK * 25.0);         // Lp = 25 H
         eddyK = quality == 2 ? 0.02 : 0;
-        // load (Ultra): voice coil + resonance of the 15" woofer in the drum, referred to the primary side
-        // total load (crossover + 15" + horn driver): above the crossover the horn driver takes over, and the
-        // voice-coil inductance of the 15" sits behind the crossover inductor – what remains is a slight rise at the
-        // very top and the drum resonance
-        R0 = Raa;
-        L0 = R0 / (2 * PI * 30000);
-        double f0 = 48, Q = 1.6, w0 = 2 * PI * f0;
-        Rm = 0.6 * Raa;
-        Lm = Rm / (Q * w0);
-        Cm = Q / (Rm * w0);
+        // output transformer to the 16 ohm tap (measured on Leslie transformers: about 15.5 .. 16 : 1)
+        nTurns = std::sqrt(Raa / 16.0);
+        // Standard: Thevenin source for the network - pentodes without feedback (122): plate resistance of the pair
+        // referred to the secondary, about 110 ohm; 147: its cathode feedback lowers it to about 20 ohm
+        stdRs = model == M147 ? 20.0 : 110.0;
+        stdEmfK = (spk.z1k() + stdRs) / spk.z1k();
         // let the circuit settle to its operating point
         settle();
         calibrate();
+        spk.reset();
+        dsU.init(os);
+        dsA.init(os);
     }
 
     /** Rectifier type and series resistance (sag) of the power supply; safe to call while running. */
@@ -687,6 +708,14 @@ private:
     double dt = 1e-5;
     int itDrv = 3, itOut = 4;
     double dcX = 0, dcY = 0, dcR = 0.9995, outNorm = 1;
+    // loudspeaker network
+    spk::System spk;
+    Oversampler dsU, dsA; // decimation of the network outputs (same filter as the signal path)
+    double nTurns = 16.4, stdRs = 110, stdEmfK = 7.9;
+    static constexpr double VFULL = 25.3; // V peak at 16 ohm for 40 W
+    // loudness: the network is calibrated on the horn at 2 kHz; organ music has most of its energy below that, where
+    // the 15" radiates less than the former flat crossover model - this keeps presets at their former level
+    static constexpr double LEVEL = 1.55;
     // Standard quality
     double stdGain = 0.5, stdNorm = 1, stdEnv = 0;
     // circuit values
@@ -703,7 +732,7 @@ private:
     double bs = 1.5, hystW = 0.45, playR[PLAYS] = {0}, playW[PLAYS] = {0}, play[PLAYS] = {0};
     double phi = 0, fluxK = 0.38, imScale = 0.1, eddy = 0, eddyK = 0;
     // loudspeaker load
-    double R0 = 3600, L0 = 0.26, Rm = 11000, Lm = 0.016, Cm = 0.6e-6, li = 0, liLm = 0, lvm = 0;
+    double li = 0, liLm = 0, lvm = 0; // (former lumped load; kept in the snapshot layout)
     // tube drift
     double driftPh = 0;
     int driftCount = 0;

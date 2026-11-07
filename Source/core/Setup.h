@@ -65,16 +65,8 @@ inline void RotaryRoomDSP::init() {
     applyCharacter();
     vibBuf.assign(2048, 0.f);
     expLp.set("lp", 180, 0.7, fs);
-    lp1.set("lp", 800, 0.6, fs);
-    lp2.set("lp", 4500, 0.5, fs);
-    hp1.set("hp", 800, 0.6, fs);
-    hp2.set("hp", 560, 0.7, fs);
     cabDelay = (int) std::lround(0.0005 * fs); // first slat reflection; the compartment's own decay follows
     cabLp.set("lp", 3200, 0.7, fs);
-    hornRes.set("peak", 1700, 1.4, fs, 3.5);
-    hornRes2.set("peak", 4200, 2.0, fs, 2.0);
-    drumRes.set("peak", 120, 1.1, fs, 3.0);
-    hornHi.set("lp", 9500, 0.6, fs);
     lfeLp1.set("lp", 100, 0.70710678, fs);
     lfeLp2.set("lp", 100, 0.70710678, fs);
     windBp1.set("hp", 1500, 0.7, fs);
@@ -108,6 +100,8 @@ inline void RotaryRoomDSP::init() {
         fdnModInc[i] = (0.1 + 0.4 * rnd()) / fs;
     }
     orgBuf.assign(4096, 0.f);
+    loBuf.assign(4096, 0.f);
+    hiBuf.assign(4096, 0.f);
     events.reserve(4096);
     for (auto& r : rampMul) r.fill(1.f);
     pool.setJob([this](int job) { renderJob(job); });

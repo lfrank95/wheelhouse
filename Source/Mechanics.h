@@ -92,9 +92,7 @@ struct CabinetBody {
     void configure(int b, double amt) {
         board = b;
         amount = amt;
-        // Vented box (middle compartment): 4th-order high-pass, -3 dB near 40 Hz (Butterworth sections Q 0.54 / 1.31)
-        boxHp1.set("hp", 40, 0.541, fs);
-        boxHp2.set("hp", 40, 1.307, fs);
+        // (the vented box of the woofer is part of the loudspeaker network, Speakers.h)
         // Axial air modes of the drum compartment (about 0.70 m wide, 0.48 m deep): f = c / 2L
         cav1.set("peak", 343.0 / (2 * 0.70), 6, fs, 1.5);
         cav2.set("peak", 343.0 / (2 * 0.48), 6, fs, 1.2);
@@ -134,8 +132,8 @@ struct CabinetBody {
         }
     }
 
-    /** Woofer through vented box and compartment. */
-    inline double woofer(double lo) { return cav2.run(cav1.run(boxHp2.run(boxHp1.run(lo)))); }
+    /** Woofer sound through the air modes of the drum compartment. */
+    inline double compartment(double lo) { return cav2.run(cav1.run(lo)); }
 
     /** Panels: driven by the pressure in the horn compartment (hi) and in the woofer box (lo); adds to up / low. */
     inline void tick(double hi, double lo, double& up, double& low) {
@@ -154,7 +152,7 @@ struct CabinetBody {
         uint8_t drive = 0;
     };
     std::vector<Mode> modes;
-    Biquad boxHp1, boxHp2, cav1, cav2;
+    Biquad cav1, cav2;
     double fs = 48000, amount = 0.5;
     int board = PLYWOOD;
 };

@@ -47,8 +47,12 @@ inline void RotaryRoomDSP::processBlock(float* const* out, int nCh, int N) {
     renderOrgan(N); // 1) organ -> orgBuf
     pre.process(orgBuf.data(), N);
     spring.process(orgBuf.data(), N);
-    amp.process(orgBuf.data(), N); // 2) circuits
-    renderRotors(N);               // 3a) crossover, cabinet, rotors
+    if ((int) loBuf.size() < N) {
+        loBuf.assign((size_t) N, 0.f); // pre-sized in init(); only grows for unusually large host blocks
+        hiBuf.assign((size_t) N, 0.f);
+    }
+    amp.process(orgBuf.data(), loBuf.data(), hiBuf.data(), N); // 2) amp -> crossover -> woofer / V21 + horn
+    renderRotors(N);                                           // 3a) crossover, cabinet, rotors
 
     // ---------- 3b) Room paths and microphones, in parallel: each job renders a slice of the paths for the whole
     // sub-block ----------
@@ -142,9 +146,8 @@ inline void RotaryRoomDSP::renderRotors(int N) {
     const double wobbleAmt = rotorWobble;
     constexpr double COS1 = 0.5403023058681398, SIN1 = 0.8414709848078965;
     for (int n = 0; n < N; n++) {
-        double s = orgBuf[(size_t) n];
-        double lo = body.woofer(drumRes.run(lp2.run(lp1.run(s)))) * drumLevel;
-        double hi = hornHi.run(hornRes2.run(hornRes.run(hp2.run(hp1.run(s))))) * hornLevel;
+        double lo = body.compartment(loBuf[(size_t) n]) * drumLevel;
+        double hi = hiBuf[(size_t) n] * hornLevel;
         // horn wind: turbulence at the horn mouth, it rotates with the horn
         if (motorLevel > 0)
             hi += windBp2.run(windBp1.run(fastRand() * 2 - 1)) * motorLevel * (hornRotor.hz / hornRotor.fast) * 0.25;

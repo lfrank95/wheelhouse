@@ -394,7 +394,7 @@ private:
     amp::RotaryAmp amp;
     amp::OrganPreamp pre;
     SpringReverb spring;
-    std::vector<float> orgBuf;
+    std::vector<float> orgBuf, loBuf, hiBuf; // organ signal; what woofer and horn radiate (from the amp's network)
     Perc perc;
     double percEnv = 0, click = 0.5, clickEnv = 0, clickDecay = 0.99, organGain = 0.05;
     double clickHp = 0, clickLp = 0; // contact scrape noise: band-limited (one-pole high and low pass states)
@@ -424,11 +424,11 @@ private:
     double vibPh = 0;
 
     // ---------------- Expression pedal, crossover and cabinet filters ----------------
-    // expLp: bass boost of the expression pedal; lp1/lp2 + hp1/hp2: horn/drum crossover; cabLp: horn-compartment
-    // colouration; hornRes/hornRes2/drumRes/hornHi: resonances of horn and drum; lfeLp1/2: LFE low-pass; windBp1/2:
+    // expLp: bass boost of the expression pedal; cabLp: horn-compartment colouration (crossover, drivers and horn
+    // are a circuit in Speakers.h, driven by the amp); lfeLp1/2: LFE low-pass; windBp1/2:
     // horn wind
     double drive = 0.35, volume = 0.8;
-    Biquad expLp, lp1, lp2, hp1, hp2, cabLp, hornRes, hornRes2, drumRes, hornHi, lfeLp1, lfeLp2, windBp1, windBp2;
+    Biquad expLp, cabLp, lfeLp1, lfeLp2, windBp1, windBp2;
     int cabDelay = 0;
     RotorDir dirHornDefl, dirHornOpen, dirDrum;
     const RotorDir* dirHorn = &dirHornDefl;
