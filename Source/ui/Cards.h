@@ -17,6 +17,10 @@ inline const std::map<String, String>& cardTips() {
         {"Character/Contacts",
          "Key contact wear: dirty busbar contacts bounce and crackle, so the click gets dirtier and less even."},
         {"Character/Motor", "Hum and whir of the generator and run motor, audible between notes."},
+        {"Pedal/Bass", "B-3: the pedal tone stops when the pedal is released (keyed by contacts like the manuals). "
+                       "Sustain: it fades out after release - not on the B-3 / C-3 / A-100, but on Hammonds with pedal "
+                       "sustain and on the later clones."},
+        {"Pedal/Sustain", "How long a released pedal note fades: 1 short (plucked) ... 5 long."},
         {"Generator/Key noise", "Mechanical key noise: keys bottoming out on the felt. The console sits right in front "
                                 "of you, so it is acoustic, not through the Rotary."},
         {"Generator/Tuning",
@@ -716,6 +720,24 @@ private:
                            "Mains", {{50, "50 Hz"}, {60, "60 Hz"}}, "mains", [this] { act.sendMains(); }, 50)),
                   text(L"Low wheels: nearly square, pedal only. Key noise: keys bottoming out on the felt – the "
                        "console sits right in front of you.")));
+        {
+            auto susLen = K(
+                "Sustain", "organ.pedSusLen", 1, 5, 3, [](double v) { return String(juce::roundToInt(v)); }, organ, 1);
+            susLen->visibleFn = [this] {
+                return st.flag("organ.pedSus");
+            };
+            p.add(sec("Pedal", knobs(std::move(susLen)),
+                      rows(Seg(
+                          "Bass", {{false, "B-3"}, {true, "Sustain"}}, "organ.pedSus",
+                          [this] {
+                              act.sendOrgan();
+                              ctx.syncAll();
+                          },
+                          false)),
+                      text(L"B-3: the pedal is keyed like the manuals and stops when you lift your foot. Sustain: "
+                           L"the note fades out after release (1 short … 5 long), as on the Hammonds with pedal "
+                           L"sustain – spinets, H-100, X-66, a European A-100 – and the later clones.")));
+        }
         Opts vib;
         for (auto& v : *tables()["vib"].getArray()) vib.push_back({v[0], v[1].toString()});
         p.add(sec(

@@ -11,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include "RotaryAmp.h"
+#include "OrganPresets.h"
 #include "OrganPreamp.h"
 #include "Workers.h"
 #include "RotorRadiation.h"
@@ -42,12 +43,45 @@ public:
         numKeysUpper = 0;
         events.clear();
         std::fill(percG.begin(), percG.end(), 0.f);
+        std::fill(pedSus.begin(), pedSus.end(), 0.f);
+        pedSusAny = false;
     }
-    /** Drawbar positions 0..8 for one manual (9 values; the pedal uses only the first 2). */
+    /** Drawbar positions 0..8 for one manual (9 values; the pedal uses only the first 2). On the manuals this is the
+        drawbar set last chosen with the A# / B preset key (what the host's drawbar parameters move). */
     void setDrawbars(const int* v, int man = 0) {
-        int n = man == 2 ? 2 : 9;
-        for (int i = 0; i < n; i++) drawbars[man][i] = v[i];
-        retarget();
+        if (man == 2) {
+            for (int i = 0; i < 2; i++) drawbars[2][i] = v[i];
+            retarget();
+            return;
+        }
+        setDrawbarSet(man, dbEdit[man], v);
+    }
+    /** One of the two drawbar sets of a manual: set 0 = A (left, preset key A#), 1 = B (right, preset key B). */
+    void setDrawbarSet(int man, int set, const int* v) {
+        if (man < 0 || man > 1 || set < 0 || set > 1) return;
+        for (int i = 0; i < 9; i++) dbSets[man][set][i] = std::max(0, std::min(8, v[i]));
+        if (presetK[man] == 10 + set) applyRegistration(man);
+    }
+    /** Reverse-coloured preset keys of a manual, as on the B-3 / C-3: 0 = C (cancel: the manual is silent),
+        1..9 = C#..A (factory registrations), 10 = A# (drawbar set A), 11 = B (drawbar set B). Percussion works
+        only on the upper manual's B key - its trigger is the B set's 1' contact. */
+    void setPresetKey(int man, int k) {
+        if (man < 0 || man > 1 || k < 0 || k > 11) return;
+        presetK[man] = k;
+        if (k >= 10) dbEdit[man] = k - 10;
+        applyRegistration(man);
+    }
+    int presetKey(int man) const { return man >= 0 && man <= 1 ? presetK[man] : 11; }
+    int drawbarEditSet(int man) const { return man >= 0 && man <= 1 ? dbEdit[man] : 1; }
+    /** Factory registration of preset key k (1..9) of a manual (B-3 / C-3 as shipped, OrganPresets.h). */
+    static const int* factoryPreset(int man, int k) { return presets::registration(man, k); }
+    /** Pedal sustain: after a pedal is released its tone fades out (length 1 short .. 5 long) instead of stopping -
+        not on the B-3 / C-3 / A-100 (their pedal is keyed like the manuals), but on the spinets, H-100 / X-66, a
+        European A-100 variant and the later Hammond clones. */
+    void setPedalSustain(bool on, int length) {
+        pedSusOn = on;
+        static const double T60[5] = {0.35, 0.7, 1.3, 2.2, 3.5};
+        pedSusK = (float) std::pow(10.0, -3.0 / (T60[std::max(1, std::min(5, length)) - 1] * fs));
     }
     /** Percussion switches: on/off, harmonic (third = 4' / second = 2 2/3'), decay fast/slow, volume soft/normal. */
     void setPerc(const Perc& p) {
@@ -386,6 +420,22 @@ private:
     std::array<uint8_t, 61> keys[3]{};
     int numKeysUpper = 0;
     int drawbars[3][9] = {{8, 8, 8, 0, 0, 0, 0, 0, 0}, {0, 0, 8, 4, 0, 0, 0, 0, 0}, {6, 3, 0, 0, 0, 0, 0, 0, 0}};
+    // the two drawbar sets per manual (A, B), the latched preset key and the set the drawbar controls move
+    int dbSets[2][2][9] = {{{8, 8, 8, 8, 0, 0, 0, 0, 0}, {8, 8, 8, 0, 0, 0, 0, 0, 0}},
+                           {{0, 0, 8, 8, 4, 0, 0, 0, 0}, {0, 0, 8, 4, 0, 0, 0, 0, 0}}};
+    int presetK[2] = {11, 11}, dbEdit[2] = {1, 1};
+    inline bool percActive() const { return perc.on && presetK[0] == 11; }
+    void applyRegistration(int man) {
+        const int k = presetK[man];
+        const int* src = k == 0 ? nullptr : k >= 10 ? dbSets[man][k - 10] : factoryPreset(man, k);
+        for (int i = 0; i < 9; i++) drawbars[man][i] = src ? src[i] : 0;
+        retarget();
+    }
+    // pedal sustain: released pedal notes move here and fade out with pedSusK per sample
+    bool pedSusOn = false, pedSusAny = false;
+    float pedSusK = 0.9999f;
+    std::array<float, 92> pedSus{};
+    void transferSus(int w, double d); // contact event of a sustained pedal release
     bool vibUpper = true, vibLower = false;
     double percLevelUser = 1.0, percShortS = 0.2, percLongS = 1.0;
     bool complexLow = true;
@@ -404,7 +454,8 @@ private:
         int w;
         double d;
         float ramp;
-    }; // ramp: contact closing speed (1 = nominal)
+        bool sus = false;
+    }; // ramp: contact closing speed (1 = nominal); sus: pedal release handed over to the sustain decay
     std::array<float, 92> rampMul[3]{}; // per manual and wheel: speed of the current gain transition
     std::vector<Event> events;
     double sampleClock = 0;

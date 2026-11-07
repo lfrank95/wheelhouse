@@ -90,7 +90,7 @@ protected:
 class Manual : public KeysBase {
 public:
     using KeysBase::KeysBase;
-    static constexpr int KEYS = 61, WHITE_W = 40;
+    static constexpr int KEYS = 61, WHITE_W = 37;
     void paint(Graphics& g) override {
         const float H = (float) getHeight();
         const auto w = act.reach(man);
@@ -188,6 +188,107 @@ public:
 };
 
 /** 25-note pedalboard, drawn in the SVG's 760 x 92 units. */
+/** The reverse-coloured preset octave to the left of a manual (B-3 / C-3): black naturals, ivory sharps. A key stays
+    down until another is pressed. C cancels the manual, C#..A are factory registrations, A# and B play the
+    drawbar sets A and B. On a MIDI keyboard: the octave below the manual. */
+class PresetKeys : public Component, public Syncable, public juce::TooltipClient {
+public:
+    PresetKeys(Ctx& c, Actions& a, int manual) : ctx(c), act(a), man(manual) { ctx.reg(this); }
+    ~PresetKeys() override { ctx.unreg(this); }
+    static constexpr int WHITE_W = 22, WIDTH = 7 * WHITE_W;
+    void sync() override { repaint(); }
+    void paint(Graphics& g) override {
+        const float H = (float) getHeight();
+        const int down = act.presetKey(man);
+        int wi = 0;
+        for (int k = 0; k < 12; k++) {
+            if (Actions::isBlack(k)) continue;
+            const bool on = k == down;
+            auto r = natural(wi++, H);
+            if (on) r = r.withTrimmedBottom(3); // latched: sits lower, its front edge hidden under the keyslip
+            juce::DropShadow(juce::Colours::black.withAlpha(0.45f), 4, {0, 3}).drawForRectangle(g, r.toNearestInt());
+            g.setGradientFill(juce::ColourGradient(Colour(on ? 0xff120f0c : 0xff2b2622), 0, 0,
+                                                   Colour(on ? 0xff070605 : 0xff12100e), 0, H, false));
+            Path kp;
+            kp.addRoundedRectangle(r.getX(), r.getY(), r.getWidth(), r.getHeight(), 3, 3, false, false, true, true);
+            g.fillPath(kp);
+            g.setColour(Colour(0xff4a4038));
+            g.strokePath(kp, juce::PathStrokeType(1));
+            if (on) {
+                g.setColour(col::amber);
+                g.fillRect(r.withTop(r.getBottom() - 4).reduced(3, 0));
+            }
+        }
+        wi = 0;
+        for (int k = 0; k < 12; k++) {
+            if (!Actions::isBlack(k)) {
+                wi++;
+                continue;
+            }
+            const bool on = k == down;
+            auto r = sharp(wi, H);
+            if (on) r = r.withTrimmedBottom(2);
+            juce::DropShadow(juce::Colours::black.withAlpha(0.5f), 3, {0, 2}).drawForRectangle(g, r.toNearestInt());
+            g.setGradientFill(juce::ColourGradient(Colour(on ? 0xffd8cdb6 : 0xfff2ead8), 0, 0,
+                                                   Colour(on ? 0xffb9ab90 : 0xffd2c6ad), 0, r.getBottom(), false));
+            g.fillRoundedRectangle(r, 2);
+            g.setColour(Colour(0xff7d715f));
+            g.drawRoundedRectangle(r.reduced(0.5f), 2, 1);
+            if (on) {
+                g.setColour(col::amber);
+                g.fillRect(r.withTop(r.getBottom() - 3).reduced(2, 0));
+            }
+        }
+    }
+    void mouseDown(const juce::MouseEvent& e) override {
+        const int k = keyAt(e.position);
+        if (k >= 0) act.setPresetKey(man, k);
+    }
+    String getTooltip() override {
+        const int k = keyAt(getMouseXYRelative().toFloat());
+        if (k < 0) return {};
+        static const char* nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        String t = String(nm[k]) + L" – ";
+        if (k == 0)
+            t << "Cancel: the manual is silent.";
+        else if (k <= 9) {
+            const int* d = rotary::presets::registration(man, k);
+            String reg;
+            for (int i = 0; i < 9; i++) reg << d[i] << (i == 1 || i == 5 ? " " : "");
+            t << DrawbarGroup::presetName(man, k) << "  (" << reg << ")";
+        } else if (k == 10)
+            t << "drawbar set A (the left set).";
+        else
+            t << (man == 0 ? "drawbar set B (the right set) – the only one with percussion."
+                           : "drawbar set B (the right set).");
+        return tipText(t, L"Preset keys stay down until another is pressed · MIDI: the octave below the manual");
+    }
+
+private:
+    Rectangle<float> natural(int wi, float H) const { return {(float) wi * WHITE_W, 0, WHITE_W - 1.f, H}; }
+    Rectangle<float> sharp(int nextWhite, float H) const { return {(float) nextWhite * WHITE_W - 7, 0, 14, H * 0.6f}; }
+    int keyAt(juce::Point<float> p) const {
+        const float H = (float) getHeight();
+        int wi = 0;
+        for (int k = 0; k < 12; k++) {
+            if (!Actions::isBlack(k)) {
+                wi++;
+                continue;
+            }
+            if (sharp(wi, H).contains(p)) return k;
+        }
+        wi = 0;
+        for (int k = 0; k < 12; k++) {
+            if (Actions::isBlack(k)) continue;
+            if (natural(wi++, H).contains(p)) return k;
+        }
+        return -1;
+    }
+    Ctx& ctx;
+    Actions& act;
+    int man;
+};
+
 class Pedalboard : public KeysBase, public juce::SettableTooltipClient {
 public:
     Pedalboard(Ctx& c, Actions& a, Notes& n) : KeysBase(c, a, n, 2) {

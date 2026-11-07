@@ -37,6 +37,8 @@ const std::vector<WheelhouseEngine::ParamDef>& WheelhouseEngine::params() {
         v.push_back({"perc_soft", "Perc Soft", 2, 0, 1, 0});
         v.push_back({"perc_fast", "Perc Fast", 2, 0, 1, 1});
         v.push_back({"perc_third", "Perc 3rd", 2, 0, 1, 1});
+        v.push_back({"preset_u", "Upper Preset Key", 3, 0, 11, 11});
+        v.push_back({"preset_l", "Lower Preset Key", 3, 0, 11, 11});
         return v;
     }();
     return P;
@@ -55,6 +57,8 @@ enum {
     P_PERC_SOFT,
     P_PERC_FAST,
     P_PERC_THIRD,
+    P_PRESET_U,
+    P_PRESET_L,
     P_COUNT
 };
 static const char* VIB_IDS[6] = {"v1", "v2", "v3", "c1", "c2", "c3"};
@@ -62,7 +66,18 @@ static const char* ROTARY_IDS[3] = {"stop", "slow", "fast"};
 
 const StringArray& WheelhouseEngine::choices(int index) {
     static const StringArray rotary{"Stop", "Slow", "Fast"}, vib{"V1", "V2", "V3", "C1", "C2", "C3"}, none;
-    return index == P_ROTARY ? rotary : index == P_VIB ? vib : none;
+    // reverse-coloured preset keys of the B-3 / C-3 (factory registrations)
+    static const StringArray presetU{"C Cancel",     "C# Stopped Flute", "D Dulciana",    "D# French Horn",
+                                     "E Salicional", "F Flutes 8' 4'",   "F# Oboe Horn",  "G Swell Diapason",
+                                     "G# Trumpet",   "A Full Swell",     "A# Drawbars A", "B Drawbars B"},
+        presetL{"C Cancel",           "C# Cello",         "D Flute & String", "D# Clarinet",
+                "E Diapason & Gamba", "F Great no Reeds", "F# Open Diapason", "G Full Great",
+                "G# Tibia Clausa",    "A Full Great 16'", "A# Drawbars A",    "B Drawbars B"};
+    return index == P_ROTARY     ? rotary
+           : index == P_VIB      ? vib
+           : index == P_PRESET_U ? presetU
+           : index == P_PRESET_L ? presetL
+                                 : none;
 }
 
 int WheelhouseEngine::autoThreads(bool plugin) {
@@ -132,6 +147,9 @@ void WheelhouseEngine::drainPlay() {
         case PANIC:
             dsp->panic();
             break;
+        case PRESET:
+            dsp->setPresetKey(c.man, c.key);
+            break;
         default:
             break;
         }
@@ -150,7 +168,7 @@ void WheelhouseEngine::pushUi(UiEv e) {
 // MIDI note -> manual and key. Pedal and lower manual by channel; the upper manual on its channel or omni (0).
 // On the upper channel the split divides the keyboard: below splitLo pedal (3-way), below splitHi lower, else upper.
 // Key numbers: manuals start at MIDI note 36 (C2), the pedal at 24; each manual is shifted by its octave setting.
-bool WheelhouseEngine::mapNote(int path, int ch, int note, bool on, int& man, int& key) {
+bool WheelhouseEngine::mapNote(int path, int ch, int note, bool on, int& man, int& key, int* preset) {
     if (ch < 1 || ch > 16 || note < 0 || note > 127) return false;
     int8_t& hm = heldMan[path][ch - 1][note];
     int8_t& hk = heldKey[path][ch - 1][note];
@@ -176,6 +194,10 @@ bool WheelhouseEngine::mapNote(int path, int ch, int note, bool on, int& man, in
             man = 1;
     }
     key = note - (man == 2 ? 24 : 36) + 12 * octShift[man].load();
+    if (man != 2 && key >= -12 && key < 0) { // the octave below a manual: its reverse-coloured preset keys
+        if (preset) *preset = key + 12;
+        return false;
+    }
     if (key < 0 || key > (man == 2 ? 24 : 60)) return false;
     hm = (int8_t) man;
     hk = (int8_t) key;
@@ -192,11 +214,19 @@ var WheelhouseEngine::midiFromDevice(const MidiMessage& m) {
         return var(o);
     };
     if (m.isNoteOn() || m.isNoteOff()) {
-        int man = 0, key = 0;
+        int man = 0, key = 0, preset = -1;
         bool ok;
         {
             std::lock_guard<std::mutex> g(playWriteLock);
-            ok = mapNote(0, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key);
+            ok = mapNote(0, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key, &preset);
+        }
+        if (preset >= 0) {
+            pushPlay(PRESET, man, preset, 0);
+            auto* o = new DynamicObject();
+            o->setProperty("type", "presetKey");
+            o->setProperty("man", man);
+            o->setProperty("k", preset);
+            return var(o);
         }
         if (!ok) {
             if (m.isNoteOn()) {
@@ -270,14 +300,17 @@ void WheelhouseEngine::render(float* const* out, int n, const MidiBuffer* midi) 
             }
             const auto m = meta.getMessage();
             if (m.isNoteOn() || m.isNoteOff()) {
-                int man = 0, key = 0;
-                if (mapNote(1, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key)) {
+                int man = 0, key = 0, preset = -1;
+                if (mapNote(1, m.getChannel(), m.getNoteNumber(), m.isNoteOn(), man, key, &preset)) {
                     if (m.isNoteOn())
                         dsp->noteOn(key, man, m.getVelocity());
                     else
                         dsp->noteOff(key, man, m.getVelocity());
                     pushUi(
                         {(uint8_t) (m.isNoteOn() ? 1 : 2), (int8_t) man, (int16_t) key, (int16_t) m.getNoteNumber()});
+                } else if (preset >= 0) {
+                    dsp->setPresetKey(man, preset);
+                    pushUi({5, (int8_t) man, (int16_t) preset});
                 } else if (m.isNoteOn())
                     pushUi({4, 0, 0, (int16_t) m.getNoteNumber()});
             } else if (m.isController()) {
@@ -350,6 +383,8 @@ void WheelhouseEngine::applyHostParams() {
             dsp->setDrive(v);
         else if (i == P_VIB)
             dsp->setVib(VIB_IDS[jlimit(0, 5, (int) std::lround(v))]);
+        else if (i == P_PRESET_U || i == P_PRESET_L)
+            dsp->setPresetKey(i == P_PRESET_U ? 0 : 1, jlimit(0, 11, (int) std::lround(v)));
         else
             perc = true;
     }
@@ -386,8 +421,13 @@ void WheelhouseEngine::uiParamsFromMessage(const String& type, const var& m) {
                          : man == 1 ? P_DB_L
                                     : P_DB_P,
                   cnt = man == 2 ? 2 : 9;
+        // the drawbar parameters show the set the manual's drawbar controls move (last A# / B choice)
+        if (man != 2 && m.hasProperty("set") && (int) m["set"] != dsp->drawbarEditSet(man)) return;
         if (auto* a = m.getProperty("v", var()).getArray())
             for (int k = 0; k < cnt && k < a->size(); k++) set(base + k, (float) (int) (*a)[k]);
+    } else if (type == "presetKey") {
+        const int man = (int) m.getProperty("man", 0);
+        if (man == 0 || man == 1) set(man == 0 ? P_PRESET_U : P_PRESET_L, (float) jlimit(0, 11, (int) m["k"]));
     } else if (type == "perc") {
         auto v = m.getProperty("v", var());
         set(P_PERC_ON, (bool) v.getProperty("on", true) ? 1.f : 0.f);
@@ -504,6 +544,10 @@ bool WheelhouseEngine::popUiEvent(var& ev) {
     } else if (e.kind == 4) {
         o->setProperty("type", "noteOut");
         o->setProperty("note", (int) e.note);
+    } else if (e.kind == 5) {
+        o->setProperty("type", "presetKey");
+        o->setProperty("man", (int) e.man);
+        o->setProperty("k", (int) e.key);
     } else {
         o->setProperty("type", e.kind == 1 ? "noteOn" : "noteOff");
         o->setProperty("key", (int) e.key);
@@ -521,7 +565,10 @@ void WheelhouseEngine::record(const String& type, const var& m) {
     static const StringArray transient{"noteOn", "noteOff", "panic", "springKick", "taps"};
     if (transient.contains(type)) return;
     String key = type;
-    if (type == "drawbars")
+    if (type == "drawbars") {
+        key << ":" << (int) m.getProperty("man", 0);
+        if (m.hasProperty("set")) key << ":" << (int) m["set"];
+    } else if (type == "presetKey")
         key << ":" << (int) m.getProperty("man", 0);
     else if (type == "rotor")
         key << ":" << (int) numProp(m, "r", 0);
@@ -607,7 +654,12 @@ bool WheelhouseEngine::handleMessage(const var& mIn, bool rec) {
             int v[9] = {0};
             if (auto* a = m.getProperty("v", var()).getArray())
                 for (int i = 0; i < 9 && i < a->size(); i++) v[i] = (int) (*a)[i];
-            d.setDrawbars(v, man);
+            if (man != 2 && m.hasProperty("set"))
+                d.setDrawbarSet(man, jlimit(0, 1, (int) m["set"]), v);
+            else
+                d.setDrawbars(v, man); // older saves: the one set they knew is B (the playing set, with percussion)
+        } else if (type == "presetKey") {
+            d.setPresetKey(man, jlimit(0, 11, (int) numProp(m, "k", 11)));
         } else if (type == "perc") {
             rotary::Perc p;
             auto v = m.getProperty("v", var());
@@ -697,6 +749,7 @@ bool WheelhouseEngine::handleMessage(const var& mIn, bool rec) {
             d.setOrganDetail(numProp(m, "percLevel", 1), numProp(m, "percShort", 0.2), numProp(m, "percLong", 1.0),
                              (bool) m.getProperty("complex", true));
             d.setKeyNoise(numProp(m, "keyNoise", 0.5));
+            d.setPedalSustain((bool) m.getProperty("pedSus", false), (int) numProp(m, "pedSusLen", 3));
         } else if (type == "output") {
             d.setOutput(numProp(m, "masterDb", 0), numProp(m, "lfeHz", 100));
             d.setOutputTrims(numProp(m, "rearDb", 0), numProp(m, "centerDb", 0), numProp(m, "centerDiv", 0));

@@ -192,6 +192,78 @@ int main() {
         var d = on(50);
         CHECK((int) d["man"] == 0 && (int) d["key"] == 14, "split off: D3 plays the upper manual again");
     }
+    // 9) preset keys: the octave below a manual latches its preset key; Cancel silences it; sets A / B; pedal sustain
+    {
+        WheelhouseEngine e(false);
+        e.prepare(48000, 256);
+        auto hold = [&](int note, int ch, int blocks) {
+            MidiBuffer mb;
+            mb.addEvent(MidiMessage::noteOn(ch, note, (uint8) 100), 0);
+            return rms(e, blocks, &mb);
+        };
+        auto release = [&](int note, int ch) {
+            MidiBuffer mb;
+            mb.addEvent(MidiMessage::noteOff(ch, note), 0);
+            rms(e, 1, &mb);
+        };
+        const double b = hold(60, 1, 120);
+        release(60, 1);
+        rms(e, 40);
+        MidiBuffer pk;
+        pk.addEvent(MidiMessage::noteOn(1, 24, (uint8) 100), 0); // C1 = C of the upper preset octave: Cancel
+        rms(e, 4, &pk);
+        var ev;
+        int presetEv = -1;
+        while (e.popUiEvent(ev))
+            if (ev.getProperty("type", "") == "presetKey") presetEv = (int) ev["k"];
+        const double c = hold(60, 1, 120);
+        release(60, 1);
+        rms(e, 40);
+        CHECK(presetEv == 0, "MIDI note below the upper manual latches its preset key (C = Cancel) and tells the UI");
+        CHECK(b > 1e-3 && c < b * 0.02, "Cancel silences the manual");
+        e.handleMessage(msg("{\"type\":\"drawbars\",\"man\":0,\"set\":0,\"v\":[0,0,0,0,0,0,0,0,0]}"));
+        e.handleMessage(msg("{\"type\":\"presetKey\",\"man\":0,\"k\":9}")); // A: Full Swell
+        const double fs = hold(60, 1, 120);
+        release(60, 1);
+        rms(e, 40);
+        e.handleMessage(msg("{\"type\":\"presetKey\",\"man\":0,\"k\":10}")); // A#: set A (all drawbars in)
+        const double sa = hold(60, 1, 120);
+        release(60, 1);
+        rms(e, 40);
+        printf("    levels: B %.4f, Full Swell %.4f, set A (all in) %.4f\n", b, fs, sa);
+        CHECK(fs > b * 0.2, "factory preset A (Full Swell) sounds although set B is untouched");
+        CHECK(sa < b * 0.02, "A# plays drawbar set A (all drawbars in: silent)");
+        // percussion only on the upper B key: all drawbars in, percussion on -> only the percussion sounds
+        e.handleMessage(msg("{\"type\":\"perc\",\"v\":{\"on\":true,\"third\":true,\"fast\":false,\"soft\":false,"
+                            "\"vibU\":false,\"vibL\":false}}"));
+        e.handleMessage(msg("{\"type\":\"drawbars\",\"man\":0,\"set\":1,\"v\":[0,0,0,0,0,0,0,0,0]}"));
+        e.handleMessage(msg("{\"type\":\"presetKey\",\"man\":0,\"k\":11}"));
+        const double pB = hold(60, 1, 40);
+        release(60, 1);
+        rms(e, 80);
+        e.handleMessage(msg("{\"type\":\"presetKey\",\"man\":0,\"k\":10}"));
+        const double pA = hold(60, 1, 40);
+        release(60, 1);
+        rms(e, 80);
+        printf("    percussion alone: key B %.4f, key A# %.4f\n", pB, pA);
+        CHECK(pB > 5e-3 && pA < pB * 0.1, "percussion sounds only with the upper manual's B preset key");
+        // pedal: without sustain it stops at once, with sustain it is still there half a second after release
+        auto pedalTail = [&](bool sus) {
+            e.handleMessage(
+                msg(String("{\"type\":\"organDetail\",\"pedSus\":") + (sus ? "true" : "false") + ",\"pedSusLen\":4}"));
+            const double on = hold(36, 3, 100);
+            release(36, 3);
+            rms(e, 90); // ~0.5 s
+            return rms(e, 20) / on;
+        };
+        const double t0 = pedalTail(false), t1 = pedalTail(true);
+        printf("    pedal tail after 0.5 s: B-3 %.4f, sustain %.4f\n", t0, t1);
+        CHECK(t0 < 0.05 && t1 > 0.15, "pedal sustain: the released note fades instead of stopping");
+        rms(e, 1500); // 8 s: completely gone
+        const double tail = rms(e, 20);
+        printf("    after 8 s: %.6f (idle reference %.6f)\n", tail, t0);
+        CHECK(tail < 0.15 * t0 + 1e-4, "sustained pedal decays to silence (generator noise floor)");
+    }
     printf("%s\n", fails ? "SOME CHECKS FAILED" : "all checks passed");
     return fails;
 }

@@ -48,9 +48,35 @@ public:
     UiState& st;
 
     // ---------------- Senders per DSP section ----------------
-    void sendDb(int man) {
-        const char* key = man == 0 ? "db.upper" : man == 1 ? "db.lower" : "db.pedal";
-        ctx.send(Ctx::obj({{"type", "drawbars"}, {"man", man}, {"v", st.get(key)}}));
+    // Two drawbar sets per manual, as on the B-3: "db.upper" / "db.lower" = set B (the right one, the playing set,
+    // with percussion - the one set older saves knew), "db.upperA" / "db.lowerA" = set A. The pedal has one.
+    static String dbPath(int man, int set) {
+        if (man == 2) return "db.pedal";
+        return String(man == 0 ? "db.upper" : "db.lower") + (set == 0 ? "A" : "");
+    }
+    static String manName(int man) { return man == 0 ? "upper" : "lower"; }
+    /** The set the manual's drawbars show and move: the last one chosen with A# / B. */
+    int editSet(int man) const { return man == 2 ? 1 : (int) st.num("dbEdit." + manName(man)); }
+    int presetKey(int man) const { return man == 2 ? 11 : (int) st.num("presetKey." + manName(man)); }
+    String dbEditPath(int man) const { return dbPath(man, editSet(man)); }
+    void sendDbSet(int man, int set) {
+        if (man == 2) {
+            ctx.send(Ctx::obj({{"type", "drawbars"}, {"man", 2}, {"v", st.get("db.pedal")}}));
+            return;
+        }
+        ctx.send(Ctx::obj({{"type", "drawbars"}, {"man", man}, {"set", set}, {"v", st.get(dbPath(man, set))}}));
+    }
+    /** The drawbars of a manual changed (the set they show). */
+    void sendDb(int man) { sendDbSet(man, editSet(man)); }
+    void sendPresetKey(int man) { ctx.send(Ctx::obj({{"type", "presetKey"}, {"man", man}, {"k", presetKey(man)}})); }
+    /** Presses one of the reverse-coloured preset keys: 0 cancel, 1..9 factory presets, 10 = A#, 11 = B. */
+    void setPresetKey(int man, int k, bool send = true) {
+        if (man < 0 || man > 1) return;
+        k = juce::jlimit(0, 11, k);
+        st.set("presetKey." + manName(man), k);
+        if (k >= 10) st.set("dbEdit." + manName(man), k - 10);
+        if (send) sendPresetKey(man);
+        ctx.syncAll();
     }
     void sendPerc() { ctx.sendV("perc", st.get("perc")); }
     void sendChr() { ctx.sendV("character", st.get("chr")); }
@@ -199,7 +225,7 @@ public:
     String instState() const {
         juce::Array<var> a;
         for (auto k : {"chr", "organ", "click", "db", "perc", "vib", "pre", "amp", "drive", "balance", "rotor", "brake",
-                       "cab", "halfMoon", "spring"})
+                       "cab", "halfMoon", "spring", "presetKey"})
             a.add(st.get(k));
         return juce::JSON::toString(var(a), true);
     }
@@ -215,13 +241,23 @@ public:
             var dst = st.get(k);
             assignInto(dst, P[k]);
         }
+        const var keepA[2] = {deepCopy(st.get("db.upperA")), deepCopy(st.get("db.lowerA"))};
         for (auto k : {"click", "db", "perc", "vib", "drive", "balance", "rotor", "brake", "halfMoon"})
             st.set(k, deepCopy(P[k]));
+        // an instrument's registration is the playing set B; set A stays as it was
+        st.set("db.upperA", keepA[0]);
+        st.set("db.lowerA", keepA[1]);
+        for (int m = 0; m < 2; m++) {
+            st.set("presetKey." + manName(m), 11);
+            st.set("dbEdit." + manName(m), 1);
+        }
         if (st.str("halfMoon") != "stop" && st.str("rotary") == "stop") st.set("rotary", "slow");
         sendChr();
         sendOrgan();
         ctx.sendV("click", st.get("click"));
         for (int m = 0; m < 3; m++) sendDb(m);
+        sendPresetKey(0);
+        sendPresetKey(1);
         sendPerc();
         ctx.sendV("vib", st.get("vib"));
         sendPre();
@@ -248,6 +284,11 @@ public:
         st.set("perc", deepCopy(p["perc"]));
         st.set("vib", p["vib"]);
         st.set("drive", p["drive"]);
+        for (int m = 0; m < 2; m++) {
+            st.set("presetKey." + manName(m), 11);
+            st.set("dbEdit." + manName(m), 1);
+            sendPresetKey(m);
+        }
         for (int m = 0; m < 3; m++) sendDb(m);
         sendPerc();
         ctx.sendV("vib", st.get("vib"));
@@ -264,8 +305,9 @@ public:
             auto same = [&](const char* a, const char* b) {
                 return juce::JSON::toString(p[a], true) == juce::JSON::toString(st.get(b), true);
             };
-            if (same("u", "db.upper") && same("l", "db.lower") && same("p", "db.pedal") &&
-                p["vib"].toString() == st.str("vib") && (bool) p["perc"]["on"] == st.flag("perc.on"))
+            if (presetKey(0) == 11 && presetKey(1) == 11 && same("u", "db.upper") && same("l", "db.lower") &&
+                same("p", "db.pedal") && p["vib"].toString() == st.str("vib") &&
+                (bool) p["perc"]["on"] == st.flag("perc.on"))
                 return String(i);
         }
         return {};
@@ -412,7 +454,12 @@ public:
         sendRoomAll();
         ctx.send(Ctx::obj(
             {{"type", "pos"}, {"rotaryPos", st.get("rotaryPos")}, {"listener", st.get("listener")}, {"jump", true}}));
-        for (int m = 0; m < 3; m++) sendDb(m);
+        for (int m = 0; m < 2; m++) {
+            sendDbSet(m, 0);
+            sendDbSet(m, 1);
+            sendPresetKey(m);
+        }
+        sendDb(2);
         sendPerc();
         for (auto k : {"vib", "drive", "click", "volume", "balance", "lfe", "rotary"}) ctx.sendV(k, st.get(k));
         sendChr();
@@ -441,8 +488,12 @@ public:
         if (id.startsWith("db_") && id.length() == 6) {
             const juce::juce_wchar m = id[3];
             const int i = id.substring(5).getIntValue();
-            const String key = m == 'u' ? "db.upper." : m == 'l' ? "db.lower." : "db.pedal.";
-            st.set(key + String(i), juce::roundToInt(v));
+            const int man = m == 'u' ? 0 : m == 'l' ? 1 : 2;
+            st.set(dbEditPath(man) + "." + String(i), juce::roundToInt(v));
+            return;
+        }
+        if (id == "preset_u" || id == "preset_l") {
+            setPresetKey(id == "preset_u" ? 0 : 1, juce::roundToInt(v), false);
             return;
         }
         const bool b = v > 0.5;

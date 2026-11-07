@@ -156,8 +156,9 @@ private:
               rotaryPanel(o.ctx, o.act, o.clock), organPanel(o.ctx, o.act, [&o] { o.ctx.syncAll(); }),
               roomPanel(o.ctx, o.act, o.clock, [this] { setTab("raum"); }), bigPlan(o.ctx, o.act, o.clock, true),
               strip(o.ctx, o.act, [&o] { o.releasePc(); }), upper(o.ctx, o.act, o.notes, 0),
-              lower(o.ctx, o.act, o.notes, 1), pedals(o.ctx, o.act, o.notes), swell(o.ctx), ov0(o.ctx, o.act, 0),
-              ov1(o.ctx, o.act, 1), ov2(o.ctx, o.act, 2), resetBtn("Reset"), closeBtn("Back to Play", true, 14) {}
+              lower(o.ctx, o.act, o.notes, 1), presetU(o.ctx, o.act, 0), presetL(o.ctx, o.act, 1),
+              pedals(o.ctx, o.act, o.notes), swell(o.ctx), ov0(o.ctx, o.act, 0), ov1(o.ctx, o.act, 1),
+              ov2(o.ctx, o.act, 2), resetBtn("Reset"), closeBtn("Back to Play", true, 14) {}
         NativeUi& ui;
         Header header;
         RotaryPanel rotaryPanel;
@@ -166,6 +167,7 @@ private:
         FloorPlan bigPlan;
         KeyStrip strip;
         Manual upper, lower;
+        PresetKeys presetU, presetL;
         Pedalboard pedals;
         SwellPedal swell;
         OctaveBox ov0, ov1, ov2;
@@ -204,8 +206,9 @@ private:
         String tab = "spielen";
 
         void build() {
-            for (auto* c : std::initializer_list<Component*>{&header, &rotaryPanel, &organPanel, &roomPanel, &strip,
-                                                             &upper, &lower, &pedals, &swell, &ov0, &ov1, &ov2})
+            for (auto* c :
+                 std::initializer_list<Component*>{&header, &rotaryPanel, &organPanel, &roomPanel, &strip, &upper,
+                                                   &lower, &presetU, &presetL, &pedals, &swell, &ov0, &ov1, &ov2})
                 addAndMakeVisible(c);
             addChildComponent(card);
             card.addAndMakeVisible(resetBtn);
@@ -337,8 +340,8 @@ private:
                 auto rr = Rectangle<float>(r.getHeight(), r.getWidth()).withCentre(r.getCentre());
                 drawSpaced(g, t, rr, Fonts::make(11.5f, 700), 2, juce::Justification::centred, true);
             };
-            vlab("Upper", {(float) upper.getX() - 32, (float) upper.getY(), 22, (float) upper.getHeight()});
-            vlab("Lower", {(float) lower.getX() - 32, (float) lower.getY(), 22, (float) lower.getHeight()});
+            vlab("Upper", {(float) presetU.getX() - 32, (float) upper.getY(), 22, (float) upper.getHeight()});
+            vlab("Lower", {(float) presetL.getX() - 32, (float) lower.getY(), 22, (float) lower.getHeight()});
             vlab("Pedal", {(float) pedals.getX() - 36, (float) pedals.getY(), 22, (float) pedals.getHeight()});
         }
         Rectangle<float> caseRect, keysRect;
@@ -357,13 +360,16 @@ private:
             keysRect = {16, 508, 1600 - 32, 900 - 8 - 508};
             auto k = keysRect.toNearestInt().withTrimmedLeft(16).withTrimmedRight(16);
             strip.setBounds(k.removeFromTop(30));
-            const int kbX = (1600 - 1440) / 2 + 6; // manual centred between its label and octave box
-            auto manRow = [&](Manual& m, OctaveBox& ov, int y) {
-                m.setBounds(kbX, y + 4, 1440, 118);
-                ov.setBounds(kbX + 1440 + 10, y + 4, 22, 118);
+            // label | preset octave | manual | octave box, centred in the key bed
+            const int manW = 36 * Manual::WHITE_W, rowW = 22 + 10 + PresetKeys::WIDTH + 8 + manW + 10 + 22;
+            const int x0 = (1600 - rowW) / 2 + 32;
+            auto manRow = [&](Manual& m, PresetKeys& pk, OctaveBox& ov, int y) {
+                pk.setBounds(x0, y + 4, PresetKeys::WIDTH, 118);
+                m.setBounds(x0 + PresetKeys::WIDTH + 8, y + 4, manW, 118);
+                ov.setBounds(m.getRight() + 10, y + 4, 22, 118);
             };
-            manRow(upper, ov0, k.getY());
-            manRow(lower, ov1, k.getY() + 122 + 6);
+            manRow(upper, presetU, ov0, k.getY());
+            manRow(lower, presetL, ov1, k.getY() + 122 + 6);
             const int py = k.getY() + 2 * 122 + 6 + 6;
             const int ph = std::min(86, (int) keysRect.getBottom() - 8 - py);
             const int pw = 710, total = 22 + 14 + pw + 14 + 60 + 14 + 22;
@@ -430,6 +436,10 @@ private:
             ctx.syncAll();
         } else if (t == "panic")
             notes.clearShown();
+        else if (t == "presetKey") { // a preset key played on the MIDI keyboard (the engine has applied it)
+            act.setPresetKey((int) m["man"], (int) m["k"], false);
+            saveCountdown = 24;
+        }
     }
     void timerCallback() override {
         startIfNeeded();

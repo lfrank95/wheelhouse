@@ -3,6 +3,7 @@
 // front knobs, rocker tablets), room panel (floor plan with the paths the engine renders, room presets).
 #include "Cards.h"
 #include "core/Basics.h"
+#include "OrganPresets.h"
 
 namespace wh {
 
@@ -326,15 +327,16 @@ public:
                     return o;
                 },
                 [this] {
-                    const String cur = juce::JSON::toString(ctx.st.get("db." + key), true);
+                    const String cur = juce::JSON::toString(ctx.st.get(path()), true);
                     for (int i = 0; i < (int) presetList.size(); i++)
                         if (juce::JSON::toString(presetList[(size_t) i].second, true) == cur) return var(i);
                     return var("");
                 },
                 [this](const var& v) {
                     if (v.toString().isEmpty()) return;
-                    ctx.st.set("db." + key, deepCopy(presetList[(size_t) (int) v].second));
+                    ctx.st.set(path(), deepCopy(presetList[(size_t) (int) v].second));
                     act.sendDb(man);
+                    if (man < 2) act.setPresetKey(man, 10 + act.editSet(man)); // pulling drawbars: play that set
                 });
             preset->fontPx = 13;
             preset->setTooltip("Registration presets for the " + name.toLowerCase() + " manual.");
@@ -348,11 +350,39 @@ public:
         if (preset)
             preset->setBounds(getWidth() - juce::jmin(120, getWidth() - 60), 2, juce::jmin(120, getWidth() - 60), 24);
     }
+    /** A / B: the manual's two drawbar sets (the A# and B preset keys). */
+    Rectangle<float> setButton(int set) const { return {(float) (nameW + 6 + set * 27), 4, 25, 20}; }
     void paint(Graphics& g) override {
         g.setColour(col::text);
         drawSpaced(g, name, {0, 0, 80, 28}, Fonts::make(12, 700), 1.6f, juce::Justification::centredLeft, true);
+        nameW = (int) spacedWidth(name.toUpperCase(), Fonts::make(12, 700), 1.6f) + 4;
+        const bool sounding = man == 2 || act.presetKey(man) >= 10;
+        if (man < 2) {
+            const int pk = act.presetKey(man), es = act.editSet(man);
+            for (int s = 0; s < 2; s++) {
+                auto b = setButton(s);
+                const bool on = es == s, live = on && pk == 10 + s;
+                g.setColour(live ? col::amber : Colour(0xff1c120a));
+                g.fillRoundedRectangle(b, 4);
+                g.setColour(on ? col::amber : col::segLine);
+                g.drawRoundedRectangle(b.reduced(0.5f), 4, 1);
+                g.setColour(live ? Colour(0xff1a1008) : on ? col::amber : col::text.withAlpha(0.7f));
+                g.setFont(Fonts::make(12.5f, 700));
+                g.drawText(s == 0 ? "A" : "B", b, juce::Justification::centred, false);
+            }
+            if (!sounding) { // a factory preset or cancel is latched: the drawbars wait
+                const int pk2 = act.presetKey(man);
+                const String t = pk2 == 0 ? String("Cancel") : presetName(man, pk2);
+                const float x = setButton(1).getRight() + 8;
+                const float w = (preset ? (float) preset->getX() : (float) getWidth()) - x - 4;
+                g.setColour(col::gold);
+                g.setFont(Fonts::make(12, 600));
+                g.drawText(String(L"▸ ") + t, Rectangle<float>(x, 4, w, 20), juce::Justification::centredLeft, true);
+            }
+        }
         g.setColour(col::segLine);
         g.fillRect(0.f, 33.f, (float) getWidth(), 1.f);
+        if (!sounding) g.beginTransparencyLayer(0.45f);
         for (int i = 0; i < ft.size(); i++) {
             const float x = i * 33.f;
             g.setColour(col::text);
@@ -362,7 +392,7 @@ public:
             g.setColour(Colour(0xff070605));
             g.fillRoundedRectangle(slot, 3);
             const int v = value(i);
-            const bool muted = man == 0 && i == 8 && ctx.st.flag("perc.on");
+            const bool muted = man == 0 && i == 8 && ctx.st.flag("perc.on") && act.editSet(0) == 1;
             const String kd = muted ? "muted" : kind[i];
             struct Look {
                 uint32_t h0, h1, sh, n;
@@ -388,8 +418,16 @@ public:
             g.setFont(Fonts::make(15, 700));
             g.drawText(String(v), head.withTrimmedBottom(4), juce::Justification::centredBottom, false);
         }
+        if (!sounding) g.endTransparencyLayer();
     }
+    static String presetName(int man, int k) { return String(rotary::presets::name(man, k)); }
     void mouseDown(const juce::MouseEvent& e) override {
+        if (man < 2)
+            for (int s = 0; s < 2; s++)
+                if (setButton(s).contains(e.position)) {
+                    act.setPresetKey(man, 10 + s);
+                    return;
+                }
         dragBar = barAt(e.position.x);
         if (dragBar >= 0) setV(dragBar, fromY(dragBar, e.position.y));
     }
@@ -402,6 +440,14 @@ public:
         if (i >= 0 && w.deltaY != 0) setV(i, value(i) + (w.deltaY < 0 ? 1 : -1));
     }
     String getTooltip() {
+        const auto mp = getMouseXYRelative().toFloat();
+        if (man < 2)
+            for (int s = 0; s < 2; s++)
+                if (setButton(s).contains(mp))
+                    return tipText(s == 0 ? String(L"Drawbar set A – the left set, preset key A#.")
+                                          : String(L"Drawbar set B – the right set, preset key B. Percussion works "
+                                                   L"only here on the upper manual, as on the B-3."),
+                                   L"Click to play this set · the drawbars below show and move it");
         const int i = barAt(getMouseXYRelative().toFloat().x);
         if (i < 0 || getMouseXYRelative().y < 36) return {};
         static const wchar_t* tips[] = {L"16′ – sub-octave, an octave below the fundamental.",
@@ -414,7 +460,7 @@ public:
                                         L"1⅓′ – nineteenth (two octaves + fifth).",
                                         L"1′ – twenty-second (three octaves)."};
         String t;
-        if (man == 0 && i == 8 && ctx.st.flag("perc.on"))
+        if (man == 0 && i == 8 && ctx.st.flag("perc.on") && act.editSet(0) == 1)
             t = L"1′ is muted while percussion is on – just like the original.";
         else if (man == 2)
             t = i == 0 ? String(L"Pedal 16′ – fundamental from the complex tone wheels plus the lower harmonics: the "
@@ -431,12 +477,13 @@ private:
         const int i = (int) (x / 33.f);
         return i >= 0 && i < ft.size() ? i : -1;
     }
-    int value(int i) const { return (int) ctx.st.num("db." + key + "." + String(i)); }
+    String path() const { return man == 2 ? String("db.pedal") : act.dbEditPath(man); }
+    int value(int i) const { return (int) ctx.st.num(path() + "." + String(i)); }
     int fromY(int i, float y) const { return juce::roundToInt(((y - slotRect(i).getY()) - 21) / 18); }
     void setV(int i, int v) {
         v = juce::jlimit(0, 8, v);
         if (v != value(i)) {
-            ctx.st.set("db." + key + "." + String(i), v);
+            ctx.st.set(path() + "." + String(i), v);
             act.sendDb(man);
             ctx.syncAll();
         }
@@ -448,7 +495,7 @@ private:
     juce::StringArray ft, kind;
     std::vector<std::pair<String, var>> presetList;
     std::unique_ptr<Select> preset;
-    int dragBar = -1;
+    int dragBar = -1, nameW = 60;
 };
 
 /** The rocker tablets (percussion, vibrato upper/lower). */
@@ -467,7 +514,8 @@ public:
         static const std::vector<Tab> t{
             {"on", "PERC\nON", "PERC\nOFF",
              L"Percussion on/off: a decaying 2nd or 3rd harmonic on the attack, upper manual only, single-trigger "
-             L"(retriggers only after all keys are released). Mutes the 1′ drawbar, like the original."},
+             L"(retriggers only after all keys are released). Mutes the 1′ drawbar, like the original – and, as on the "
+             L"B-3, works only with preset key B (drawbar set B) of the upper manual."},
             {"soft", "PERC\nSOFT", "PERC\nNORM",
              L"Percussion volume: Soft or Normal. Normal also pulls the upper manual down a little – just like the "
              L"real thing."},

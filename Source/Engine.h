@@ -87,7 +87,7 @@ private:
         int16_t key = 0;
         int16_t value = 0;
     };
-    enum PlayType : uint8_t { NOTE_ON = 1, NOTE_OFF, ROTARY, SWELL, PANIC };
+    enum PlayType : uint8_t { NOTE_ON = 1, NOTE_OFF, ROTARY, SWELL, PANIC, PRESET };
     juce::AbstractFifo playFifo{512};
     std::array<PlayCmd, 512> playBuf{};
     std::mutex playWriteLock;
@@ -98,7 +98,7 @@ private:
         int8_t man = 0;
         int16_t key = 0;
         int16_t note = -1;
-    }; // kind 1 note on, 2 note off, 3 param (key = index); note = incoming MIDI note
+    }; // kind 1 note on, 2 note off, 3 param (key = index), 4 unmapped note, 5 preset key (key = 0..11)
     juce::AbstractFifo uiFifo{256};
     std::array<UiEv, 256> uiBuf{};
     void pushUi(UiEv e);
@@ -126,7 +126,8 @@ private:
     std::atomic<int> splitMode{0}, splitHi{60}, splitLo{48}; // mode 0 off, 1 lower|upper, 2 pedal|lower|upper
     std::atomic<int> octShift[3]{{0}, {0}, {0}};
     int8_t heldMan[2][16][128], heldKey[2][16][128]; // [path: device, host][channel][note]
-    bool mapNote(int path, int channel, int note, bool on, int& man, int& key);
+    // preset: set to 0..11 when the note is one of a manual's preset keys (the octave below it)
+    bool mapNote(int path, int channel, int note, bool on, int& man, int& key, int* preset = nullptr);
     struct AmpRequest {
         int model = 0, quality = 1;
         double sag = 0.5;

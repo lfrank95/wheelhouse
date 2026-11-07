@@ -96,6 +96,16 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Pedal**: wie in B-3/C-3 verdrahtet – acht Kontakte je Pedal auf vier Sammelschienen (Grundton + 3., 2. + 4.,
   6. + 8., 10. + 12. Harmonische), über die Widerstandsdrähte R81–R86 auf die Zugriegel 16′ und 8′ gemischt. Die
   untersten zwölf Töne kommen von den Complex-Tonrädern (fast rechteckig: ungerade Harmonische).
+  Schalter **Bass B-3 / Sustain** (Orgel → Pedal): B-3 verstummt beim Loslassen wie das Original; Sustain lässt den Ton
+  ausklingen (Länge 1–5, T60 0,35–3,5 s), wie bei den Hammonds mit Pedal-Sustain (Spinette, H-100, X-66, eine
+  europäische A-100) und den späteren Clones – ohne Loslass-Click, die Sustain-Schaltungen tasteten elektronisch.
+* **Preset-Tasten und Zugriegelsätze**: links an jedem Manual die umgekehrt gefärbte Oktave des B-3 / C-3. Eine Taste
+  bleibt gedrückt, bis eine andere kommt: C = Cancel (Manual stumm), C♯–A = Werksregistrierungen (oben Stopped Flute …
+  Full Swell, unten Cello … Full Great mit 16′), A♯ = Zugriegelsatz A, B = Zugriegelsatz B. Die Umschalter A/B über den
+  Zugriegeln sind dieselben Tasten; die Zugriegel zeigen und bewegen den zuletzt gewählten Satz, bei eingerastetem
+  Werkspreset gedimmt. Wie am Original klingt die Percussion **nur auf B** des oberen Manuals (ihr Auslöser ist der
+  1′-Kontakt des B-Satzes), nur dort fällt der 1′ weg. MIDI: die Oktave unter einem Manual (ab Werk C1–H1) sind seine
+  Preset-Tasten; Host-Parameter „Upper/Lower Preset Key“ zum Automatisieren. Ältere Einstellungen: ihr Satz wird B.
 * **Modus Listener / Mics** (Kopfleiste): Listener = du stehst im Raum; Mics = Nahmikros und Raumpaar über das Pult.
   Umschalten blendet weich über, der jeweils andere Teil wird nicht gerechnet.
 * **Mics**: Nahmikros am Horn (Mono oder Stereo mit 90°/120°/180°) und an der Trommel (Mono oder Stereo), ein Raumpaar
@@ -275,6 +285,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   Lautsprecher), `Mics.h` (Mikros), `Render.h` (Ablauf je Teilblock: Rotoren, parallele Schallwege, Hall, Ausgang)
 * `Source/RotaryAmp.h` – Röhrenendstufe und Ausgangsübertrager
 * `Source/Speakers.h` – Weiche, 15"-Woofer im Bassreflexfach, V21 mit Hornwellenleiter (Last der Endstufe)
+* `Source/OrganPresets.h` – Werksregistrierungen der Preset-Tasten (DSP und Oberfläche)
 * `Source/OrganPreamp.h` – Orgel-Vorverstärker (AO-28)
 * `Source/SpringReverb.h` – Federhall
 * `Source/Mechanics.h` – Rotary-Gehäuse (Bassreflex, Plattenmoden) und Mechanikgeräusche von Rotary und Orgel

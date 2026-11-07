@@ -8,10 +8,10 @@ namespace rotary {
 inline void RotaryRoomDSP::drawbarAmps(int man, double* amps) const {
     // Linear amplitude per drawbar (3 dB per step). Percussion only affects the upper manual: the 1' drawbar is
     // muted and the "normal" (loud) percussion setting slightly attenuates the drawbars, as on the original console.
-    double percAtt = man == 0 && perc.on && !perc.soft ? 0.72 : 1;
+    double percAtt = man == 0 && percActive() && !perc.soft ? 0.72 : 1;
     int n = man == 2 ? 2 : 9;
     for (int i = 0; i < 9; i++) {
-        if (i >= n || (man == 0 && i == 8 && perc.on)) {
+        if (i >= n || (man == 0 && i == 8 && percActive())) {
             amps[i] = 0;
             continue;
         }
@@ -57,7 +57,7 @@ inline void RotaryRoomDSP::noteOn(int k, int man, int velocity) {
     if (man == 0) {
         bool wasEmpty = numKeysUpper == 0;
         numKeysUpper++;
-        if (perc.on && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0;
+        if (percActive() && wasEmpty) percEnv = perc.soft ? 0.55 : 1.0;
     }
     const double v = velocityClick ? std::max(1, std::min(127, velocity)) / 127.0 : 100 / 127.0;
     const double spread = 0.35 + 1.4 * std::pow(1 - v, 1.5), bounce = 0.55 + 0.6 * v;
@@ -73,7 +73,7 @@ inline void RotaryRoomDSP::noteOn(int k, int man, int velocity) {
     clickDecay = std::exp(-1 / ((0.0012 + 0.004 * std::pow(1 - v, 1.5)) * fs)); // slow press: longer scrape
     orgMech.key(man, std::max(1, std::min(127, velocity)) / 127.0, true);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, a, 0, spread, bounce); });
-    if (man == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
+    if (man == 0 && percActive()) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
 }
 
 inline void RotaryRoomDSP::noteOff(int k, int man, int velocity) {
@@ -85,6 +85,15 @@ inline void RotaryRoomDSP::noteOff(int k, int man, int velocity) {
     const double v = (velocityClick && velocity > 0) ? std::min(127, velocity) / 127.0 : 0.5;
     double amps[9];
     drawbarAmps(man, amps);
+    if (man == 2 && pedSusOn) {
+        // sustain: no contact opens - each wheel's share is handed to the decaying sustain gain when its (staggered)
+        // release would have happened, so pending note-on contacts of a very short press are still in order
+        orgMech.key(man, velocity > 0 ? std::min(127, velocity) / 127.0 : 0.5, false);
+        forParts(man, k, amps, [&](int w, double a) {
+            events.push_back({sampleClock + fastRand() * staggerS * 1.6, man, w, -a, curRamp, true});
+        });
+        return;
+    }
     double keyed = 0;
     for (double a : amps) keyed += a * a;
     keyed = std::min(1.2, std::sqrt(keyed / 3));
@@ -93,7 +102,7 @@ inline void RotaryRoomDSP::noteOff(int k, int man, int velocity) {
     orgMech.key(man, velocity > 0 ? std::min(127, velocity) / 127.0 : 0.5, false);
     curRamp = (float) (0.5 + 1.2 * v);
     forParts(man, k, amps, [&](int w, double a) { schedule(man, w, -a, 0, 0.5 + 1.0 * (1 - v), 0.6 + 0.5 * v); });
-    if (man == 0 && perc.on) {
+    if (man == 0 && percActive()) {
         int w = wheelFor(k, perc.third ? 4 : 3);
         percG[w] = std::max(0.f, percG[w] - 1);
     }
@@ -125,7 +134,7 @@ inline void RotaryRoomDSP::retarget() {
         for (int k = 0; k <= maxK; k++) {
             if (!keys[m][k]) continue;
             forParts(m, k, amps, [&](int w, double a) { applyDelta(m, w, a); });
-            if (m == 0 && perc.on) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
+            if (m == 0 && percActive()) percG[wheelFor(k, perc.third ? 4 : 3)] += 1;
         }
     }
 }
@@ -136,6 +145,21 @@ inline void RotaryRoomDSP::applyDelta(int m, int w, double d) {
     t[w] += (float) d;
     const auto& L = xtalk[(size_t) w];
     for (int i = 0; i < xtalkN[(size_t) w]; i++) t[(size_t) L[(size_t) i].w] += (float) (d * L[(size_t) i].g);
+}
+
+// Sustained pedal release: the wheel's share (d < 0) leaves the keyed gain at once and continues in the sustain
+// gain, which then decays - no step in the sum, no release click (the sustain units gated electronically).
+inline void RotaryRoomDSP::transferSus(int w, double d) {
+    auto move = [&](int wi, double dd) {
+        target[2][(size_t) wi] += (float) dd;
+        gain[2][(size_t) wi] += (float) dd;
+        cgain[2][(size_t) wi] += (float) dd;
+        pedSus[(size_t) wi] -= (float) dd;
+    };
+    move(w, d);
+    const auto& L = xtalk[(size_t) w];
+    for (int i = 0; i < xtalkN[(size_t) w]; i++) move(L[(size_t) i].w, d * L[(size_t) i].g);
+    pedSusAny = true;
 }
 
 /** Tonewheel runout: modulation factor at the end of this sub-block (<= 66 Hz content, so a linear ramp is exact
@@ -168,12 +192,20 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
     if ((int) orgBuf.size() < N)
         orgBuf.assign((size_t) N, 0.f); // pre-sized in init(); only grows for unusually large host blocks
+    if (pedSusAny) {
+        bool any = false;
+        for (float v : pedSus) any = any || v != 0;
+        pedSusAny = any;
+    }
     for (int n = 0; n < N; n++) {
         if (!events.empty()) {
             double now = sampleClock;
             for (size_t i = 0; i < events.size();) {
                 if (events[i].t <= now) {
-                    applyDelta(events[i].m, events[i].w, events[i].d);
+                    if (events[i].sus)
+                        transferSus(events[i].w, events[i].d);
+                    else
+                        applyDelta(events[i].m, events[i].w, events[i].d);
                     rampMul[events[i].m][(size_t) events[i].w] = events[i].ramp;
                     events[i] = events.back();
                     events.pop_back();
@@ -215,6 +247,14 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
             g0 = c0;
             g1 = c1;
             g2 = c2;
+            if (pedSusAny) { // released pedal notes fading out
+                float& su = pedSus[w];
+                if (su != 0) {
+                    g2 += su;
+                    su *= pedSusK;
+                    if (std::abs(su) < 1e-6f) su = 0;
+                }
+            }
             const float pg = percG[w];
             const double gsum = (double) g0 + g1 + g2;
             if (gsum + leakHum > 1e-6 || pg > 0) {
