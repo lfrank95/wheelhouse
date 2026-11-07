@@ -12,7 +12,8 @@ Klangberechnung laufen nativ in C++ (JUCE): `Source/ui/` und `Source/RotaryRoomD
 2. Am Ende liegen unter **Artifacts**:
    * `Wheelhouse-Setup-win64` – der Installer `Wheelhouse-Setup-<Version>.exe` (App und VST3-Plugin),
    * `Wheelhouse-win64` – nur `Wheelhouse.exe`, `Wheelhouse-VST3-win64` – nur das Plugin,
-   * `Wheelhouse-map` – Linker-Map zum Auflösen von Absturzprotokollen.
+   * `Wheelhouse-map` – Linker-Map zum Auflösen von Absturzprotokollen,
+   * `Wheelhouse-VST3-macOS` – das Plugin für den Mac (Universal Binary: Apple Silicon und Intel, ab macOS 10.15).
 
 Der Workflow lädt JUCE 8.0.15, die Schriften und das Steinberg ASIO-SDK selbst herunter.
 Schlägt der ASIO-Download fehl, wird ohne ASIO gebaut (nur WASAPI/DirectSound), das steht im Build-Log.
@@ -36,6 +37,17 @@ JUCE wird per FetchContent geladen, falls kein Ordner `JUCE/` neben der CMakeLis
   Windows-Einstellungen → Apps. Einstellungen und Presets in `%APPDATA%\Wheelhouse` bleiben dabei erhalten.
 * Der Installer ist nicht signiert: Windows SmartScreen meldet beim ersten Start „unbekannter Herausgeber“ →
   „Weitere Informationen“ → „Trotzdem ausführen“.
+
+**Mac (nur VST3):** `Wheelhouse-VST3-macOS.zip` entpacken und `Wheelhouse.vst3` nach `~/Library/Audio/Plug-Ins/VST3/`
+(nur für den eigenen Benutzer) oder `/Library/Audio/Plug-Ins/VST3/` (für alle) legen. Das Plugin ist nur ad hoc
+signiert, nicht von Apple notarisiert: macOS sperrt heruntergeladene Dateien, die DAW findet es dann nicht oder meldet
+es als beschädigt. Einmal im Terminal freigeben:
+
+```
+xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Wheelhouse.vst3
+```
+
+Logic Pro und GarageBand laden kein VST3 (nur Audio Units); Ableton Live, Cubase, Reaper, Bitwig, Studio One schon.
 
 Installer lokal bauen: Inno Setup 6, dann `iscc /DAppVersion=0.1.0 /DBuildDir=..\build installer\Wheelhouse.iss`.
 
