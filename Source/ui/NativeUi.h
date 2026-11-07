@@ -273,10 +273,11 @@ private:
             if (card.isVisible()) {
                 if (tab == "raum" && ui.ctx.st.roomInfo.isObject()) {
                     const var ri = ui.ctx.st.roomInfo;
-                    card.stats = L"RT60 low / mid / high  " + nf((double) at(ri["rt60"], 0)) + " / " +
-                                 nf((double) at(ri["rt60"], 1)) + " / " + nf((double) at(ri["rt60"], 2)) +
-                                 L" s     Critical distance  " + nf((double) ri["rc"]) + L" m     Paths  " +
-                                 String((int) ri["paths"]) + L"     CPU  " + ui.ctx.st.cpuText;
+                    card.stats = L"RT60 125 Hz / 500 / 2k / 8k  " + nf((double) at(ri["rt60"], 0)) + " / " +
+                                 nf((double) at(ri["rt60"], 2)) + " / " + nf((double) at(ri["rt60"], 4)) + " / " +
+                                 nf((double) at(ri["rt60"], 6)) + L" s     Critical distance  " +
+                                 nf((double) ri["rc"]) + L" m     Paths  " + String((int) ri["paths"]) + L"     CPU  " +
+                                 ui.ctx.st.cpuText;
                 } else
                     card.stats = {};
                 layoutCard();

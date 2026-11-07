@@ -170,28 +170,22 @@ inline void RotaryRoomDSP::rebuildRoom() {
     listener.ty = clampd(listener.ty, 0.3, R.Ly - 0.3);
     listener.x = clampd(listener.x, 0.3, R.Lx - 0.3);
     listener.y = clampd(listener.y, 0.3, R.Ly - 0.3);
-    double mat[3] = {1.35, 1.0, 0.8};
     // scattering coefficient (ISO 17497): how much of a reflection the surface spreads instead of mirroring.
     // Real walls are not mirrors - furniture, doors, panelling, plaster texture scatter a good part of the mid/high
     // range. Values for furnished rooms, not bare test walls: wood panelling / drywall with furniture ~0.5, stone 0.35,
     // bare concrete 0.25, glass and tiles 0.15.
-    double scatter = 0.5;
-    if (R.material == "concrete") {
-        mat[0] = 0.55;
-        mat[2] = 1.1;
-        scatter = 0.25;
-    } else if (R.material == "stone") {
-        mat[0] = 0.6;
-        mat[2] = 1.35;
-        scatter = 0.35;
-    } else if (R.material == "glass") {
-        mat[0] = 0.9;
-        mat[2] = 1.6;
-        scatter = 0.15;
-    }
+    double scatter = R.material == "concrete" ? 0.25
+                     : R.material == "stone"  ? 0.35
+                     : R.material == "glass"  ? 0.15
+                                              : 0.5;
     roomScatter = scatter;
-    double ab[3];
-    for (int i = 0; i < 3; i++) ab[i] = clampd(R.absorb * mat[i], 0.03, 0.95);
+    // absorption per octave (125 Hz .. 8 kHz): the room's absorb value is the 500 Hz / 1 kHz figure, the material
+    // gives the shape (see materialShape)
+    const double* shape = materialShape(R.material);
+    double abO[OCT_BANDS];
+    for (int b = 0; b < OCT_BANDS; b++) abO[b] = clampd(R.absorb * shape[b], 0.03, 0.95);
+    // the three figures the image-source paths use: low (125), mid (1 kHz), high (4 kHz)
+    double ab[3] = {abO[0], abO[3], abO[5]};
     double reflG = std::sqrt(1 - ab[1]), hfRefl = std::sqrt((1 - ab[2]) / (1 - ab[1]));
     roomReflG = reflG;
     roomHfRefl = hfRefl;
@@ -299,12 +293,14 @@ inline void RotaryRoomDSP::rebuildRoom() {
 
     double V = R.Lx * R.Ly * R.Lz;
     double S = 2 * (R.Lx * R.Ly + R.Lx * R.Lz + R.Ly * R.Lz);
-    double rt[3];
-    for (int i = 0; i < 3; i++)
-        rt[i] = clampd(0.161 * V / (-S * std::log(1 - ab[i]) + (i == 2 ? 4 * 0.004 * V : 0)), 0.12, 12);
-    rt[0] = std::min(rt[0], rt[1] * 1.25);
-    rt[2] = std::min(rt[2], rt[1]);
-    for (int i = 0; i < 3; i++) rt60[i] = rt[i];
+    // RT60 per octave: Eyring with the air's attenuation (4 m V) - in a church the top octaves fall away in the
+    // air, the mids stay long
+    double rtO[OCT_BANDS];
+    for (int b = 0; b < OCT_BANDS; b++)
+        rtO[b] = clampd(0.161 * V / (-S * std::log(1 - abO[b]) + 4 * AIR_M[b] * V), 0.12, 12);
+    rtO[0] = std::min(rtO[0], rtO[3] * 1.35); // a bass boom beyond that is not what a furnished room does
+    for (int b = 0; b < OCT_BANDS; b++) rt60[b] = rtO[b];
+    const double rt[3] = {rtO[0], rtO[3], rtO[5]}; // low / mid / high for the pre-delay, modulation and energy
     double A = -S * std::log(1 - ab[1]);
     double rc2 = A / (16 * 3.14159265358979);
     double mfp = 4 * V / S / C_SOUND;
@@ -331,18 +327,26 @@ inline void RotaryRoomDSP::rebuildRoom() {
         }
         return q;
     };
+    const double apScale = clampd(rt[1] / 0.8, 0.5, 4);
+    const double lapMs[16] = {2.1, 2.9, 3.7, 4.6, 5.3, 6.1, 7.0, 7.9, 8.7, 9.6, 10.4, 11.3, 12.1, 13.0, 13.8, 14.7};
+    for (int i = 0; i < 16; i++) {
+        lapLen[i] =
+            primeCapped((int) std::lround(lapMs[(i * 5) % 16] * 0.6 * clampd(apScale, 0.6, 2) * fs / 1000), 2039);
+        if (lapIdx[i] >= lapLen[i]) lapIdx[i] = 0;
+    }
+    const double modDepth = 5 + 9 * clampd((rt[1] - 0.4) / 3, 0, 1);
     double lenSum = 0;
     for (int i = 0; i < 16; i++) {
         double frac = 0.6 + 1.6 * i / 15.0;
         int len = primeCapped((int) std::lround(base * frac * fs * (1 + 0.017 * ((i * 7) % 5))), 60000);
         fdnLen[i] = len;
         lenSum += len;
-        auto gOf = [&](double t) {
-            return std::pow(10.0, -3.0 * len / (fs * t));
-        };
-        fdnGl[i] = gOf(rt[0]);
-        fdnGm[i] = gOf(rt[1]);
-        fdnGh[i] = gOf(rt[2]);
+        // one pass round the loop: the delay line (read 2 + half the modulation short of its end) plus the
+        // diffusing allpass, whose mean group delay is its length - without it the decay runs 20 % long
+        const double loop = len - 2 - 0.5 * modDepth + lapLen[i];
+        double gT[OCT_BANDS];
+        for (int b = 0; b < OCT_BANDS; b++) gT[b] = std::pow(10.0, -3.0 * loop / (fs * rtO[b]));
+        fdnDecay[i].design(gT, fs);
         if (fdnIdx[i] >= len) fdnIdx[i] = 0;
     }
     double lenAvg = lenSum / 16;
@@ -350,25 +354,16 @@ inline void RotaryRoomDSP::rebuildRoom() {
     double frac = std::exp(-13.8 * tCover * 0.55 / rt[1]);
     double Etarget = 0.232 / rc2 * frac;
     fdnInGain = std::sqrt(Etarget * (1 - gBar2) / 16);
-    fdnModDepth = 5 + 9 * clampd((rt[1] - 0.4) / 3, 0, 1);
+    fdnModDepth = modDepth;
     const double apMs[6] = {1.3, 2.1, 3.2, 4.7, 6.3, 8.1};
-    double apScale = clampd(rt[1] / 0.8, 0.5, 4);
     for (int i = 0; i < 6; i++) {
         apLen[i] = primeCapped((int) std::lround(apMs[i] * apScale * fs / 1000), 4093);
         if (apIdx[i] >= apLen[i]) apIdx[i] = 0;
     }
-    const double lapMs[16] = {2.1, 2.9, 3.7, 4.6, 5.3, 6.1, 7.0, 7.9, 8.7, 9.6, 10.4, 11.3, 12.1, 13.0, 13.8, 14.7};
-    for (int i = 0; i < 16; i++) {
-        lapLen[i] =
-            primeCapped((int) std::lround(lapMs[(i * 5) % 16] * 0.6 * clampd(apScale, 0.6, 2) * fs / 1000), 2039);
-        if (lapIdx[i] >= lapLen[i]) lapIdx[i] = 0;
-    }
     rebuildFdnOut();
     micRebuildPaths();
     micFdnRows();
-    roomInfo.rt60[0] = rt[0];
-    roomInfo.rt60[1] = rt[1];
-    roomInfo.rt60[2] = rt[2];
+    for (int b = 0; b < OCT_BANDS; b++) roomInfo.rt60[b] = rtO[b];
     roomInfo.rc = std::sqrt(rc2);
     roomInfo.paths = (int) paths.size();
 }

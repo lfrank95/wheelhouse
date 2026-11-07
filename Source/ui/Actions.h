@@ -197,7 +197,7 @@ public:
         auto it = shortName.find(mat);
         String s = nf(st.num("room.Lx")) + L" × " + nf(st.num("room.Ly")) + L" × " + nf(st.num("room.Lz")) + L" m · " +
                    (it != shortName.end() ? it->second : mat);
-        if (st.roomInfo.isObject()) s += L" · RT60 " + nf((double) at(st.roomInfo["rt60"], 1)) + " s";
+        if (st.roomInfo.isObject()) s += L" · RT60 " + nf((double) at(st.roomInfo["rt60"], 3)) + " s";
         return s;
     }
 

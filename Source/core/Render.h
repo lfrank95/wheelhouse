@@ -575,37 +575,7 @@ inline void RotaryRoomDSP::reverbSample(int n, const MixParams& mp) {
         if (ni >= apLen[i]) ni = 0;
         apIdx[i] = ni;
     }
-    for (int i = 0; i < 16; i++) {
-        double off = fdnOff0[i] + fdnOffD[i] * tt; // modulated read offset, ramped over the sub-block
-        double rp = fdnIdx[i] - off;
-        if (rp < 0) rp += 65536;
-        int ri = (int) rp;
-        double rf = rp - ri;
-        const auto& b = fdnBuf[i];
-        double y = b[ri & FM] + (b[(ri + 1) & FM] - b[ri & FM]) * rf;
-        {
-            auto& lb = lapBuf[i];
-            int lx = lapIdx[i];
-            double dl = lb[lx];
-            double x = y - 0.55 * dl;
-            lb[lx] = (float) x;
-            y = dl + 0.55 * x;
-            int ni = lx + 1;
-            if (ni >= lapLen[i]) ni = 0;
-            lapIdx[i] = ni;
-        }
-        fdnZlo[i] += kLoBand * (y - fdnZlo[i]);
-        double mid = y - fdnZlo[i];
-        fdnZhi[i] += kHiBand * (mid - fdnZhi[i]);
-        rv[i] = fdnZlo[i] * fdnGl[i] + fdnZhi[i] * fdnGm[i] + (mid - fdnZhi[i]) * fdnGh[i];
-    }
-    for (int h = 1; h < 16; h <<= 1)
-        for (int i = 0; i < 16; i += h << 1)
-            for (int j = i; j < i + h; j++) {
-                double x = rv[j], y = rv[j + h];
-                rv[j] = x + y;
-                rv[j + h] = x - y;
-            }
+    fdnRead(tt, rv.data());
     for (int c = 0; c < nSpk; c++) {
         const auto& row = fdnOutRows[c];
         const auto& offs = fdnOutOff[c];
@@ -632,6 +602,64 @@ inline void RotaryRoomDSP::reverbSample(int n, const MixParams& mp) {
             (float) (rv[i] * 0.25 + inj * (0.8 + 0.2 * ((i * 7) % 5) / 4.0) + rdSig[i % RDIR] * revGain * 0.5);
         fdnIdx[i] = (fdnIdx[i] + 1) & FM;
     }
+}
+
+/** The FDN loop: the 16 lines read at their modulated offsets, through the diffusing allpass and the octave decay
+ * filter, then the Hadamard mix (unnormalised: the writer scales by 0.25). */
+inline void RotaryRoomDSP::fdnRead(double tt, double* rv) {
+    for (int i = 0; i < 16; i++) {
+        double off = fdnOff0[i] + fdnOffD[i] * tt; // modulated read offset, ramped over the sub-block
+        double rp = fdnIdx[i] - off;
+        if (rp < 0) rp += 65536;
+        int ri = (int) rp;
+        double rf = rp - ri;
+        const auto& b = fdnBuf[i];
+        double y = b[ri & FM] + (b[(ri + 1) & FM] - b[ri & FM]) * rf;
+        {
+            auto& lb = lapBuf[i];
+            int lx = lapIdx[i];
+            double dl = lb[lx];
+            double x = y - 0.55 * dl;
+            lb[lx] = (float) x;
+            y = dl + 0.55 * x;
+            int ni = lx + 1;
+            if (ni >= lapLen[i]) ni = 0;
+            lapIdx[i] = ni;
+        }
+        rv[i] = fdnDecay[i].run(y, fdnZ[i].data()); // decay per octave (see OctaveDecay)
+    }
+    for (int h = 1; h < 16; h <<= 1)
+        for (int i = 0; i < 16; i += h << 1)
+            for (int j = i; j < i + h; j++) {
+                double x = rv[j], y = rv[j + h];
+                rv[j] = x + y;
+                rv[j + h] = x - y;
+            }
+}
+
+inline std::vector<float> RotaryRoomDSP::reverbImpulse(int n) {
+    for (auto& b : fdnBuf) std::fill(b.begin(), b.end(), 0.f);
+    for (auto& b : lapBuf) std::fill(b.begin(), b.end(), 0.f);
+    for (auto& z : fdnZ) z.fill(0);
+    std::vector<float> out((size_t) n);
+    for (int t = 0; t < n; t++) {
+        for (int i = 0; i < 16; i++) { // the modulation as in prepareFdnModulation, one sub-block at a time
+            fdnModPh[i] += fdnModInc[i];
+            if (fdnModPh[i] >= 1) fdnModPh[i] -= 1;
+            fdnOff0[i] = fdnLen[i] - 2 - fdnModDepth * (0.5 + 0.5 * std::sin(TWO_PI * fdnModPh[i]));
+            fdnOffD[i] = 0;
+        }
+        double rv[16];
+        fdnRead(0, rv);
+        double o = 0;
+        for (int i = 0; i < 16; i++) o += fdnBuf[i][(fdnIdx[i] - fdnLen[i] + 2) & FM] * fdnOutRows[0][i];
+        out[(size_t) t] = (float) o;
+        for (int i = 0; i < 16; i++) {
+            fdnBuf[i][fdnIdx[i]] = (float) (rv[i] * 0.25 + (t == 0 ? 1.0 : 0.0));
+            fdnIdx[i] = (fdnIdx[i] + 1) & FM;
+        }
+    }
+    return out;
 }
 
 /** 3c, output: LFE, listener/mic crossfade, mic group matrix with delays, direct outs, soft clipping. */

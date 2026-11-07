@@ -522,9 +522,7 @@ var WheelhouseEngine::makeRoomInfoEvent() {
     }
     auto* o = new DynamicObject();
     Array<var> rt;
-    rt.add(ri.rt60[0]);
-    rt.add(ri.rt60[1]);
-    rt.add(ri.rt60[2]);
+    for (double t : ri.rt60) rt.add(t);
     o->setProperty("rt60", rt);
     o->setProperty("rc", ri.rc);
     o->setProperty("paths", ri.paths);

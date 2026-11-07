@@ -273,6 +273,9 @@ public:
 
     /** Derived room data for the UI: RT60 per band in seconds, critical distance in metres, number of paths. */
     RoomInfo info() const { return roomInfo; }
+    /** For tests: impulse response of the late-reverb loop alone (n samples, first speaker's output row). Clears the
+     * reverb. */
+    std::vector<float> reverbImpulse(int n);
     /** Snapshot of the rendered paths (direct, image sources up to second order, active wall patches) for display.
         Call on the audio thread between blocks; cheap (about 100 directivity lookups). */
     void fillPathViz(PathViz& v) const;
@@ -321,6 +324,7 @@ private:
     void mixListenerSample(int n, const MixParams& mp, double& lfeIn);
     void micInputSample(int n, const MixParams& mp);
     void reverbSample(int n, const MixParams& mp);
+    void fdnRead(double tt, double* rv);
     void outputSample(float* const* out, int n, const MixParams& mp, double lfeIn);
     void applyCharacter();
     void rebuildRoom();
@@ -562,7 +566,7 @@ private:
     int nRefl = 0;
     bool exactPaths = false;
     RoomInfo roomInfo;
-    double rt60[3] = {0, 0, 0};
+    double rt60[OCT_BANDS] = {};
 
     // ---------------- Speaker layout and panning ----------------
     // Direct paths are panned with pairwise (VBAP-style) gains between the two nearest speakers; higher-order paths are
@@ -655,8 +659,10 @@ private:
     std::vector<std::vector<float>> fdnBuf, apBuf, lapBuf;
     std::array<int, 16> fdnLen{}, fdnIdx{}, lapLen{}, lapIdx{};
     std::array<int, 6> apLen{}, apIdx{};
-    std::array<double, 16> fdnGl{}, fdnGm{}, fdnGh{}, fdnZlo{}, fdnZhi{}, fdnModPh{}, fdnModInc{}, fdnOff0{}, fdnOffD{};
-    double fdnModDepth = 4, fdnInGain = 0, kLoBand = 0, kHiBand = 0;
+    std::array<double, 16> fdnModPh{}, fdnModInc{}, fdnOff0{}, fdnOffD{};
+    std::array<OctaveDecay, 16> fdnDecay{};
+    std::array<std::array<double, 2 * (OCT_BANDS - 1)>, 16> fdnZ{};
+    double fdnModDepth = 4, fdnInGain = 0;
     std::vector<float> preBuf;
     int preIdx = 0, preLen = 480;
     double revInZ = 0, revInK = 0, revHpZ = 0, revHpK = 0;

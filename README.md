@@ -127,7 +127,15 @@ mit Rotary, Zugriegeln und Raum, unten zwei Manuale mit je 61 Tasten und ein Ped
 * **Room**: Precision „Exact“ rechnet jede Reflexion bis zur gewählten Ordnung pro Sample (Position, Doppler,
   Richtwirkung, Panorama); „Fast“ fasst ab der 2. Ordnung nach Richtung zusammen. Exact mit 4.–5. Ordnung ist für starke Rechner.
 * **Room**: großer Grundriss (Rotary und Kopf ziehen, rechts ziehen = Blickrichtung, Mausrad = drehen), Maße, Material,
-  Reflexionsordnung, Vorlagen. Die Linien im Grundriss zeigen, was die Engine gerade rechnet: Direktschall,
+  Reflexionsordnung, Vorlagen. Absorption und Nachhall werden in Oktaven von 125 Hz bis 8 kHz gerechnet: der
+  Absorptionsregler ist der Wert bei 500 Hz–1 kHz, das Material gibt die Form über die Oktaven (Holz/Trockenbau
+  schluckt als Plattenschwinger Bass und verliert oben etwas, Beton/Stein/Fliesen schlucken unten fast nichts und oben
+  etwas mehr; Tabellenwerte für möblierte Räume), dazu die Luftdämpfung je Oktave (ISO 9613, 20 °C, 50 % r. F.).
+  Daraus die Nachhallzeit je Oktave nach Eyring; in einer Kirche bleiben so die Mitten lang, während 4 und 8 kHz in der
+  Luft sterben. Der Nachhall (16-Kanal-FDN) hat je Leitung ein Siebenband-Dämpfungsfilter, dessen Bandverstärkungen
+  per Gauss-Newton so gesetzt werden, dass die Schleife in jeder Oktave die Eyring-Zeit trifft (Allpass-Laufzeit in
+  der Schleife eingerechnet); `tests/reverb_test.cpp` misst die Impulsantwort der Schleife dagegen (±12 %).
+  Die Statuszeile der Karte zeigt RT60 bei 125 Hz, 500 Hz, 2 kHz und 8 kHz. Die Linien im Grundriss zeigen, was die Engine gerade rechnet: Direktschall,
   Spiegelquellen bis 2. Ordnung und die angestrahlten Wandfelder, jeweils mit ihrem Pegel (Horn orange, Trommel braun).
 * **Output**: Stereo / Quad / 5.1, LFE, Master, freie Kanalzuordnung (Routing), Kanaltest. Monitoring (Quad/5.1): Trimm für
   die hinteren Kanäle und den Center, Divergence (Quelle vor dir zusätzlich als Phantom auf L/R).
@@ -325,6 +333,7 @@ Eigene Randelement-Löser in Python/NumPy, an der Kugel gegen die analytische L�
   `cabinet_test.cpp` (Gehäusetabellen: Interpolation, Abschattung vorn/hinten, Drehung des Gehäuses),
   `speakers_test.cpp` (Lautsprechernetzwerk gegen die Frequenzbereichsrechnung, Klirr, Spulenerwärmung),
   `scanner_test.cpp` (Vibrato-Leitung: Laufzeit, Grenzfrequenz, Welligkeit; Abtaster: Tonhöhenhub V1–V3, Rate, Pegel),
+  `reverb_test.cpp` (Oktavband-Dämpfungsfilter; Nachhallzeit der Hallschleife je Oktave gegen Eyring),
   `engine_test.cpp` (Parameter, Projektzustand, Neuaufbau, Bounce – braucht die JUCE-Module juce_core und juce_audio_basics); Tests mit `-pthread` bauen,
   dazu Einzelmessungen für Endstufe, Vorverstärker, Federhall und Mikros;
   `ui_state_test.cpp` (alte Speicherstände laden in die native Oberfläche – braucht die JUCE-GUI-Module und ein

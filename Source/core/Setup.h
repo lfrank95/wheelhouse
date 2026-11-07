@@ -120,8 +120,6 @@ inline void RotaryRoomDSP::init() {
     for (auto& b : bandD) b.assign(DL, 0.f);
     for (int b = 0; b < 4; b++) bandHp[b] = bandH[b].data();
     for (int b = 0; b < 3; b++) bandDp[b] = bandD[b].data();
-    kLoBand = 1 - std::exp(-TWO_PI * 250 / fs);
-    kHiBand = 1 - std::exp(-TWO_PI * 3500 / fs);
     preBuf.assign(8192, 0.f);
     revInK = 1 - std::exp(-TWO_PI * 6000 / fs);
     revHpK = 1 - std::exp(-TWO_PI * 45 / fs);

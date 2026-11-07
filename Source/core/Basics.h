@@ -1,6 +1,7 @@
 // Wheelhouse - DSP core: basic building blocks and data types shared by RotaryRoomDSP and its parts.
 #pragma once
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <vector>
 #include <array>
@@ -209,6 +210,119 @@ struct Room {
     std::string material = "wood";
 };
 
+// ---- Octave bands of the room acoustics: 125 Hz .. 8 kHz ----
+constexpr int OCT_BANDS = 7;
+constexpr double OCT_HZ[OCT_BANDS] = {125, 250, 500, 1000, 2000, 4000, 8000};
+/** Absorption shape of a wall material over the octaves, relative to the room's absorb value (which is the
+ * 500 Hz .. 1 kHz value). Furnished rooms, not bare test walls (the furniture and people add treble absorption):
+ * drywall and wood panelling absorb bass as panel resonators and lose a little up top; concrete, stone and tiles
+ * absorb almost nothing low and a little more above 1 kHz (porous plaster, joints). Sources: the usual tables
+ * (Kuttruff; Vorlaender; CATT/ODEON material lists), rounded. */
+inline const double* materialShape(const std::string& m) {
+    static const double wood[OCT_BANDS] = {1.35, 1.2, 1.05, 0.95, 0.85, 0.8, 0.78};
+    static const double concrete[OCT_BANDS] = {0.55, 0.7, 0.95, 1.05, 1.1, 1.15, 1.2};
+    static const double stone[OCT_BANDS] = {0.6, 0.75, 0.95, 1.05, 1.25, 1.35, 1.4};
+    static const double glass[OCT_BANDS] = {0.9, 0.85, 0.95, 1.05, 1.4, 1.6, 1.7};
+    return m == "concrete" ? concrete : m == "stone" ? stone : m == "glass" ? glass : wood;
+}
+/** Air attenuation m (1/m, energy) per octave at 20 degC, 50 % RH (ISO 9613-1; 4m = 0.0024 .. 0.092 from 500 Hz). */
+constexpr double AIR_M[OCT_BANDS] = {0.0001, 0.0003, 0.0006, 0.00105, 0.0022, 0.0066, 0.023};
+
+/** Decay filter of one FDN delay line: six complementary second-order splits (two one-poles each) at the octave
+ * edges, one gain per band. The splits overlap, so the band gains are fitted (Gauss-Newton on the magnitude at the
+ * octave centres); the response is then capped at the largest target so the loop stays stable. */
+struct OctaveDecay {
+    double k[OCT_BANDS - 1] = {}; // split coefficients
+    double g[OCT_BANDS] = {};     // band gains
+    /** Response at frequency f for band gains gg (complementary one-pole chain, lowest band first). */
+    static std::complex<double> response(const double* kk, const double* gg, double f, double fs) {
+        const std::complex<double> z = std::exp(std::complex<double>(0, -TWO_PI * f / fs));
+        std::complex<double> rest = 1, h = 0;
+        for (int b = 0; b < OCT_BANDS - 1; b++) {
+            const std::complex<double> lp1 = kk[b] / (1.0 - (1 - kk[b]) * z); // y[n] += k (x - y), twice
+            const std::complex<double> band = rest * lp1 * lp1;
+            h += gg[b] * band;
+            rest -= band;
+        }
+        h += gg[OCT_BANDS - 1] * rest;
+        return h;
+    }
+    void design(const double* target, double fs) {
+        for (int b = 0; b < OCT_BANDS - 1; b++) {
+            // two cascaded one-poles: -3 dB of the pair at the octave edge (each pole 1.55x higher)
+            const double fe = std::min(OCT_HZ[b] * 1.41421356 * 1.5537, 0.45 * fs);
+            k[b] = 1 - std::exp(-TWO_PI * fe / fs);
+        }
+        double gmax = 0;
+        for (int b = 0; b < OCT_BANDS; b++) {
+            g[b] = target[b];
+            gmax = std::max(gmax, target[b]);
+        }
+        // Gauss-Newton on the magnitude at the octave centres: H_c = sum_b g_b W_cb, d|H_c|/dg_b = Re(conj(H_c)
+        // W_cb)/|H_c|
+        constexpr int NB = OCT_BANDS;
+        std::complex<double> W[NB][NB];
+        double unit[NB] = {};
+        for (int b = 0; b < NB; b++) {
+            unit[b] = 1;
+            for (int c = 0; c < NB; c++) W[c][b] = response(k, unit, std::min(OCT_HZ[c], 0.4 * fs), fs);
+            unit[b] = 0;
+        }
+        for (int it = 0; it < 8; it++) {
+            double J[NB][NB], r[NB];
+            for (int c = 0; c < NB; c++) {
+                std::complex<double> h = 0;
+                for (int b = 0; b < NB; b++) h += g[b] * W[c][b];
+                const double m = std::max(1e-9, std::abs(h));
+                r[c] = target[c] - m;
+                for (int b = 0; b < NB; b++) J[c][b] = std::real(std::conj(h) * W[c][b]) / m;
+            }
+            // solve J d = r (square system, Gaussian elimination with pivoting)
+            double M[NB][NB + 1];
+            for (int c = 0; c < NB; c++) {
+                for (int b = 0; b < NB; b++) M[c][b] = J[c][b];
+                M[c][NB] = r[c];
+            }
+            for (int col = 0; col < NB; col++) {
+                int piv = col;
+                for (int rr = col + 1; rr < NB; rr++)
+                    if (std::fabs(M[rr][col]) > std::fabs(M[piv][col])) piv = rr;
+                for (int q = 0; q <= NB; q++) std::swap(M[col][q], M[piv][q]);
+                if (std::fabs(M[col][col]) < 1e-12) continue;
+                for (int rr = 0; rr < NB; rr++) {
+                    if (rr == col) continue;
+                    const double f = M[rr][col] / M[col][col];
+                    for (int q = col; q <= NB; q++) M[rr][q] -= f * M[col][q];
+                }
+            }
+            double step = 0;
+            for (int b = 0; b < NB; b++) {
+                const double d = std::fabs(M[b][b]) < 1e-12 ? 0 : M[b][NB] / M[b][b];
+                g[b] = std::max(0.0, g[b] + d);
+                step = std::max(step, std::fabs(d));
+            }
+            if (step < 1e-7) break;
+        }
+        // stability: the loop gain must stay below 1 everywhere, so cap the response at the largest target
+        double mx = 0;
+        for (double f = 20; f < 0.49 * fs; f *= 1.03) mx = std::max(mx, std::abs(response(k, g, f, fs)));
+        if (mx > gmax)
+            for (int b = 0; b < NB; b++) g[b] *= gmax / mx;
+    }
+    /** One sample through the filter; z holds the six split states. */
+    double run(double y, double* z) const { // z: 2 states per split
+        double rest = y, out = 0;
+        for (int b = 0; b < OCT_BANDS - 1; b++) {
+            double* zz = z + 2 * b;
+            zz[0] += k[b] * (rest - zz[0]);
+            zz[1] += k[b] * (zz[0] - zz[1]);
+            out += g[b] * zz[1];
+            rest -= zz[1];
+        }
+        return out + g[OCT_BANDS - 1] * rest;
+    }
+};
+
 struct Character {
     double cond = 0.5, leak = 0.5, contact = 0.5, motor = 0.4;
     bool gearTune = true, busComp = true;
@@ -224,7 +338,7 @@ struct Speakers {
 };
 
 struct RoomInfo {
-    double rt60[3] = {0, 0, 0};
+    double rt60[OCT_BANDS] = {}; // per octave 125 Hz .. 8 kHz
     double rc = 0;
     int paths = 0;
 };
