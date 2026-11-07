@@ -243,9 +243,20 @@ Netzwerk im Frequenzbereich; `tests/speakers_test.cpp` vergleicht das Echtzeitmo
 
 ## Vorverstärker
 
-`Source/OrganPreamp.h` rechnet den Ausgangsteil des Orgel-Vorverstärkers AO-28 hinter dem Schweller: 12AX7-Spannungsverstärker mit
-Gitterstrom, Koppelkondensatoren mit Blocking, 12BH7-Gegentakt auf einen Übertrager mit Kernsättigung. Qualität wie bei
-der Endstufe (Eco / HQ / Ultra; Ultra zusätzlich Miller-Kapazität, nachgebende Versorgung, atmender Kathoden-Bias).
+`Source/OrganPreamp.h` ist der Orgel-Vorverstärker AO-28 der B-3 als Schaltung, Bauteil für Bauteil nach Schaltplan und
+Stückliste: Anpassübertrager → V1/V2 6AU6 (Trocken- und Vibratokanal; Anode 470 kΩ, Schirm über 3,9/2,7 MΩ auf 60 V,
+gemeinsame 1,2-kΩ-Kathode mit 30 µF – die Röhren laufen mit 0,3 mA knapp über der Sperrgrenze, daher ihre zweite
+Harmonische; das Schirmgitternetz sackt mit 1,3 s unter Last) → V2 über 4,7 nF auf den 12BH7-Kathodenfolger, der die
+Vibratoleitung treibt (Scanner, siehe oben) → Mischknoten (2 × 1,8 MΩ auf 3,3 MΩ) → V4A 12AX7 (330 kΩ) mit Gitterstrom
+gegen den 1,1-MΩ-Knoten → 33 nF → **Schweller** → V4B 12AX7 → 33 nF / 470 kΩ → V3A 12BH7 **im Eintakt** (1,2 kΩ, 12 V,
+10 mA) auf den Ausgangsübertrager, dessen Kern von diesen 10 mA vormagnetisiert ist (Hysterese, einseitige Sättigung).
+Weil V1, V2 und V4A vor dem Schweller liegen, knurrt eine B-3 mit vollem Register auch bei zurückgenommenem Pedal;
+der Gain-Regler ist der Pegel der Anpassübertrager (±11 dB um 12 mV am 6AU6-Gitter bei vollem Register). Angenommen:
+dieser Pegel, der Bias-Abgriff des Folgers, der Übertrager (30 H, ≈ 15 kΩ reflektiert, halbe Sättigung) und die feste
+Dämpfung des Schwellernetzes. Die Unter-5-Hz-Schleife über die gemeinsame Kathode (V1 → V4A → Kathode → V1) ist nicht
+modelliert. Qualität wie bei der Endstufe (Eco: lineare Eingangsseite und statische Kennlinien; HQ: die Schaltung je
+Sample, Ausgangsstufe 2× überabgetastet; Ultra: zusätzlich Miller-Kapazitäten, nachgebende Versorgung, Wirbelströme,
+4×).
 
 ## Federhall
 

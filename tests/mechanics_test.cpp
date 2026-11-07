@@ -2,6 +2,21 @@
 #include <complex>
 #include <cstdio>
 // panel resonances (plywood vs particle board), pedal harmonics (complex tonewheels + B-3 pedal wiring).
+// the standard headers first: the private/public swap must not touch them
+#include <complex>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <algorithm>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <map>
+#include <memory>
 #define private public
 #include "../Source/RotaryRoomDSP.h"
 #include <cstdio>

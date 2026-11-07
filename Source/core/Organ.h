@@ -173,6 +173,7 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
                  kLp = 1 - std::exp(-2 * 3.14159265358979 * 3200 / fs);
     const double percLevel = (perc.soft ? 0.6 : 1.0) * percLevelUser;
     const double vol = volume, expBass = (1 - vol) * 0.9 * vol * 2, expGain = 0.08 + 0.92 * vol * vol;
+    const bool frontOn = pre.isEnabled() && pre.front().qualityLevel() > 0;
     if ((int) orgBuf.size() < N)
         orgBuf.assign((size_t) N, 0.f); // pre-sized in init(); only grows for unusually large host blocks
     if (pedSusAny) {
@@ -286,9 +287,15 @@ inline void RotaryRoomDSP::renderOrgan(int N) {
         sVib *= organGain;
         sDry *= organGain;
 
-        // scanner vibrato / chorus: the LC line and the rotating capacitor (a circuit, see ScannerVibrato.h);
-        // the manuals routed past it stay in sDry
-        double s = sDry + scanner.process(sVib);
+        // AO-28 input section (OrganPreamp.h): V1 / V2 6AU6, the cathode follower in front of the vibrato line, the
+        // scanner (a circuit too, ScannerVibrato.h), the mix node and V4A - before the swell pedal, as in the organ
+        double s;
+        if (frontOn) {
+            auto& fe = pre.front();
+            const double vDry = fe.stage(0, sDry), vVib = fe.stage(1, sVib);
+            s = fe.mix(vDry, scanner.process(fe.lineDriver(vVib)));
+        } else
+            s = sDry + scanner.process(sVib);
         s = (s + expLp.run(s) * expBass) * expGain;
         // mains hum enters after the expression pedal (preamp heaters, supply): audible even with the swell closed
         mainsPh += mainsHz / fs;

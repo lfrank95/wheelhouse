@@ -42,9 +42,12 @@ inline const std::map<String, String>& cardTips() {
         {L"Percussion · Vibrato · Click/Click",
          "Velocity: a fast stroke closes all nine contacts almost at once and hard, a slow press one after another and "
          "softer. Fixed: always the same."},
-        {"Preamp AO-28/Gain", "Preamp gain after the swell: 12AX7 into a 12BH7 push-pull and transformer. With the "
-                              "swell wide open and full drawbars the organ breaks up before the Rotary."},
-        {"Preamp AO-28/Tubes", "Bypass skips the tube stages for a clean, line-level organ."},
+        {"Preamp AO-28/Gain", "Level from the manuals' matching transformers into the 6AU6 input tubes (+-11 dB). The "
+                              "AO-28 is a circuit here: two starved 6AU6, the cathode follower in front of the vibrato "
+                              "line, the mix node and V4A sit before the swell pedal - with a full registration the "
+                              "organ growls there, whatever the pedal does. V4B and the single-ended 12BH7 into the "
+                              "output transformer come after it."},
+        {"Preamp AO-28/Tubes", "Bypass skips all tube stages for a clean, line-level organ."},
         {"Preamp AO-28/Quality", "Uses the same oversampling quality as the power amp."},
         {"Spring Reverb/Mix",
          L"Wet/dry mix of the spring tank. It sits inside the organ, before the Rotary – so the reverb spins too."},

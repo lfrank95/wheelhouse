@@ -1,4 +1,19 @@
 // AM depth from runout, measured on the organ signal itself (orgBuf), against the same organ with runout disabled
+// the standard headers first: the private/public swap must not touch them
+#include <complex>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <array>
+#include <cmath>
+#include <algorithm>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <map>
+#include <memory>
 #define private public
 #include "../Source/RotaryRoomDSP.h"
 #include <cstdio>
