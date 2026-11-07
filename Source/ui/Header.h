@@ -4,6 +4,88 @@
 
 namespace wh {
 
+/** Compact output-gain dial for the header bar (out.masterDb, the same value as Output › Master). */
+class HeaderGain : public Component, public Syncable, public juce::SettableTooltipClient {
+public:
+    HeaderGain(Ctx& c, Actions& a) : ctx(c), act(a) {
+        ctx.reg(this);
+        setTooltip(tipText(L"Output gain – the master level after the room, the same as Output › Master.",
+                           L"Drag or scroll · Shift = fine · Double-click = 0 dB"));
+    }
+    ~HeaderGain() override { ctx.unreg(this); }
+    static constexpr int W = 92;
+    void sync() override { repaint(); }
+    void paint(Graphics& g) override {
+        const float D = 32, C = 24;
+        auto dial = Rectangle<float>(D, D).withCentre({D / 2 + 1, getHeight() / 2.f});
+        juce::DropShadow(juce::Colours::black.withAlpha(0.6f), 5, {0, 2}).drawForRectangle(g, dial.toNearestInt());
+        g.setColour(Colour(0xff1a1614));
+        g.fillEllipse(dial);
+        g.setColour(Colour(0xff2c2622));
+        for (int i = 0; i < 360; i += 14) {
+            juce::Path seg;
+            seg.addPieSegment(dial, juce::degreesToRadians((float) i), juce::degreesToRadians((float) i + 7), 0);
+            g.fillPath(seg);
+        }
+        auto cap = Rectangle<float>(C, C).withCentre(dial.getCentre());
+        g.setGradientFill(juce::ColourGradient(Colour(0xff5a524c), cap.getX() + C * 0.35f, cap.getY() + C * 0.3f,
+                                               Colour(0xff1b1715), cap.getX() + C * 0.35f + C * 0.72f,
+                                               cap.getY() + C * 0.3f, true));
+        g.fillEllipse(cap);
+        // 0 dB tick
+        const float a0 = juce::degreesToRadians(-135.f + 270.f * (float) toF(0));
+        g.setColour(col::muted);
+        g.fillPath(tick(D / 2 + 3, 2.5f),
+                   juce::AffineTransform::rotation(a0).translated(dial.getCentreX(), dial.getCentreY()));
+        juce::Path ptr;
+        ptr.addRoundedRectangle(-1.5f, -C / 2 + 3, 3.f, 8.f, 1.5f);
+        g.setColour(col::gold);
+        g.fillPath(ptr, juce::AffineTransform::rotation(juce::degreesToRadians(-135.f + 270.f * (float) toF(db())))
+                            .translated(cap.getCentreX(), cap.getCentreY()));
+        const float tx = D + 9;
+        g.setColour(col::muted);
+        g.setFont(Fonts::make(10.5f));
+        g.drawText("GAIN", Rectangle<float>(tx, getHeight() / 2.f - 15, getWidth() - tx, 13),
+                   juce::Justification::centredLeft, false);
+        g.setColour(col::text);
+        g.setFont(Fonts::make(13));
+        g.drawText(dbText(db()), Rectangle<float>(tx, getHeight() / 2.f - 1, getWidth() - tx, 16),
+                   juce::Justification::centredLeft, false);
+    }
+    void mouseDown(const juce::MouseEvent& e) override {
+        dragY = e.position.y;
+        dragF = toF(db());
+    }
+    void mouseDrag(const juce::MouseEvent& e) override {
+        apply(dragF + (dragY - e.position.y) / (e.mods.isShiftDown() ? 600.f : 160.f));
+    }
+    void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override {
+        if (w.deltaY != 0) apply(toF(db()) + (w.deltaY > 0 ? 1 : -1) * (e.mods.isShiftDown() ? 0.005 : 0.025));
+    }
+    void mouseDoubleClick(const juce::MouseEvent&) override { set(0); }
+
+private:
+    static constexpr double MN = -24, MX = 6;
+    static juce::Path tick(float r, float len) {
+        juce::Path p;
+        p.addRectangle(-0.75f, -r - len, 1.5f, len);
+        return p;
+    }
+    double db() const { return ctx.st.num("out.masterDb"); }
+    static double toF(double v) { return juce::jlimit(0.0, 1.0, (v - MN) / (MX - MN)); }
+    void apply(double f) { set(std::round((MN + juce::jlimit(0.0, 1.0, f) * (MX - MN)) * 2) / 2); }
+    void set(double v) {
+        if (v == db()) return;
+        ctx.st.set("out.masterDb", v);
+        act.sendOut();
+        ctx.syncAll();
+    }
+    Ctx& ctx;
+    Actions& act;
+    float dragY = 0;
+    double dragF = 0;
+};
+
 class Header : public Component, public Syncable {
 public:
     Header(Ctx& c, Actions& a, std::function<void(const String&)> setTab, std::function<void()> panic)
@@ -20,7 +102,7 @@ public:
               }),
           tabs(
               c, tabOpts(), [this] { return var(current); }, [this](const var& v) { onTab(v.toString()); }),
-          panicBtn("Panic", false, 14) {
+          gain(c, a), panicBtn("Panic", false, 14) {
         ctx.reg(this);
         for (auto* s : {&mode, &out}) {
             s->compact = true;
@@ -42,6 +124,7 @@ public:
         panicBtn.onClick = std::move(panic);
         panicBtn.setTooltip(L"All notes off and reset (MIDI CC 123). Shortcut: Esc.");
         addAndMakeVisible(panicBtn);
+        addAndMakeVisible(gain);
         fillPresets();
         for (int i = 0; i < BinaryData::namedResourceListSize; i++)
             if (String(BinaryData::originalFilenames[i]) == "icon-small-256.png") {
@@ -140,6 +223,8 @@ public:
         const int n = act.modeChannels(), mw = n * 14 + (n - 1) * 6;
         rx -= mw;
         meterRect = {(float) rx, (H - 40) / 2.f, (float) mw, 40};
+        rx -= 10 + HeaderGain::W;
+        gain.setBounds(rx, 0, HeaderGain::W, H);
         rx -= 12;
         const int ow = out.preferredWidth() - 6;
         rx -= ow;
@@ -176,6 +261,7 @@ private:
     Actions& act;
     std::function<void(const String&)> onTab;
     Seg mode, out, tabs;
+    HeaderGain gain;
     juce::ComboBox preset;
     Button panicBtn;
     juce::Image icon;

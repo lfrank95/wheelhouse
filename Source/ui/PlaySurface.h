@@ -370,7 +370,7 @@ public:
                 g.setFont(Fonts::make(12.5f, 700));
                 g.drawText(s == 0 ? "A" : "B", b, juce::Justification::centred, false);
             }
-            if (!sounding) { // a factory preset or cancel is latched: the drawbars wait
+            if (!sounding) { // a factory preset or cancel is latched: the drawbars show it
                 const int pk2 = act.presetKey(man);
                 const String t = pk2 == 0 ? String("Cancel") : presetName(man, pk2);
                 const float x = setButton(1).getRight() + 8;
@@ -382,7 +382,6 @@ public:
         }
         g.setColour(col::segLine);
         g.fillRect(0.f, 33.f, (float) getWidth(), 1.f);
-        if (!sounding) g.beginTransparencyLayer(0.45f);
         for (int i = 0; i < ft.size(); i++) {
             const float x = i * 33.f;
             g.setColour(col::text);
@@ -392,7 +391,7 @@ public:
             g.setColour(Colour(0xff070605));
             g.fillRoundedRectangle(slot, 3);
             const int v = value(i);
-            const bool muted = man == 0 && i == 8 && ctx.st.flag("perc.on") && act.editSet(0) == 1;
+            const bool muted = man == 0 && i == 8 && ctx.st.flag("perc.on") && act.presetKey(0) == 11;
             const String kd = muted ? "muted" : kind[i];
             struct Look {
                 uint32_t h0, h1, sh, n;
@@ -418,7 +417,6 @@ public:
             g.setFont(Fonts::make(15, 700));
             g.drawText(String(v), head.withTrimmedBottom(4), juce::Justification::centredBottom, false);
         }
-        if (!sounding) g.endTransparencyLayer();
     }
     static String presetName(int man, int k) { return String(rotary::presets::name(man, k)); }
     void mouseDown(const juce::MouseEvent& e) override {
@@ -460,7 +458,7 @@ public:
                                         L"1⅓′ – nineteenth (two octaves + fifth).",
                                         L"1′ – twenty-second (three octaves)."};
         String t;
-        if (man == 0 && i == 8 && ctx.st.flag("perc.on") && act.editSet(0) == 1)
+        if (man == 0 && i == 8 && ctx.st.flag("perc.on") && act.presetKey(0) == 11)
             t = L"1′ is muted while percussion is on – just like the original.";
         else if (man == 2)
             t = i == 0 ? String(L"Pedal 16′ – fundamental from the complex tone wheels plus the lower harmonics: the "
@@ -468,6 +466,10 @@ public:
                        : String(L"Pedal 8′ – upper even harmonics only: brighter, more punch.");
         else
             t = String(tips[i]);
+        if (latched())
+            return tipText(t + String(L"\n\nShowing the latched preset key. Moving a drawbar copies it into set ") +
+                               (act.editSet(man) == 0 ? "A" : "B") + " and plays that set.",
+                           L"Drag or scroll · 0 = in, 8 = full out");
         return tipText(t, L"Drag or scroll · 0 = in, 8 = full out");
     }
 
@@ -478,10 +480,28 @@ private:
         return i >= 0 && i < ft.size() ? i : -1;
     }
     String path() const { return man == 2 ? String("db.pedal") : act.dbEditPath(man); }
-    int value(int i) const { return (int) ctx.st.num(path() + "." + String(i)); }
+    /** A factory preset key (C#..A) or cancel is latched on this manual. */
+    bool latched() const { return man < 2 && act.presetKey(man) < 10; }
+    /** Shown position: the latched preset's registration (cancel = all in), else the edit set. */
+    int value(int i) const {
+        if (latched()) {
+            const int pk = act.presetKey(man);
+            return pk == 0 ? 0 : rotary::presets::registration(man, pk)[i];
+        }
+        return (int) ctx.st.num(path() + "." + String(i));
+    }
     int fromY(int i, float y) const { return juce::roundToInt(((y - slotRect(i).getY()) - 21) / 18); }
     void setV(int i, int v) {
         v = juce::jlimit(0, 8, v);
+        if (latched() && i < ft.size()) { // grab the preset: copy it into the edit set and play that set
+            juce::Array<var> cur;
+            for (int j = 0; j < ft.size(); j++) cur.add(value(j));
+            cur.set(i, v);
+            ctx.st.set(path(), var(cur));
+            act.sendDb(man);
+            act.setPresetKey(man, 10 + act.editSet(man));
+            return;
+        }
         if (v != value(i)) {
             ctx.st.set(path() + "." + String(i), v);
             act.sendDb(man);
